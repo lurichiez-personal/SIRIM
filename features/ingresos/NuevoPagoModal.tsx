@@ -62,6 +62,7 @@ const NuevoPagoModal: React.FC<NuevoPagoModalProps> = ({ isOpen, onClose, onSave
             fecha,
             metodoPago,
             notas,
+            conciliado: false,
         });
         onClose();
     };

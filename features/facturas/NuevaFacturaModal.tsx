@@ -155,6 +155,7 @@ const NuevaFacturaModal: React.FC<NuevaFacturaModalProps> = ({ isOpen, onClose, 
             montoTotal: totals.montoTotal,
             cotizacionId: sourceCotizacionId,
             facturaRecurrenteId: sourceFacturaRecurrenteId,
+            conciliado: false,
         });
         
         onClose(); 
@@ -179,7 +180,24 @@ const NuevaFacturaModal: React.FC<NuevaFacturaModalProps> = ({ isOpen, onClose, 
         setPropinaLegal(0);
     };
 
-    const handleRNCBlur = async () => { /* ... */ };
+    const handleRNCBlur = async () => {
+        if (isEditMode) return;
+        const trimmedRNC = clienteRNC.trim();
+        if (trimmedRNC === '') return;
+
+        const existingClient = clientes.find(c => c.rnc === trimmedRNC);
+        if (existingClient) {
+            setClienteId(existingClient.id);
+            setClienteNombre(existingClient.nombre);
+            return;
+        }
+
+        const result = await lookupRNC(trimmedRNC);
+        if (result) {
+            setClienteNombre(result.nombre);
+            setClienteId(null); // Es un cliente nuevo
+        }
+    };
 
     const handleItemChange = (key: number, field: keyof FacturaItem, value: any) => {
         setLineItems(currentItems => 
@@ -225,15 +243,58 @@ const NuevaFacturaModal: React.FC<NuevaFacturaModalProps> = ({ isOpen, onClose, 
         <Modal
             isOpen={isOpen}
             onClose={onClose}
-            title={isEditMode ? "Editar Factura" : "Crear Nueva Factura"}
+            title={isEditMode ? `Editar Factura ${ncfNumero}` : "Crear Nueva Factura"}
         >
             <form ref={formRef} onSubmit={handleSubmit} noValidate>
-            <div className="p-6 space-y-4 max-h-[75vh] overflow-y-auto pr-2">
-                {/* Header Section */}
-                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {/* ... client and date inputs */}
+            <div className="p-6 space-y-4 max-h-[75vh] overflow-y-auto pr-3">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label htmlFor="clienteRNC" className="block text-sm font-medium text-secondary-700">RNC / Cédula</label>
+                        <div className="relative mt-1">
+                            <input
+                                type="text"
+                                id="clienteRNC"
+                                value={clienteRNC}
+                                onChange={(e) => setClienteRNC(e.target.value)}
+                                onBlur={handleRNCBlur}
+                                className="block w-full px-3 py-2 border border-secondary-300 rounded-md shadow-sm disabled:bg-secondary-100"
+                                placeholder="Buscar o introducir RNC"
+                                disabled={isEditMode || !!cotizacionParaFacturar || !!facturaRecurrenteParaFacturar}
+                            />
+                             {isLookingUpRNC && (
+                                <div className="absolute inset-y-0 right-0 pr-3 flex items-center">
+                                    <svg className="animate-spin h-5 w-5 text-primary" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                     <div>
+                        <label htmlFor="clienteNombre" className="block text-sm font-medium text-secondary-700">Nombre / Razón Social *</label>
+                        <input
+                            type="text"
+                            id="clienteNombre"
+                            value={clienteNombre}
+                            onChange={(e) => { setClienteNombre(e.target.value); if (clienteId) setClienteId(null); }}
+                            className={`mt-1 block w-full px-3 py-2 border ${errors.cliente ? 'border-red-500' : 'border-secondary-300'} rounded-md shadow-sm disabled:bg-secondary-100`}
+                            disabled={isEditMode || !!cotizacionParaFacturar || !!facturaRecurrenteParaFacturar}
+                        />
+                         {errors.cliente && <p className="mt-1 text-sm text-red-600">{errors.cliente}</p>}
+                    </div>
+                    <div>
+                        <label htmlFor="fecha" className="block text-sm font-medium text-secondary-700">Fecha *</label>
+                        <input type="date" id="fecha" value={fecha} onChange={e => setFecha(e.target.value)} className={`mt-1 block w-full px-3 py-2 border ${errors.fecha ? 'border-red-500' : 'border-secondary-300'} rounded-md shadow-sm`} />
+                        {errors.fecha && <p className="mt-1 text-sm text-red-600">{errors.fecha}</p>}
+                    </div>
+                    {!isEditMode && (
+                        <div>
+                            <label htmlFor="ncfTipo" className="block text-sm font-medium text-secondary-700">Tipo de NCF *</label>
+                            <select id="ncfTipo" value={ncfTipo} onChange={e => setNcfTipo(e.target.value as NCFType)} className="mt-1 block w-full px-3 py-2 border border-secondary-300 rounded-md shadow-sm">
+                                {availableNCFTypes.map(type => <option key={type} value={type}>{type}</option>)}
+                            </select>
+                        </div>
+                    )}
                 </div>
-                {/* Items Section */}
+                
                 <div className="space-y-2 pt-4 border-t">
                     <h4 className="text-md font-medium text-secondary-800">Ítems</h4>
                     {lineItems.map((item) => (
@@ -256,9 +317,55 @@ const NuevaFacturaModal: React.FC<NuevaFacturaModalProps> = ({ isOpen, onClose, 
                     <Button type="button" variant="secondary" onClick={addNewItemLine} leftIcon={<PlusIcon />}>Agregar Ítem</Button>
                     {errors.items && <p className="mt-1 text-sm text-red-600">{errors.items}</p>}
                 </div>
-                {/* Totals Section */}
+                
                 <div className="flex justify-between pt-4 border-t">
-                   {/* ... totals ... */}
+                    <div className="space-y-3">
+                        <ToggleSwitch checked={aplicaITBIS} onChange={setAplicaITBIS} label="Aplica ITBIS"/>
+                        <ToggleSwitch checked={aplicaISC} onChange={setAplicaISC} label="Aplica ISC"/>
+                        <ToggleSwitch checked={aplicaPropina} onChange={setAplicaPropina} label="Aplica Propina Legal"/>
+                    </div>
+                    <div className="w-full max-w-sm space-y-2">
+                        <div className="flex justify-between text-sm">
+                            <span className="font-medium text-secondary-600">Subtotal:</span>
+                            <span className="text-secondary-800">{formatCurrency(totals.subtotal)}</span>
+                        </div>
+                         <div className="flex justify-between items-center text-sm">
+                            <label htmlFor="descuento" className="font-medium text-secondary-600">Descuento (%):</label>
+                            <input
+                                type="number"
+                                id="descuento"
+                                value={descuentoPorcentaje}
+                                onChange={e => setDescuentoPorcentaje(parseFloat(e.target.value) || 0)}
+                                className="w-20 px-2 py-1 border border-secondary-300 rounded-md shadow-sm sm:text-sm text-right"
+                            />
+                        </div>
+                        {totals.montoDescuento > 0 && (
+                            <div className="flex justify-between text-sm">
+                                <span className="font-medium text-secondary-600">Monto Descuento:</span>
+                                <span className="text-red-600">- {formatCurrency(totals.montoDescuento)}</span>
+                            </div>
+                        )}
+                        {aplicaISC && (
+                          <div className="flex justify-between items-center text-sm">
+                              <label htmlFor="isc-fact" className="font-medium text-secondary-600">ISC:</label>
+                               <input type="number" id="isc-fact" value={isc} onChange={e => setIsc(parseFloat(e.target.value) || 0)} className="w-28 px-2 py-1 border border-secondary-300 rounded-md shadow-sm sm:text-sm text-right" />
+                          </div>
+                        )}
+                        <div className="flex justify-between text-sm">
+                            <span className="font-medium text-secondary-600">ITBIS ({ITBIS_RATE * 100}%):</span>
+                            <span className="text-secondary-800">{formatCurrency(totals.itbis)}</span>
+                        </div>
+                         {aplicaPropina && (
+                          <div className="flex justify-between items-center text-sm">
+                              <label htmlFor="propina-fact" className="font-medium text-secondary-600">Propina Legal:</label>
+                               <input type="number" id="propina-fact" value={propinaLegal} onChange={e => setPropinaLegal(parseFloat(e.target.value) || 0)} className="w-28 px-2 py-1 border border-secondary-300 rounded-md shadow-sm sm:text-sm text-right" />
+                          </div>
+                         )}
+                        <div className="flex justify-between text-lg font-bold border-t pt-2 mt-2">
+                            <span className="text-secondary-800">Total:</span>
+                            <span className="text-primary">{formatCurrency(totals.montoTotal)}</span>
+                        </div>
+                    </div>
                 </div>
             </div>
              <div className="flex justify-end items-center p-4 bg-secondary-50 border-t border-secondary-200 rounded-b-lg space-x-3">

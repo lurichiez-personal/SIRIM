@@ -10,6 +10,7 @@ import VistaPreviaGastoModal from './VistaPreviaGastoModal';
 import Pagination from '../../components/ui/Pagination';
 import Checkbox from '../../components/ui/Checkbox';
 import { exportToCSV } from '../../utils/csvExport';
+import EscanearGastoModal from './EscanearGastoModal';
 
 const ITEMS_PER_PAGE = 10;
 const GASTO_CATEGORIAS_606 = [
@@ -24,9 +25,11 @@ const GastosPage: React.FC = () => {
     const { gastos, getPagedGastos, addGasto, updateGasto, bulkDeleteGastos } = useDataStore(); 
     const [loading, setLoading] = useState(true);
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const [isScanModalOpen, setIsScanModalOpen] = useState(false);
     const [isVistaPreviaOpen, setIsVistaPreviaOpen] = useState(false);
     const [gastoParaEditar, setGastoParaEditar] = useState<Gasto | null>(null);
     const [gastoParaVer, setGastoParaVer] = useState<Gasto | null>(null);
+    const [scannedData, setScannedData] = useState<Partial<Gasto> | null>(null);
     
     // State for filtering, pagination, and selection
     const [currentPage, setCurrentPage] = useState(1);
@@ -49,7 +52,7 @@ const GastosPage: React.FC = () => {
         setCurrentPage(1);
     };
 
-    const handleSaveGasto = (gastoData: Omit<Gasto, 'id' | 'empresaId'>) => {
+    const handleSaveGasto = (gastoData: Omit<Gasto, 'id' | 'empresaId' | 'conciliado'>) => {
         if (gastoParaEditar) {
             updateGasto({ ...gastoParaEditar, ...gastoData });
         } else {
@@ -57,6 +60,13 @@ const GastosPage: React.FC = () => {
         }
     };
     
+    const handleScanComplete = (data: Partial<Gasto>) => {
+        setScannedData(data);
+        setIsScanModalOpen(false);
+        setGastoParaEditar(null);
+        setIsModalOpen(true);
+    };
+
     const formatCurrency = (value: number) => new Intl.NumberFormat('es-DO', { style: 'currency', currency: 'DOP' }).format(value);
 
     const handleSelectAll = (checked: boolean) => setSelectedIds(checked ? new Set(pagedData.items.map(g => g.id)) : new Set());
@@ -91,7 +101,8 @@ const GastosPage: React.FC = () => {
             <h1 className="text-3xl font-bold text-secondary-800">Gastos</h1>
             <div className="flex space-x-2">
                 <Button variant="secondary" leftIcon={<DownloadIcon />} onClick={handleExport}>Exportar a CSV</Button>
-                <Button leftIcon={<PlusIcon />} onClick={() => { setGastoParaEditar(null); setIsModalOpen(true); }}>
+                <Button variant="secondary" onClick={() => setIsScanModalOpen(true)}>Escanear Gasto</Button>
+                <Button leftIcon={<PlusIcon />} onClick={() => { setGastoParaEditar(null); setScannedData(null); setIsModalOpen(true); }}>
                     Registrar Gasto
                 </Button>
             </div>
@@ -158,8 +169,9 @@ const GastosPage: React.FC = () => {
             </CardContent>
         </Card>
 
-        <NuevoGastoModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onSave={handleSaveGasto} gastoParaEditar={gastoParaEditar} />
+        <NuevoGastoModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onSave={handleSaveGasto} gastoParaEditar={gastoParaEditar} initialData={scannedData} />
         <VistaPreviaGastoModal isOpen={isVistaPreviaOpen} onClose={() => setIsVistaPreviaOpen(false)} gasto={gastoParaVer} />
+        <EscanearGastoModal isOpen={isScanModalOpen} onClose={() => setIsScanModalOpen(false)} onScanComplete={handleScanComplete} />
     </div>
   );
 };

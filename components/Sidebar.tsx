@@ -4,7 +4,7 @@ import { NavLink } from 'react-router-dom';
 import { 
     DashboardIcon, ClientesIcon, FacturasIcon, GastosIcon, 
     IngresosIcon, ReportesIcon, ConfiguracionIcon, LogoIcon,
-    InventarioIcon, CotizacionesIcon, DocumentDuplicateIcon
+    InventarioIcon, CotizacionesIcon, DocumentDuplicateIcon, ScaleIcon
 } from './icons/Icons';
 
 const navItems = [
@@ -16,6 +16,7 @@ const navItems = [
   { to: '/gastos', label: 'Gastos', icon: GastosIcon },
   { to: '/ingresos', label: 'Pagos y Cobros', icon: IngresosIcon },
   { to: '/inventario', label: 'Inventario', icon: InventarioIcon },
+  { to: '/conciliacion', label: 'Conciliación', icon: ScaleIcon },
   { to: '/reportes', label: 'Reportes', icon: ReportesIcon },
   { to: '/configuracion', label: 'Configuración', icon: ConfiguracionIcon },
 ];

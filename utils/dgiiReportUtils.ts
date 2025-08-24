@@ -25,6 +25,18 @@ const downloadTxtFile = (content: string, filename: string) => {
     document.body.removeChild(link);
 };
 
+const getDescriptiveFilename = (tipo: '606' | '607' | '608', rnc: string, period: string): string => {
+    const year = period.substring(0, 4);
+    const month = parseInt(period.substring(4, 6), 10);
+    const monthNames = [
+        "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+        "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"
+    ];
+    const monthName = monthNames[month - 1] || 'MesInvalido';
+    return `Reporte ${tipo} - ${monthName} ${year} (RNC ${rnc}).txt`;
+};
+
+
 // --- Reporte 606 ---
 export const generate606 = (gastos: Gasto[], rnc: string, period: string) => {
     const header = `606|${rnc}|${period}\n`;
@@ -53,7 +65,8 @@ export const generate606 = (gastos: Gasto[], rnc: string, period: string) => {
     }).join('\n');
 
     const content = header + details;
-    downloadTxtFile(content, `606${rnc}${period}.txt`);
+    const filename = getDescriptiveFilename('606', rnc, period);
+    downloadTxtFile(content, filename);
 };
 
 // --- Reporte 607 ---
@@ -120,7 +133,8 @@ export const generate607 = (facturas: Factura[], notas: NotaCreditoDebito[], rnc
     });
 
     const content = header + [...facturasDetails, ...notasDetails].join('\n');
-    downloadTxtFile(content, `607${rnc}${period}.txt`);
+    const filename = getDescriptiveFilename('607', rnc, period);
+    downloadTxtFile(content, filename);
 };
 
 // --- Reporte 608 ---
@@ -136,7 +150,8 @@ export const generate608 = (anulados: { ncf: string, fecha: string }[], rnc: str
     }).join('\n');
 
     const content = header + details;
-    downloadTxtFile(content, `608${rnc}${period}.txt`);
+    const filename = getDescriptiveFilename('608', rnc, period);
+    downloadTxtFile(content, filename);
 };
 
 

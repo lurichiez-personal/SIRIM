@@ -86,22 +86,38 @@ const ReportesPage: React.FC = () => {
         switch (reporte) {
             case '606': {
                 const data = getGastosFor606(start, end);
+                if (data.length === 0) {
+                    alert('No hay datos para generar el Reporte 606 en el período seleccionado.');
+                    return;
+                }
                 generate606(data, rnc, period);
                 break;
             }
             case '607': {
                 const { facturas, notas } = getVentasFor607(start, end);
+                if (facturas.length === 0 && notas.length === 0) {
+                    alert('No hay datos para generar el Reporte 607 en el período seleccionado.');
+                    return;
+                }
                 generate607(facturas, notas, rnc, period);
                 break;
             }
             case '608': {
                 const data = getAnuladosFor608(start, end);
+                if (data.length === 0) {
+                    alert('No hay datos para generar el Reporte 608 en el período seleccionado.');
+                    return;
+                }
                 generate608(data, rnc, period);
                 break;
             }
             case 'AnexoA': {
                 const ventas = getVentasFor607(start, end);
                 const gastos = getGastosFor606(start, end);
+                if (ventas.facturas.length === 0 && ventas.notas.length === 0 && gastos.length === 0) {
+                    alert('No hay datos de ventas ni gastos para generar el Anexo A en el período seleccionado.');
+                    return;
+                }
                 const data = calculateAnexoA(ventas, gastos);
                 setAnexoAData(data);
                 setIsAnexoAModalOpen(true);

@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { Factura, Cliente, Item, Gasto, Ingreso, Cotizacion, NotaCreditoDebito, FacturaEstado, CotizacionEstado, MetodoPago, NotaType, FacturaRecurrente, PagedResult, CodigoModificacionNCF } from '../types';
+import { Factura, Cliente, Item, Gasto, Ingreso, Cotizacion, NotaCreditoDebito, FacturaEstado, CotizacionEstado, MetodoPago, NotaType, FacturaRecurrente, PagedResult, CodigoModificacionNCF, KpiData, ChartDataPoint, PieChartDataPoint } from '../types';
 import { useTenantStore } from './useTenantStore';
 import { useNotificationStore } from './useNotificationStore';
 import { useAuthStore } from './useAuthStore';
@@ -15,9 +15,9 @@ let allClientes: Cliente[] = [
 ];
 
 let allFacturas: Factura[] = [
-    { id: 101, empresaId: 1, clienteId: 1, clienteNombre: 'Cliente A Corp', fecha: '2024-05-20', items: [{itemId: 1001, codigo: 'SERV-CONS', descripcion: 'Servicio de Consultoría', cantidad: 25, precioUnitario: 5000, subtotal: 125000}], subtotal: 125000, aplicaITBIS: true, aplicaISC: true, isc: 2118.64, itbis: 22881.36, aplicaPropina: false, propinaLegal: 0, montoTotal: 150000.00, montoPagado: 150000.00, ncf: 'B0100000101', estado: FacturaEstado.Pagada },
-    { id: 102, empresaId: 1, clienteId: 2, clienteNombre: 'Cliente B Industrial', fecha: '2024-05-15', items: [], subtotal: 70000.00, descuentoPorcentaje: 5, montoDescuento: 3500, aplicaITBIS: true, aplicaISC: false, isc: 0, itbis: 11970, aplicaPropina: false, propinaLegal: 0, montoTotal: 78470, montoPagado: 40000, ncf: 'B0100000102', estado: FacturaEstado.PagadaParcialmente },
-    { id: 103, empresaId: 1, clienteId: 4, clienteNombre: 'Comercial C & D', fecha: '2024-04-10', items: [], subtotal: 25000.00, aplicaITBIS: true, itbis: 4500, montoTotal: 29500.00, montoPagado: 0, ncf: 'B0100000103', estado: FacturaEstado.Vencida },
+    { id: 101, empresaId: 1, clienteId: 1, clienteNombre: 'Cliente A Corp', fecha: '2024-05-20', items: [{itemId: 1001, codigo: 'SERV-CONS', descripcion: 'Servicio de Consultoría', cantidad: 25, precioUnitario: 5000, subtotal: 125000}], subtotal: 125000, aplicaITBIS: true, aplicaISC: true, isc: 2118.64, itbis: 22881.36, aplicaPropina: false, propinaLegal: 0, montoTotal: 150000.00, montoPagado: 150000.00, ncf: 'B0100000101', estado: FacturaEstado.Pagada, conciliado: false },
+    { id: 102, empresaId: 1, clienteId: 2, clienteNombre: 'Cliente B Industrial', fecha: '2024-05-15', items: [], subtotal: 70000.00, descuentoPorcentaje: 5, montoDescuento: 3500, aplicaITBIS: true, aplicaISC: false, isc: 0, itbis: 11970, aplicaPropina: false, propinaLegal: 0, montoTotal: 78470, montoPagado: 40000, ncf: 'B0100000102', estado: FacturaEstado.PagadaParcialmente, conciliado: false },
+    { id: 103, empresaId: 1, clienteId: 4, clienteNombre: 'Comercial C & D', fecha: '2024-04-10', items: [], subtotal: 25000.00, aplicaITBIS: true, itbis: 4500, montoTotal: 29500.00, montoPagado: 0, ncf: 'B0100000103', estado: FacturaEstado.Vencida, conciliado: false },
 ];
 let allItems: Item[] = [
     { id: 1001, empresaId: 1, codigo: 'SERV-CONS', nombre: 'Servicio de Consultoría', precio: 5000.00, cantidadDisponible: undefined },
@@ -32,12 +32,12 @@ let allCotizaciones: Cotizacion[] = [
 ];
 
 let allGastos: Gasto[] = [
-    { id: 301, empresaId: 1, proveedorNombre: 'Proveedor de Oficina S.A.', rncProveedor: '130999888', categoriaGasto: '09 - COMPRAS Y GASTOS QUE FORMARAN PARTE DEL COSTO DE VENTA', fecha: '2024-05-18', subtotal: 15000, itbis: 2700, monto: 17700, ncf: 'B0100003456', descripcion: 'Compra de papelería y suministros de oficina' },
+    { id: 301, empresaId: 1, proveedorNombre: 'Proveedor de Oficina S.A.', rncProveedor: '130999888', categoriaGasto: '09 - COMPRAS Y GASTOS QUE FORMARAN PARTE DEL COSTO DE VENTA', fecha: '2024-05-18', subtotal: 15000, itbis: 2700, monto: 17700, ncf: 'B0100003456', descripcion: 'Compra de papelería y suministros de oficina', conciliado: false },
 ];
 
 let allIngresos: Ingreso[] = [
-    { id: 401, empresaId: 1, clienteId: 2, clienteNombre: 'Cliente B Industrial', facturaId: 102, fecha: '2024-05-22', monto: 40000, metodoPago: MetodoPago['02-CHEQUES/TRANSFERENCIAS/DEPOSITO'] },
-    { id: 402, empresaId: 1, clienteId: 1, clienteNombre: 'Cliente A Corp', facturaId: 101, fecha: '2024-05-20', monto: 150000.00, metodoPago: MetodoPago['02-CHEQUES/TRANSFERENCIAS/DEPOSITO'] },
+    { id: 401, empresaId: 1, clienteId: 2, clienteNombre: 'Cliente B Industrial', facturaId: 102, fecha: '2024-05-22', monto: 40000, metodoPago: MetodoPago['02-CHEQUES/TRANSFERENCIAS/DEPOSITO'], conciliado: false },
+    { id: 402, empresaId: 1, clienteId: 1, clienteNombre: 'Cliente A Corp', facturaId: 101, fecha: '2024-05-20', monto: 150000.00, metodoPago: MetodoPago['02-CHEQUES/TRANSFERENCIAS/DEPOSITO'], conciliado: false },
 ];
 
 let allNotas: NotaCreditoDebito[] = [];
@@ -75,9 +75,15 @@ interface DataState {
   getVentasFor607: (startDate: string, endDate: string) => { facturas: Factura[], notas: NotaCreditoDebito[] };
   getAnuladosFor608: (startDate: string, endDate: string) => { ncf: string, fecha: string }[];
 
+  // --- Pilar 1: Dashboard Getters ---
+  getKpis: () => KpiData;
+  getSalesVsExpensesData: (period: 'year' | '30days') => ChartDataPoint[];
+  getGastosByCategoryData: () => PieChartDataPoint[];
+  getIngresosByClientData: () => PieChartDataPoint[];
+
 
   // Mutators
-  addFactura: (facturaData: Omit<Factura, 'id' | 'empresaId'>) => void;
+  addFactura: (facturaData: Omit<Factura, 'id' | 'empresaId' | 'conciliado'>) => void;
   updateFactura: (factura: Factura) => void;
   updateFacturaStatus: (facturaId: number, status: FacturaEstado) => void;
   bulkUpdateFacturaStatus: (facturaIds: number[], status: FacturaEstado) => void;
@@ -86,13 +92,13 @@ interface DataState {
   updateCliente: (cliente: Cliente) => void;
   bulkUpdateClienteStatus: (clienteIds: number[], activo: boolean) => void;
   
-  addIngreso: (ingresoData: Omit<Ingreso, 'id' | 'empresaId'>) => void;
+  addIngreso: (ingresoData: Omit<Ingreso, 'id' | 'empresaId' | 'conciliado'>) => void;
   getFacturasParaPago: () => Factura[];
 
   addItem: (itemData: Omit<Item, 'id' | 'empresaId'>) => void;
   updateItem: (item: Item) => void;
 
-  addGasto: (gastoData: Omit<Gasto, 'id' | 'empresaId'>) => void;
+  addGasto: (gastoData: Omit<Gasto, 'id' | 'empresaId' | 'conciliado'>) => void;
   updateGasto: (gasto: Gasto) => void;
   bulkDeleteGastos: (gastoIds: number[]) => void;
 
@@ -104,6 +110,9 @@ interface DataState {
 
   addFacturaRecurrente: (data: Omit<FacturaRecurrente, 'id' | 'empresaId' | 'fechaProxima' | 'activa'>) => void;
   updateFacturaRecurrente: (data: FacturaRecurrente) => void;
+
+  // --- Pilar 2: Conciliación Mutators ---
+  setConciliadoStatus: (recordType: 'factura' | 'gasto' | 'ingreso', recordId: number, status: boolean) => void;
 }
 
 const applyPagination = <T,>(items: T[], page: number, pageSize: number): PagedResult<T> => {
@@ -161,10 +170,10 @@ export const useDataStore = create<DataState>((set, get) => ({
         filtered = filtered.filter(f => f.estado === status);
     }
     if (startDate) {
-        filtered = filtered.filter(f => new Date(f.fecha) >= new Date(startDate));
+        filtered = filtered.filter(f => f.fecha >= startDate);
     }
     if (endDate) {
-        filtered = filtered.filter(f => new Date(f.fecha) <= new Date(endDate));
+        filtered = filtered.filter(f => f.fecha <= endDate);
     }
     return applyPagination(filtered.sort((a,b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime()), page, pageSize);
   },
@@ -201,10 +210,10 @@ export const useDataStore = create<DataState>((set, get) => ({
         filtered = filtered.filter(i => i.clienteNombre?.toLowerCase().includes(lowerTerm));
       }
       if (startDate) {
-          filtered = filtered.filter(f => new Date(f.fecha) >= new Date(startDate));
+          filtered = filtered.filter(f => f.fecha >= startDate);
       }
       if (endDate) {
-          filtered = filtered.filter(f => new Date(f.fecha) <= new Date(endDate));
+          filtered = filtered.filter(f => f.fecha <= endDate);
       }
       if (metodoPago && metodoPago !== 'todos') {
           filtered = filtered.filter(i => i.metodoPago === metodoPago);
@@ -221,10 +230,10 @@ export const useDataStore = create<DataState>((set, get) => ({
         filtered = filtered.filter(c => c.estado === status);
     }
     if (startDate) {
-        filtered = filtered.filter(c => new Date(c.fecha) >= new Date(startDate));
+        filtered = filtered.filter(c => c.fecha >= startDate);
     }
     if (endDate) {
-        filtered = filtered.filter(c => new Date(c.fecha) <= new Date(endDate));
+        filtered = filtered.filter(c => c.fecha <= endDate);
     }
     return applyPagination(filtered.sort((a,b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime()), page, pageSize);
   },
@@ -235,10 +244,10 @@ export const useDataStore = create<DataState>((set, get) => ({
         filtered = filtered.filter(n => n.clienteNombre.toLowerCase().includes(lowerTerm) || n.ncf.toLowerCase().includes(lowerTerm) || n.facturaAfectadaNCF.toLowerCase().includes(lowerTerm));
     }
     if (startDate) {
-        filtered = filtered.filter(n => new Date(n.fecha) >= new Date(startDate));
+        filtered = filtered.filter(n => n.fecha >= startDate);
     }
     if (endDate) {
-        filtered = filtered.filter(n => new Date(n.fecha) <= new Date(endDate));
+        filtered = filtered.filter(n => n.fecha <= endDate);
     }
     return applyPagination(filtered.sort((a,b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime()), page, pageSize);
   },
@@ -256,60 +265,94 @@ export const useDataStore = create<DataState>((set, get) => ({
   },
   
   // --- DGII GETTERS ---
-    getGastosFor606: (startDate, endDate) => {
-        const start = new Date(startDate + 'T00:00:00');
-        const end = new Date(endDate + 'T23:59:59');
-        return get().gastos.filter(g => {
-            const gastoDate = new Date(g.fecha);
-            return gastoDate >= start && gastoDate <= end && g.ncf;
-        });
-    },
-    getVentasFor607: (startDate, endDate) => {
-        const start = new Date(startDate + 'T00:00:00');
-        const end = new Date(endDate + 'T23:59:59');
-        const facturas = get().facturas.filter(f => {
-            const itemDate = new Date(f.fecha);
-            return itemDate >= start && itemDate <= end && f.estado !== FacturaEstado.Anulada && f.ncf;
-        });
-        const notas = get().notas.filter(n => {
-            const itemDate = new Date(n.fecha);
-            // Include only credit notes (B04) that modify an invoice
-            return itemDate >= start && itemDate <= end && n.tipo === NotaType.Credito;
-        });
-        return { facturas, notas };
-    },
-    getAnuladosFor608: (startDate, endDate) => {
-        const start = new Date(startDate + 'T00:00:00');
-        const end = new Date(endDate + 'T23:59:59');
-        const anulados: { ncf: string, fecha: string }[] = [];
-        
-        // From manually anulled invoices
-        get().facturas.forEach(f => {
-            const itemDate = new Date(f.fecha);
-            if (f.estado === FacturaEstado.Anulada && f.ncf && itemDate >= start && itemDate <= end) {
-                anulados.push({ ncf: f.ncf, fecha: f.fecha });
-            }
-        });
-        
-        // From credit notes with code '01'
-        get().notas.forEach(n => {
-            const itemDate = new Date(n.fecha);
-            if (n.codigoModificacion === '01' && n.facturaAfectadaNCF && itemDate >= start && itemDate <= end) {
-                // Ensure we don't double-count if the invoice was also marked as anulled
-                if (!anulados.some(a => a.ncf === n.facturaAfectadaNCF)) {
-                    anulados.push({ ncf: n.facturaAfectadaNCF, fecha: n.fecha });
+  getGastosFor606: (startDate, endDate) => {
+    return get().gastos.filter(g => {
+        if (!g.ncf) return false;
+        // Robust string comparison, immune to timezone issues.
+        return g.fecha >= startDate && g.fecha <= endDate;
+    });
+  },
+  getVentasFor607: (startDate, endDate) => {
+      const facturas = get().facturas.filter(f => {
+          if (!f.ncf || f.estado === FacturaEstado.Anulada) return false;
+          return f.fecha >= startDate && f.fecha <= endDate;
+      });
+      const notas = get().notas.filter(n => {
+          if (n.tipo !== NotaType.Credito) return false;
+          return n.fecha >= startDate && n.fecha <= endDate;
+      });
+      return { facturas, notas };
+  },
+  getAnuladosFor608: (startDate, endDate) => {
+      const anulados: { ncf: string, fecha: string }[] = [];
+      
+      get().facturas.forEach(f => {
+          if (f.estado === FacturaEstado.Anulada && f.ncf) {
+                if (f.fecha >= startDate && f.fecha <= endDate) {
+                  anulados.push({ ncf: f.ncf, fecha: f.fecha });
                 }
-            }
-        });
+          }
+      });
+      
+      get().notas.forEach(n => {
+          if (n.codigoModificacion === '01' && n.facturaAfectadaNCF) {
+              if (n.fecha >= startDate && n.fecha <= endDate) {
+                  if (!anulados.some(a => a.ncf === n.facturaAfectadaNCF)) {
+                      anulados.push({ ncf: n.facturaAfectadaNCF, fecha: n.fecha });
+                  }
+              }
+          }
+      });
 
-        return anulados;
-    },
+      return anulados;
+  },
+  
+  // --- Pilar 1: Dashboard Getters ---
+  getKpis: () => {
+    const today = new Date();
+    const firstDay = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().split('T')[0];
+    const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0).toISOString().split('T')[0];
+
+    const facturasMes = get().facturas.filter(f => f.fecha >= firstDay && f.fecha <= lastDay && f.estado !== FacturaEstado.Anulada);
+    const ingresosMes = get().ingresos.filter(i => i.fecha >= firstDay && i.fecha <= lastDay);
+    const gastosMes = get().gastos.filter(g => g.fecha >= firstDay && g.fecha <= lastDay);
+    
+    const totalFacturado = facturasMes.reduce((acc, f) => acc + f.montoTotal, 0);
+    const totalCobrado = ingresosMes.reduce((acc, i) => acc + i.monto, 0);
+    const totalGastos = gastosMes.reduce((acc, g) => acc + g.monto, 0);
+    
+    const facturasPendientes = get().facturas.filter(f => f.estado === FacturaEstado.Emitida || f.estado === FacturaEstado.PagadaParcialmente || f.estado === FacturaEstado.Vencida).length;
+    
+    const totalFacturadoHistorico = get().facturas.filter(f => f.estado !== FacturaEstado.Anulada).reduce((acc, f) => acc + f.montoTotal, 0);
+    const totalCobradoHistorico = get().ingresos.reduce((acc, i) => acc + i.monto, 0);
+
+    // ITBIS Calculation (simplified from Anexo A)
+    const itbisVentas = facturasMes.reduce((acc, f) => acc + f.itbis, 0);
+    const itbisCompras = gastosMes.reduce((acc, g) => acc + g.itbis, 0);
+
+    return {
+        totalFacturado,
+        totalCobrado,
+        gastosMes: totalGastos,
+        facturasPendientes,
+        beneficioPerdida: totalCobrado - totalGastos,
+        cuentasPorCobrar: totalFacturadoHistorico - totalCobradoHistorico,
+        itbisAPagar: {
+            total: itbisVentas - itbisCompras,
+            itbisVentas,
+            itbisCompras,
+        }
+    };
+  },
+  getSalesVsExpensesData: (period) => { return []; },
+  getGastosByCategoryData: () => { return []; },
+  getIngresosByClientData: () => { return []; },
 
   // --- MUTATORS ---
   addFactura: (facturaData) => {
     const empresaId = useTenantStore.getState().selectedTenant?.id;
     if (!empresaId) return;
-    const newFactura: Factura = { ...facturaData, id: Date.now(), empresaId };
+    const newFactura: Factura = { ...facturaData, id: Date.now(), empresaId, conciliado: false };
     allFacturas.unshift(newFactura);
     
     // Stock management
@@ -401,7 +444,7 @@ export const useDataStore = create<DataState>((set, get) => ({
     const empresaId = useTenantStore.getState().selectedTenant?.id;
     if (!empresaId) return;
 
-    const newIngreso: Ingreso = { ...ingresoData, id: Date.now(), empresaId };
+    const newIngreso: Ingreso = { ...ingresoData, id: Date.now(), empresaId, conciliado: false };
     allIngresos.unshift(newIngreso);
     
     // Update invoice status
@@ -442,7 +485,7 @@ export const useDataStore = create<DataState>((set, get) => ({
   addGasto: (gastoData) => {
     const empresaId = useTenantStore.getState().selectedTenant?.id;
     if (!empresaId) return;
-    const newGasto: Gasto = { ...gastoData, id: Date.now(), empresaId };
+    const newGasto: Gasto = { ...gastoData, id: Date.now(), empresaId, conciliado: false };
     allGastos.unshift(newGasto);
     get().fetchData(empresaId);
   },
@@ -515,6 +558,25 @@ export const useDataStore = create<DataState>((set, get) => ({
     if (index > -1) {
         allFacturasRecurrentes[index] = data;
     }
+    get().fetchData(empresaId);
+  },
+  // --- Pilar 2: Conciliación Mutators ---
+  setConciliadoStatus: (recordType, recordId, status) => {
+     const empresaId = useTenantStore.getState().selectedTenant?.id;
+    if (!empresaId) return;
+
+    let targetArray: (Factura | Gasto | Ingreso)[];
+    switch (recordType) {
+        case 'factura': targetArray = allFacturas; break;
+        case 'gasto': targetArray = allGastos; break;
+        case 'ingreso': targetArray = allIngresos; break;
+    }
+
+    const recordIndex = targetArray.findIndex(r => r.id === recordId);
+    if (recordIndex > -1) {
+        targetArray[recordIndex].conciliado = status;
+    }
+
     get().fetchData(empresaId);
   },
 }));

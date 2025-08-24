@@ -72,6 +72,7 @@ export interface Factura {
   estado: FacturaEstado;
   cotizacionId?: number;
   facturaRecurrenteId?: number;
+  conciliado: boolean;
 }
 
 export interface Gasto {
@@ -86,6 +87,7 @@ export interface Gasto {
     monto: number; // monto = subtotal + itbis
     ncf?: string;
     descripcion: string;
+    conciliado: boolean;
 }
 
 export enum MetodoPago {
@@ -109,6 +111,7 @@ export interface Ingreso {
     monto: number;
     metodoPago: MetodoPago;
     notas?: string;
+    conciliado: boolean;
 }
 
 export interface Item {
@@ -266,4 +269,51 @@ export interface CustomizationSettings {
     logoUrl?: string;
     accentColor: string;
     footerText?: string;
+}
+
+// --- Pilar 1: Tipos de Dashboard ---
+export interface KpiData {
+    totalFacturado: number;
+    totalCobrado: number;
+    gastosMes: number;
+    facturasPendientes: number;
+    beneficioPerdida: number;
+    cuentasPorCobrar: number;
+    itbisAPagar: {
+        total: number;
+        itbisVentas: number;
+        itbisCompras: number;
+    };
+}
+
+export interface ChartDataPoint {
+    name: string;
+    ventas: number;
+    gastos: number;
+}
+
+export interface PieChartDataPoint {
+    name: string;
+    value: number;
+}
+
+// --- Pilar 2: Tipos de Conciliación ---
+export interface BankTransaction {
+    fecha: string;
+    descripcion: string;
+    monto: number;
+    tipo: 'credito' | 'debito';
+    id: string; // Unique ID for the transaction line
+}
+
+export type MatchableRecord =
+    | (Factura & { type: 'factura' })
+    | (Gasto & { type: 'gasto' })
+    | (Ingreso & { type: 'ingreso' });
+
+export interface ReconciliationMatch {
+    bankTransactionId: string;
+    recordId: number;
+    recordType: 'factura' | 'gasto' | 'ingreso';
+    status: 'sugerido' | 'confirmado';
 }

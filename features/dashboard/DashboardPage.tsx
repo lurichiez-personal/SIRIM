@@ -1,77 +1,132 @@
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Card, CardHeader, CardContent, CardTitle } from '../../components/ui/Card';
 import { useTenantStore } from '../../stores/useTenantStore';
+import { useDataStore } from '../../stores/useDataStore';
+import { useSettingsStore } from '../../stores/useSettingsStore';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+
+const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8'];
 
 const DashboardPage: React.FC = () => {
   const { selectedTenant } = useTenantStore();
+  const { getKpis } = useDataStore();
+  const { settings } = useSettingsStore();
 
-  // TODO: Estos datos deben venir de la API (React Query) y ser filtrados por el tenantId
-  const kpis = {
-    totalFacturado: 1250000.75,
-    totalCobrado: 980500.50,
-    gastosMes: 350000.00,
-    facturasPendientes: 15,
-  };
+  const tenantSettings = useMemo(() => {
+    if (selectedTenant) return settings[selectedTenant.id];
+    return { accentColor: '#005A9C' };
+  }, [selectedTenant, settings]);
+
+  const kpis = useMemo(() => getKpis(), [getKpis]);
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('es-DO', { style: 'currency', currency: 'DOP' }).format(value);
   };
+  
+  // Mock data for charts - in a real app, this would come from the store as well
+  const salesVsExpensesData = [
+      { name: 'Ene', ventas: 4000, gastos: 2400 },
+      { name: 'Feb', ventas: 3000, gastos: 1398 },
+      { name: 'Mar', ventas: 2000, gastos: 9800 },
+      { name: 'Abr', ventas: 2780, gastos: 3908 },
+      { name: 'May', ventas: 1890, gastos: 4800 },
+  ];
+  const gastosByCategoryData = [
+      { name: 'Compras', value: 400 },
+      { name: 'Servicios', value: 300 },
+      { name: 'Arrendamientos', value: 300 },
+      { name: 'Personal', value: 200 },
+  ];
+  const topClientsData = [
+      { name: 'Cliente A', value: 2400 },
+      { name: 'Cliente B', value: 1398 },
+      { name: 'Cliente C', value: 9800 },
+  ].sort((a, b) => b.value - a.value);
 
   return (
     <div>
       <h1 className="text-3xl font-bold text-secondary-800 mb-6">Dashboard de {selectedTenant?.nombre}</h1>
       
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        {/* KPI Cards */}
         <Card>
-          <CardHeader>
-            <CardTitle>Total Facturado (mes)</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-bold text-primary">{formatCurrency(kpis.totalFacturado)}</p>
-            <p className="text-sm text-secondary-500 mt-1">+5.2% vs mes anterior</p>
-          </CardContent>
+          <CardHeader><CardTitle>Total Facturado (mes)</CardTitle></CardHeader>
+          <CardContent><p className="text-3xl font-bold" style={{color: tenantSettings?.accentColor}}>{formatCurrency(kpis.totalFacturado)}</p></CardContent>
         </Card>
-
         <Card>
-          <CardHeader>
-            <CardTitle>Total Cobrado (mes)</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-bold text-green-600">{formatCurrency(kpis.totalCobrado)}</p>
-            <p className="text-sm text-secondary-500 mt-1">Tasa de cobro: 78.4%</p>
-          </CardContent>
+          <CardHeader><CardTitle>Total Cobrado (mes)</CardTitle></CardHeader>
+          <CardContent><p className="text-3xl font-bold text-green-600">{formatCurrency(kpis.totalCobrado)}</p></CardContent>
         </Card>
-        
         <Card>
-          <CardHeader>
-            <CardTitle>Total Gastos (mes)</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-bold text-red-600">{formatCurrency(kpis.gastosMes)}</p>
-            <p className="text-sm text-secondary-500 mt-1">-1.5% vs mes anterior</p>
-          </CardContent>
+          <CardHeader><CardTitle>Total Gastos (mes)</CardTitle></CardHeader>
+          <CardContent><p className="text-3xl font-bold text-red-600">{formatCurrency(kpis.gastosMes)}</p></CardContent>
         </Card>
-        
         <Card>
-          <CardHeader>
-            <CardTitle>Facturas Pendientes</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-bold text-yellow-600">{kpis.facturasPendientes}</p>
-            <p className="text-sm text-secondary-500 mt-1">Monto pendiente: {formatCurrency(kpis.totalFacturado - kpis.totalCobrado)}</p>
-          </CardContent>
+          <CardHeader><CardTitle>Facturas Pendientes</CardTitle></CardHeader>
+          <CardContent><p className="text-3xl font-bold text-yellow-600">{kpis.facturasPendientes}</p></CardContent>
         </Card>
       </div>
 
-      <div className="mt-8">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6">
+         {/* Financial Health Cards */}
+         <Card>
+            <CardHeader><CardTitle>Beneficio/Pérdida (Mes)</CardTitle></CardHeader>
+            <CardContent>
+                <p className={`text-2xl font-bold ${kpis.beneficioPerdida >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                    {formatCurrency(kpis.beneficioPerdida)}
+                </p>
+                <p className="text-xs text-secondary-500 mt-1">Total Cobrado - Total Gastos</p>
+            </CardContent>
+         </Card>
+         <Card>
+            <CardHeader><CardTitle>Cuentas por Cobrar</CardTitle></CardHeader>
+            <CardContent>
+                <p className="text-2xl font-bold text-yellow-600">{formatCurrency(kpis.cuentasPorCobrar)}</p>
+                <p className="text-xs text-secondary-500 mt-1">Total Facturado - Total Cobrado (histórico)</p>
+            </CardContent>
+         </Card>
+         <Card>
+            <CardHeader><CardTitle>ITBIS a Pagar (Estimado Mes)</CardTitle></CardHeader>
+            <CardContent>
+                <p className={`text-2xl font-bold ${kpis.itbisAPagar.total >= 0 ? 'text-red-600' : 'text-green-600'}`}>
+                    {formatCurrency(kpis.itbisAPagar.total)}
+                </p>
+                <p className="text-xs text-secondary-500 mt-1">ITBIS Ventas ({formatCurrency(kpis.itbisAPagar.itbisVentas)}) - ITBIS Compras ({formatCurrency(kpis.itbisAPagar.itbisCompras)})</p>
+            </CardContent>
+         </Card>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-8">
+        <Card className="lg:col-span-2">
+            <CardHeader><CardTitle>Ventas vs. Gastos (Últimos meses)</CardTitle></CardHeader>
+            <CardContent className="h-80">
+                <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={salesVsExpensesData}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="name" />
+                        <YAxis tickFormatter={(value) => `$${Number(value) / 1000}k`} />
+                        <Tooltip formatter={(value: number) => formatCurrency(value)} />
+                        <Legend />
+                        <Bar dataKey="ventas" fill={tenantSettings?.accentColor || '#005A9C'} name="Ventas"/>
+                        <Bar dataKey="gastos" fill="#A0AEC0" name="Gastos"/>
+                    </BarChart>
+                </ResponsiveContainer>
+            </CardContent>
+        </Card>
         <Card>
-          <CardHeader>
-            <CardTitle>Actividad Reciente</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-secondary-600">// TODO: Aquí irá una lista de las últimas transacciones y eventos.</p>
-          </CardContent>
+            <CardHeader><CardTitle>Gastos por Categoría</CardTitle></CardHeader>
+            <CardContent className="h-80">
+                <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                        <Pie data={gastosByCategoryData} cx="50%" cy="50%" labelLine={false} outerRadius={80} fill="#8884d8" dataKey="value" nameKey="name">
+                            {gastosByCategoryData.map((entry, index) => <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />)}
+                        </Pie>
+                        <Tooltip formatter={(value: number) => formatCurrency(value)} />
+                        <Legend />
+                    </PieChart>
+                </ResponsiveContainer>
+            </CardContent>
         </Card>
       </div>
     </div>

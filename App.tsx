@@ -20,6 +20,7 @@ import NCFPage from './features/configuracion/NCFPage';
 import NotasPage from './features/notas/NotasPage';
 import PersonalizacionPage from './features/configuracion/PersonalizacionPage';
 import FacturacionRecurrentePage from './features/configuracion/FacturacionRecurrentePage';
+import ConciliacionPage from './features/conciliacion/ConciliacionPage';
 
 // TODO: Implementar React Query para el fetching de datos.
 // import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -48,6 +49,7 @@ function App(): React.ReactNode {
                   <Route path="/ingresos" element={<IngresosPage />} />
                   <Route path="/inventario" element={<InventarioPage />} />
                   <Route path="/reportes" element={<ReportesPage />} />
+                  <Route path="/conciliacion" element={<ConciliacionPage />} />
                   <Route path="/configuracion" element={<ConfiguracionPage />} />
                   <Route path="/configuracion/ncf" element={<NCFPage />} />
                   <Route path="/configuracion/personalizacion" element={<PersonalizacionPage />} />

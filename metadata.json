@@ -1,5 +1,7 @@
 {
   "name": "SIRIM - Sistema Inteligente de Registros Impositivos",
   "description": "SIRIM es una aplicación web para la gestión inteligente de registros impositivos y contabilidad fiscal de empresas en República Dominicana, con soporte multi-empresa y roles específicos como Contador.",
-  "requestFramePermissions": []
+  "requestFramePermissions": [
+    "camera"
+  ]
 }
