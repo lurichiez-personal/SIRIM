@@ -1,0 +1,534 @@
+import { create } from 'zustand';
+import { Factura, Cliente, Item, Gasto, Ingreso, Cotizacion, NotaCreditoDebito, FacturaEstado, CotizacionEstado, MetodoPago, NotaType, FacturaRecurrente, PagedResult, CodigoModificacionNCF } from '../types';
+import { useTenantStore } from './useTenantStore';
+import { useNotificationStore } from './useNotificationStore';
+import { useAuthStore } from './useAuthStore';
+
+// --- MOCK DATA SOURCE ---
+
+let allClientes: Cliente[] = [
+    { id: 1, empresaId: 1, nombre: 'Cliente A Corp', rnc: '130123456', email: 'contact@clientea.com', telefono: '809-555-0001', activo: true, createdAt: '2023-01-15T00:00:00Z', estadoDGII: 'ACTIVO', condicionesPago: 'Neto 30' },
+    { id: 2, empresaId: 1, nombre: 'Cliente B Industrial', rnc: '131987654', email: 'info@clienteb.com', telefono: '809-555-0002', activo: true, createdAt: '2023-02-20T00:00:00Z', estadoDGII: 'ACTIVO', condicionesPago: 'Neto 15' },
+    { id: 3, empresaId: 2, nombre: 'Asociados de Consultoría XYZ', rnc: '132112233', email: 'info@consultores.com', telefono: '809-555-0003', activo: true, createdAt: '2023-03-10T00:00:00Z', estadoDGII: 'ACTIVO', condicionesPago: 'Neto 30' },
+    { id: 4, empresaId: 1, nombre: 'Comercial C & D', rnc: '130778899', email: 'ventas@comercialcd.com', telefono: '809-555-0004', activo: false, createdAt: '2023-04-05T00:00:00Z', estadoDGII: 'SUSPENDIDO', condicionesPago: 'Al contado' },
+    { id: 5, empresaId: 3, nombre: 'Constructora Principal', rnc: '132555666', email: 'proyectos@constructorap.com', telefono: '809-555-0005', activo: true, createdAt: '2023-05-12T00:00:00Z', estadoDGII: 'ACTIVO', condicionesPago: 'Neto 60' },
+];
+
+let allFacturas: Factura[] = [
+    { id: 101, empresaId: 1, clienteId: 1, clienteNombre: 'Cliente A Corp', fecha: '2024-05-20', items: [{itemId: 1001, codigo: 'SERV-CONS', descripcion: 'Servicio de Consultoría', cantidad: 25, precioUnitario: 5000, subtotal: 125000}], subtotal: 125000, aplicaITBIS: true, aplicaISC: true, isc: 2118.64, itbis: 22881.36, aplicaPropina: false, propinaLegal: 0, montoTotal: 150000.00, montoPagado: 150000.00, ncf: 'B0100000101', estado: FacturaEstado.Pagada },
+    { id: 102, empresaId: 1, clienteId: 2, clienteNombre: 'Cliente B Industrial', fecha: '2024-05-15', items: [], subtotal: 70000.00, descuentoPorcentaje: 5, montoDescuento: 3500, aplicaITBIS: true, aplicaISC: false, isc: 0, itbis: 11970, aplicaPropina: false, propinaLegal: 0, montoTotal: 78470, montoPagado: 40000, ncf: 'B0100000102', estado: FacturaEstado.PagadaParcialmente },
+    { id: 103, empresaId: 1, clienteId: 4, clienteNombre: 'Comercial C & D', fecha: '2024-04-10', items: [], subtotal: 25000.00, aplicaITBIS: true, itbis: 4500, montoTotal: 29500.00, montoPagado: 0, ncf: 'B0100000103', estado: FacturaEstado.Vencida },
+];
+let allItems: Item[] = [
+    { id: 1001, empresaId: 1, codigo: 'SERV-CONS', nombre: 'Servicio de Consultoría', precio: 5000.00, cantidadDisponible: undefined },
+    { id: 1002, empresaId: 1, codigo: 'SERV-WEB', nombre: 'Desarrollo Web', precio: 8000.00, cantidadDisponible: undefined },
+    { id: 1003, empresaId: 1, codigo: 'PROD-A', nombre: 'Producto A', precio: 750.00, cantidadDisponible: 100 },
+    { id: 1004, empresaId: 1, codigo: 'PROD-B', nombre: 'Producto B', precio: 1200.00, cantidadDisponible: 4 },
+];
+
+let allCotizaciones: Cotizacion[] = [
+    { id: 201, empresaId: 1, clienteId: 1, clienteNombre: 'Cliente A Corp', clienteRNC: '130123456', fecha: '2024-05-10', items: [], subtotal: 50000, aplicaITBIS: true, montoTotal: 59000, estado: CotizacionEstado.Pendiente, itbis: 9000 },
+    { id: 202, empresaId: 1, clienteId: 2, clienteNombre: 'Cliente B Industrial', clienteRNC: '131987654', fecha: '2024-04-25', items: [], subtotal: 120000, aplicaITBIS: true, montoTotal: 141600, estado: CotizacionEstado.Facturada, itbis: 21600 } as Cotizacion,
+];
+
+let allGastos: Gasto[] = [
+    { id: 301, empresaId: 1, proveedorNombre: 'Proveedor de Oficina S.A.', rncProveedor: '130999888', categoriaGasto: '09 - COMPRAS Y GASTOS QUE FORMARAN PARTE DEL COSTO DE VENTA', fecha: '2024-05-18', subtotal: 15000, itbis: 2700, monto: 17700, ncf: 'B0100003456', descripcion: 'Compra de papelería y suministros de oficina' },
+];
+
+let allIngresos: Ingreso[] = [
+    { id: 401, empresaId: 1, clienteId: 2, clienteNombre: 'Cliente B Industrial', facturaId: 102, fecha: '2024-05-22', monto: 40000, metodoPago: MetodoPago['02-CHEQUES/TRANSFERENCIAS/DEPOSITO'] },
+    { id: 402, empresaId: 1, clienteId: 1, clienteNombre: 'Cliente A Corp', facturaId: 101, fecha: '2024-05-20', monto: 150000.00, metodoPago: MetodoPago['02-CHEQUES/TRANSFERENCIAS/DEPOSITO'] },
+];
+
+let allNotas: NotaCreditoDebito[] = [];
+let allFacturasRecurrentes: FacturaRecurrente[] = [];
+
+const calculateNextDate = (currentDate: string, frequency: 'diaria' | 'semanal' | 'mensual' | 'anual'): string => {
+    const date = new Date(currentDate + 'T00:00:00'); // Ensure correct date parsing
+    switch (frequency) {
+        case 'diaria': date.setDate(date.getDate() + 1); break;
+        case 'semanal': date.setDate(date.getDate() + 7); break;
+        case 'mensual': date.setMonth(date.getMonth() + 1); break;
+        case 'anual': date.setFullYear(date.getFullYear() + 1); break;
+    }
+    return date.toISOString().split('T')[0];
+};
+
+// --- STORE DEFINITION ---
+interface DataState {
+  // Raw data (simulating DB tables)
+  clientes: Cliente[]; facturas: Factura[]; items: Item[]; cotizaciones: Cotizacion[]; notas: NotaCreditoDebito[]; gastos: Gasto[]; ingresos: Ingreso[]; facturasRecurrentes: FacturaRecurrente[];
+  // Actions
+  fetchData: (empresaId: number) => void;
+  // Paged Getters
+  getPagedClientes: (options: { page: number, pageSize: number, searchTerm?: string, status?: 'todos' | 'activo' | 'inactivo' }) => PagedResult<Cliente>;
+  getPagedFacturas: (options: { page: number, pageSize: number, searchTerm?: string, status?: string, startDate?: string, endDate?: string }) => PagedResult<Factura>;
+  getPagedGastos: (options: { page: number, pageSize: number, searchTerm?: string, category?: string }) => PagedResult<Gasto>;
+  getPagedItems: (options: { page: number, pageSize: number, searchTerm?: string }) => PagedResult<Item>;
+  getPagedIngresos: (options: { page: number, pageSize: number, searchTerm?: string, startDate?: string, endDate?: string, metodoPago?: string }) => PagedResult<Ingreso>;
+  getPagedCotizaciones: (options: { page: number, pageSize: number, searchTerm?: string, status?: string, startDate?: string, endDate?: string }) => PagedResult<Cotizacion>;
+  getPagedNotas: (options: { page: number, pageSize: number, searchTerm?: string, startDate?: string, endDate?: string }) => PagedResult<NotaCreditoDebito>;
+  getPagedFacturasRecurrentes: (options: { page: number, pageSize: number, searchTerm?: string, status?: 'todos' | 'activa' | 'inactiva' }) => PagedResult<FacturaRecurrente>;
+  
+  // DGII Report Getters
+  getGastosFor606: (startDate: string, endDate: string) => Gasto[];
+  getVentasFor607: (startDate: string, endDate: string) => { facturas: Factura[], notas: NotaCreditoDebito[] };
+  getAnuladosFor608: (startDate: string, endDate: string) => { ncf: string, fecha: string }[];
+
+
+  // Mutators
+  addFactura: (facturaData: Omit<Factura, 'id' | 'empresaId'>) => void;
+  updateFactura: (factura: Factura) => void;
+  updateFacturaStatus: (facturaId: number, status: FacturaEstado) => void;
+  bulkUpdateFacturaStatus: (facturaIds: number[], status: FacturaEstado) => void;
+
+  addCliente: (clienteData: Omit<Cliente, 'id'|'empresaId'|'createdAt'|'activo'>) => Cliente;
+  updateCliente: (cliente: Cliente) => void;
+  bulkUpdateClienteStatus: (clienteIds: number[], activo: boolean) => void;
+  
+  addIngreso: (ingresoData: Omit<Ingreso, 'id' | 'empresaId'>) => void;
+  getFacturasParaPago: () => Factura[];
+
+  addItem: (itemData: Omit<Item, 'id' | 'empresaId'>) => void;
+  updateItem: (item: Item) => void;
+
+  addGasto: (gastoData: Omit<Gasto, 'id' | 'empresaId'>) => void;
+  updateGasto: (gasto: Gasto) => void;
+  bulkDeleteGastos: (gastoIds: number[]) => void;
+
+  addCotizacion: (cotizacionData: Omit<Cotizacion, 'id' | 'empresaId' | 'estado'>) => void;
+  updateCotizacion: (cotizacion: Cotizacion) => void;
+  updateCotizacionStatus: (cotizacionId: number, status: CotizacionEstado) => void;
+
+  addNota: (notaData: Omit<NotaCreditoDebito, 'id' | 'empresaId'>) => void;
+
+  addFacturaRecurrente: (data: Omit<FacturaRecurrente, 'id' | 'empresaId' | 'fechaProxima' | 'activa'>) => void;
+  updateFacturaRecurrente: (data: FacturaRecurrente) => void;
+}
+
+const applyPagination = <T,>(items: T[], page: number, pageSize: number): PagedResult<T> => {
+    const totalCount = items.length;
+    const pagedItems = items.slice((page - 1) * pageSize, page * pageSize);
+    return { items: pagedItems, totalCount, page, pageSize };
+}
+
+export const useDataStore = create<DataState>((set, get) => ({
+  // --- STATE ---
+  clientes: [],
+  facturas: [],
+  items: [],
+  cotizaciones: [],
+  notas: [],
+  gastos: [],
+  ingresos: [],
+  facturasRecurrentes: [],
+
+  // --- ACTIONS ---
+  fetchData: (empresaId) => {
+    // In a real app, this would be an API call. Here we filter mock data.
+    set({
+        clientes: [...allClientes.filter(c => c.empresaId === empresaId)],
+        facturas: [...allFacturas.filter(f => f.empresaId === empresaId)],
+        items: [...allItems.filter(i => i.empresaId === empresaId)],
+        cotizaciones: [...allCotizaciones.filter(c => c.empresaId === empresaId)],
+        notas: [...allNotas.filter(n => n.empresaId === empresaId)],
+        gastos: [...allGastos.filter(g => g.empresaId === empresaId)],
+        ingresos: [...allIngresos.filter(i => i.empresaId === empresaId)],
+        facturasRecurrentes: [...allFacturasRecurrentes.filter(fr => fr.empresaId === empresaId)],
+    });
+  },
+    
+  // --- PAGED GETTERS ---
+  getPagedClientes: ({ page, pageSize, searchTerm = '', status = 'todos' }) => {
+    let filtered = get().clientes;
+    if (searchTerm) {
+        const lowerTerm = searchTerm.toLowerCase();
+        filtered = filtered.filter(c => c.nombre.toLowerCase().includes(lowerTerm) || c.rnc?.toLowerCase().includes(lowerTerm));
+    }
+    if (status !== 'todos') {
+        const isActive = status === 'activo';
+        filtered = filtered.filter(c => c.activo === isActive);
+    }
+    return applyPagination(filtered, page, pageSize);
+  },
+  getPagedFacturas: ({ page, pageSize, searchTerm, status, startDate, endDate }) => {
+    let filtered = get().facturas;
+    if (searchTerm) {
+        const lowerTerm = searchTerm.toLowerCase();
+        filtered = filtered.filter(f => f.clienteNombre.toLowerCase().includes(lowerTerm) || f.ncf?.toLowerCase().includes(lowerTerm));
+    }
+    if (status && status !== 'todos') {
+        filtered = filtered.filter(f => f.estado === status);
+    }
+    if (startDate) {
+        filtered = filtered.filter(f => new Date(f.fecha) >= new Date(startDate));
+    }
+    if (endDate) {
+        filtered = filtered.filter(f => new Date(f.fecha) <= new Date(endDate));
+    }
+    return applyPagination(filtered.sort((a,b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime()), page, pageSize);
+  },
+  getPagedGastos: ({ page, pageSize, searchTerm = '', category = 'todos' }) => {
+      let filtered = get().gastos;
+      if (searchTerm) {
+          const lowerTerm = searchTerm.toLowerCase();
+          filtered = filtered.filter(g =>
+              g.proveedorNombre?.toLowerCase().includes(lowerTerm) ||
+              g.ncf?.toLowerCase().includes(lowerTerm) ||
+              g.descripcion.toLowerCase().includes(lowerTerm)
+          );
+      }
+      if (category !== 'todos') {
+          filtered = filtered.filter(g => g.categoriaGasto === category);
+      }
+      return applyPagination(filtered.sort((a,b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime()), page, pageSize);
+  },
+  getPagedItems: ({ page, pageSize, searchTerm = '' }) => {
+      let filtered = get().items;
+      if (searchTerm) {
+          const lowerTerm = searchTerm.toLowerCase();
+          filtered = filtered.filter(i =>
+              i.nombre.toLowerCase().includes(lowerTerm) ||
+              i.codigo.toLowerCase().includes(lowerTerm)
+          );
+      }
+      return applyPagination(filtered, page, pageSize);
+  },
+  getPagedIngresos: ({ page, pageSize, searchTerm, startDate, endDate, metodoPago }) => {
+      let filtered = get().ingresos;
+      if (searchTerm) {
+        const lowerTerm = searchTerm.toLowerCase();
+        filtered = filtered.filter(i => i.clienteNombre?.toLowerCase().includes(lowerTerm));
+      }
+      if (startDate) {
+          filtered = filtered.filter(f => new Date(f.fecha) >= new Date(startDate));
+      }
+      if (endDate) {
+          filtered = filtered.filter(f => new Date(f.fecha) <= new Date(endDate));
+      }
+      if (metodoPago && metodoPago !== 'todos') {
+          filtered = filtered.filter(i => i.metodoPago === metodoPago);
+      }
+      return applyPagination(filtered.sort((a,b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime()), page, pageSize);
+  },
+  getPagedCotizaciones: ({ page, pageSize, searchTerm, status, startDate, endDate }) => {
+    let filtered = get().cotizaciones;
+    if (searchTerm) {
+        const lowerTerm = searchTerm.toLowerCase();
+        filtered = filtered.filter(c => c.clienteNombre.toLowerCase().includes(lowerTerm) || c.id.toString().includes(lowerTerm));
+    }
+    if (status && status !== 'todos') {
+        filtered = filtered.filter(c => c.estado === status);
+    }
+    if (startDate) {
+        filtered = filtered.filter(c => new Date(c.fecha) >= new Date(startDate));
+    }
+    if (endDate) {
+        filtered = filtered.filter(c => new Date(c.fecha) <= new Date(endDate));
+    }
+    return applyPagination(filtered.sort((a,b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime()), page, pageSize);
+  },
+  getPagedNotas: ({ page, pageSize, searchTerm, startDate, endDate }) => {
+    let filtered = get().notas;
+    if (searchTerm) {
+        const lowerTerm = searchTerm.toLowerCase();
+        filtered = filtered.filter(n => n.clienteNombre.toLowerCase().includes(lowerTerm) || n.ncf.toLowerCase().includes(lowerTerm) || n.facturaAfectadaNCF.toLowerCase().includes(lowerTerm));
+    }
+    if (startDate) {
+        filtered = filtered.filter(n => new Date(n.fecha) >= new Date(startDate));
+    }
+    if (endDate) {
+        filtered = filtered.filter(n => new Date(n.fecha) <= new Date(endDate));
+    }
+    return applyPagination(filtered.sort((a,b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime()), page, pageSize);
+  },
+   getPagedFacturasRecurrentes: ({ page, pageSize, searchTerm = '', status = 'todos' }) => {
+    let filtered = get().facturasRecurrentes;
+    if (searchTerm) {
+        const lowerTerm = searchTerm.toLowerCase();
+        filtered = filtered.filter(f => f.clienteNombre.toLowerCase().includes(lowerTerm) || f.descripcion.toLowerCase().includes(lowerTerm));
+    }
+    if (status !== 'todos') {
+        const isActive = status === 'activa';
+        filtered = filtered.filter(f => f.activa === isActive);
+    }
+    return applyPagination(filtered, page, pageSize);
+  },
+  
+  // --- DGII GETTERS ---
+    getGastosFor606: (startDate, endDate) => {
+        const start = new Date(startDate + 'T00:00:00');
+        const end = new Date(endDate + 'T23:59:59');
+        return get().gastos.filter(g => {
+            const gastoDate = new Date(g.fecha);
+            return gastoDate >= start && gastoDate <= end && g.ncf;
+        });
+    },
+    getVentasFor607: (startDate, endDate) => {
+        const start = new Date(startDate + 'T00:00:00');
+        const end = new Date(endDate + 'T23:59:59');
+        const facturas = get().facturas.filter(f => {
+            const itemDate = new Date(f.fecha);
+            return itemDate >= start && itemDate <= end && f.estado !== FacturaEstado.Anulada && f.ncf;
+        });
+        const notas = get().notas.filter(n => {
+            const itemDate = new Date(n.fecha);
+            // Include only credit notes (B04) that modify an invoice
+            return itemDate >= start && itemDate <= end && n.tipo === NotaType.Credito;
+        });
+        return { facturas, notas };
+    },
+    getAnuladosFor608: (startDate, endDate) => {
+        const start = new Date(startDate + 'T00:00:00');
+        const end = new Date(endDate + 'T23:59:59');
+        const anulados: { ncf: string, fecha: string }[] = [];
+        
+        // From manually anulled invoices
+        get().facturas.forEach(f => {
+            const itemDate = new Date(f.fecha);
+            if (f.estado === FacturaEstado.Anulada && f.ncf && itemDate >= start && itemDate <= end) {
+                anulados.push({ ncf: f.ncf, fecha: f.fecha });
+            }
+        });
+        
+        // From credit notes with code '01'
+        get().notas.forEach(n => {
+            const itemDate = new Date(n.fecha);
+            if (n.codigoModificacion === '01' && n.facturaAfectadaNCF && itemDate >= start && itemDate <= end) {
+                // Ensure we don't double-count if the invoice was also marked as anulled
+                if (!anulados.some(a => a.ncf === n.facturaAfectadaNCF)) {
+                    anulados.push({ ncf: n.facturaAfectadaNCF, fecha: n.fecha });
+                }
+            }
+        });
+
+        return anulados;
+    },
+
+  // --- MUTATORS ---
+  addFactura: (facturaData) => {
+    const empresaId = useTenantStore.getState().selectedTenant?.id;
+    if (!empresaId) return;
+    const newFactura: Factura = { ...facturaData, id: Date.now(), empresaId };
+    allFacturas.unshift(newFactura);
+    
+    // Stock management
+    newFactura.items.forEach(itemFacturado => {
+        const itemIndex = allItems.findIndex(i => i.id === itemFacturado.itemId);
+        if (itemIndex > -1 && allItems[itemIndex].cantidadDisponible !== undefined) {
+            allItems[itemIndex].cantidadDisponible! -= itemFacturado.cantidad;
+        }
+    });
+    
+    // Recurring invoice management
+    if (newFactura.facturaRecurrenteId) {
+        const recurrenteIndex = allFacturasRecurrentes.findIndex(f => f.id === newFactura.facturaRecurrenteId);
+        if (recurrenteIndex > -1) {
+            const recurrente = allFacturasRecurrentes[recurrenteIndex];
+            recurrente.fechaProxima = calculateNextDate(recurrente.fechaProxima, recurrente.frecuencia);
+        }
+    }
+
+    get().fetchData(empresaId);
+    useNotificationStore.getState().fetchNotifications(empresaId); // Re-check for low stock
+  },
+  updateFactura: (factura) => {
+    const empresaId = useTenantStore.getState().selectedTenant?.id;
+    if (!empresaId) return;
+    const index = allFacturas.findIndex(f => f.id === factura.id);
+    if (index > -1) {
+        allFacturas[index] = factura;
+    }
+    get().fetchData(empresaId);
+  },
+  updateFacturaStatus: (facturaId, status) => {
+    const empresaId = useTenantStore.getState().selectedTenant?.id;
+    if (!empresaId) return;
+    const index = allFacturas.findIndex(f => f.id === facturaId);
+    if (index > -1) {
+        allFacturas[index].estado = status;
+    }
+    get().fetchData(empresaId);
+  },
+  bulkUpdateFacturaStatus: (facturaIds, status) => {
+    allFacturas.forEach((factura, index) => {
+        if (facturaIds.includes(factura.id)) {
+            allFacturas[index].estado = status;
+            if (status === FacturaEstado.Pagada) {
+                 allFacturas[index].montoPagado = allFacturas[index].montoTotal;
+            }
+        }
+    });
+    const empresaId = useTenantStore.getState().selectedTenant?.id;
+    if (empresaId) get().fetchData(empresaId);
+  },
+
+  addCliente: (clienteData) => {
+    const empresaId = useTenantStore.getState().selectedTenant?.id;
+    if (!empresaId) throw new Error("No tenant selected");
+    const newCliente: Cliente = {
+        ...clienteData,
+        id: Date.now(),
+        empresaId,
+        createdAt: new Date().toISOString(),
+        activo: true,
+        estadoDGII: 'ACTIVO', // Mock value
+    };
+    allClientes.unshift(newCliente);
+    get().fetchData(empresaId);
+    return newCliente;
+  },
+  updateCliente: (cliente) => {
+    const empresaId = useTenantStore.getState().selectedTenant?.id;
+    if (!empresaId) return;
+    const index = allClientes.findIndex(c => c.id === cliente.id);
+    if (index > -1) {
+        allClientes[index] = cliente;
+    }
+    get().fetchData(empresaId);
+  },
+   bulkUpdateClienteStatus: (clienteIds, activo) => {
+    allClientes.forEach((cliente, index) => {
+        if (clienteIds.includes(cliente.id)) {
+            allClientes[index].activo = activo;
+        }
+    });
+    const empresaId = useTenantStore.getState().selectedTenant?.id;
+    if (empresaId) get().fetchData(empresaId);
+  },
+  
+  addIngreso: (ingresoData) => {
+    const empresaId = useTenantStore.getState().selectedTenant?.id;
+    if (!empresaId) return;
+
+    const newIngreso: Ingreso = { ...ingresoData, id: Date.now(), empresaId };
+    allIngresos.unshift(newIngreso);
+    
+    // Update invoice status
+    const facturaIndex = allFacturas.findIndex(f => f.id === ingresoData.facturaId);
+    if (facturaIndex > -1) {
+        const factura = allFacturas[facturaIndex];
+        factura.montoPagado += ingresoData.monto;
+        if (factura.montoPagado >= factura.montoTotal) {
+            factura.estado = FacturaEstado.Pagada;
+        } else {
+            factura.estado = FacturaEstado.PagadaParcialmente;
+        }
+    }
+    get().fetchData(empresaId);
+  },
+  getFacturasParaPago: () => {
+    return get().facturas.filter(f => f.estado !== FacturaEstado.Anulada && f.estado !== FacturaEstado.Pagada);
+  },
+
+  addItem: (itemData) => {
+    const empresaId = useTenantStore.getState().selectedTenant?.id;
+    if (!empresaId) return;
+    const newItem: Item = { ...itemData, id: Date.now(), empresaId };
+    allItems.unshift(newItem);
+    get().fetchData(empresaId);
+  },
+  updateItem: (item) => {
+    const empresaId = useTenantStore.getState().selectedTenant?.id;
+    if (!empresaId) return;
+    const index = allItems.findIndex(i => i.id === item.id);
+    if (index > -1) {
+        allItems[index] = item;
+    }
+    get().fetchData(empresaId);
+    useNotificationStore.getState().fetchNotifications(empresaId);
+  },
+
+  addGasto: (gastoData) => {
+    const empresaId = useTenantStore.getState().selectedTenant?.id;
+    if (!empresaId) return;
+    const newGasto: Gasto = { ...gastoData, id: Date.now(), empresaId };
+    allGastos.unshift(newGasto);
+    get().fetchData(empresaId);
+  },
+  updateGasto: (gasto) => {
+    const empresaId = useTenantStore.getState().selectedTenant?.id;
+    if (!empresaId) return;
+    const index = allGastos.findIndex(g => g.id === gasto.id);
+    if (index > -1) {
+        allGastos[index] = gasto;
+    }
+    get().fetchData(empresaId);
+  },
+  bulkDeleteGastos: (gastoIds) => {
+    allGastos = allGastos.filter(g => !gastoIds.includes(g.id));
+    const empresaId = useTenantStore.getState().selectedTenant?.id;
+    if (empresaId) get().fetchData(empresaId);
+  },
+
+  addCotizacion: (cotizacionData) => {
+    const empresaId = useTenantStore.getState().selectedTenant?.id;
+    if (!empresaId) return;
+    const newCotizacion: Cotizacion = { ...cotizacionData, id: Date.now(), empresaId, estado: CotizacionEstado.Pendiente };
+    allCotizaciones.unshift(newCotizacion);
+    get().fetchData(empresaId);
+  },
+  updateCotizacion: (cotizacion) => {
+    const empresaId = useTenantStore.getState().selectedTenant?.id;
+    if (!empresaId) return;
+    const index = allCotizaciones.findIndex(c => c.id === cotizacion.id);
+    if (index > -1) {
+        allCotizaciones[index] = cotizacion;
+    }
+    get().fetchData(empresaId);
+  },
+  updateCotizacionStatus: (cotizacionId, status) => {
+    const empresaId = useTenantStore.getState().selectedTenant?.id;
+    if (!empresaId) return;
+    const index = allCotizaciones.findIndex(c => c.id === cotizacionId);
+    if (index > -1) {
+        allCotizaciones[index].estado = status;
+    }
+    get().fetchData(empresaId);
+  },
+
+  addNota: (notaData) => {
+    const empresaId = useTenantStore.getState().selectedTenant?.id;
+    if (!empresaId) return;
+    const newNota: NotaCreditoDebito = { ...notaData, id: Date.now(), empresaId };
+    allNotas.unshift(newNota);
+    get().fetchData(empresaId);
+  },
+
+  addFacturaRecurrente: (data) => {
+    const empresaId = useTenantStore.getState().selectedTenant?.id;
+    if (!empresaId) return;
+    const newRecurrente: FacturaRecurrente = {
+        ...data,
+        id: Date.now(),
+        empresaId,
+        fechaProxima: data.fechaInicio,
+        activa: true
+    };
+    allFacturasRecurrentes.unshift(newRecurrente);
+    get().fetchData(empresaId);
+  },
+  updateFacturaRecurrente: (data) => {
+    const empresaId = useTenantStore.getState().selectedTenant?.id;
+    if (!empresaId) return;
+    const index = allFacturasRecurrentes.findIndex(f => f.id === data.id);
+    if (index > -1) {
+        allFacturasRecurrentes[index] = data;
+    }
+    get().fetchData(empresaId);
+  },
+}));
+
+// Re-fetch data when tenant changes
+useTenantStore.subscribe((state, prevState) => {
+    if (state.selectedTenant && state.selectedTenant.id !== prevState.selectedTenant?.id) {
+        useDataStore.getState().fetchData(state.selectedTenant.id);
+    }
+});
+
+// Clear all data on logout
+useAuthStore.subscribe((state, prevState) => {
+    if (!state.isAuthenticated && prevState.isAuthenticated) {
+        useDataStore.setState({ clientes: [], facturas: [], items: [], cotizaciones:[], notas:[], gastos:[], ingresos:[], facturasRecurrentes:[] });
+    }
+});
