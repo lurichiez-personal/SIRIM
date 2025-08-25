@@ -206,7 +206,7 @@ const NuevaFacturaRecurrenteModal: React.FC<NuevaFacturaRecurrenteModalProps> = 
                                 {errors.fecha && <p className="text-sm text-red-600">{errors.fecha}</p>}
                             </div>
                         </div>
-                         {isEditMode && <div> <label className="block text-sm font-medium text-secondary-700">Estado</label> <ToggleSwitch checked={activa} onChange={setActiva} label={activa ? 'Activa' : 'Inactiva'} /></div>}
+                         {isEditMode && <div> <label className="block text-sm font-medium text-secondary-700">Estado</label> <ToggleSwitch id="toggle-activo-recurrente" checked={activa} onChange={setActiva} label={activa ? 'Activa' : 'Inactiva'} /></div>}
                     </div>
 
                     <div className="space-y-2 pt-4 border-t">
@@ -229,9 +229,9 @@ const NuevaFacturaRecurrenteModal: React.FC<NuevaFacturaRecurrenteModalProps> = 
 
                     <div className="flex justify-between pt-4 border-t">
                          <div className="space-y-3">
-                            <ToggleSwitch checked={aplicaITBIS} onChange={setAplicaITBIS} label="Aplica ITBIS"/>
-                            <ToggleSwitch checked={aplicaISC} onChange={setAplicaISC} label="Aplica ISC"/>
-                            <ToggleSwitch checked={aplicaPropina} onChange={setAplicaPropina} label="Aplica Propina Legal"/>
+                            <ToggleSwitch id="toggle-itbis-recurrente" checked={aplicaITBIS} onChange={setAplicaITBIS} label="Aplica ITBIS"/>
+                            <ToggleSwitch id="toggle-isc-recurrente" checked={aplicaISC} onChange={setAplicaISC} label="Aplica ISC"/>
+                            <ToggleSwitch id="toggle-propina-recurrente" checked={aplicaPropina} onChange={setAplicaPropina} label="Aplica Propina Legal"/>
                         </div>
                         <div className="w-full max-w-sm space-y-2">
                             <div className="flex justify-between text-sm"><span>Subtotal:</span><span>{formatCurrency(totals.subtotal)}</span></div>

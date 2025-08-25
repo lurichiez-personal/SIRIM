@@ -1,6 +1,8 @@
 
 import React from 'react';
 import { NavLink } from 'react-router-dom';
+import { Permission } from '../types';
+import Can from './Can';
 import { 
     DashboardIcon, ClientesIcon, FacturasIcon, GastosIcon, 
     IngresosIcon, ReportesIcon, ConfiguracionIcon, LogoIcon,
@@ -8,17 +10,17 @@ import {
 } from './icons/Icons';
 
 const navItems = [
-  { to: '/', label: 'Dashboard', icon: DashboardIcon },
-  { to: '/clientes', label: 'Clientes', icon: ClientesIcon },
-  { to: '/facturas', label: 'Facturación', icon: FacturasIcon },
-  { to: '/cotizaciones', label: 'Cotizaciones', icon: CotizacionesIcon },
-  { to: '/notas', label: 'Notas de Crédito', icon: DocumentDuplicateIcon },
-  { to: '/gastos', label: 'Gastos', icon: GastosIcon },
-  { to: '/ingresos', label: 'Pagos y Cobros', icon: IngresosIcon },
-  { to: '/inventario', label: 'Inventario', icon: InventarioIcon },
-  { to: '/conciliacion', label: 'Conciliación', icon: ScaleIcon },
-  { to: '/reportes', label: 'Reportes', icon: ReportesIcon },
-  { to: '/configuracion', label: 'Configuración', icon: ConfiguracionIcon },
+  { to: '/', label: 'Dashboard', icon: DashboardIcon, permission: Permission.VER_DASHBOARD },
+  { to: '/clientes', label: 'Clientes', icon: ClientesIcon, permission: Permission.GESTIONAR_CLIENTES },
+  { to: '/facturas', label: 'Facturación', icon: FacturasIcon, permission: Permission.GESTIONAR_FACTURAS },
+  { to: '/cotizaciones', label: 'Cotizaciones', icon: CotizacionesIcon, permission: Permission.GESTIONAR_COTIZACIONES },
+  { to: '/notas', label: 'Notas de Crédito', icon: DocumentDuplicateIcon, permission: Permission.GESTIONAR_NOTAS },
+  { to: '/gastos', label: 'Gastos', icon: GastosIcon, permission: Permission.GESTIONAR_GASTOS },
+  { to: '/ingresos', label: 'Pagos y Cobros', icon: IngresosIcon, permission: Permission.GESTIONAR_PAGOS },
+  { to: '/inventario', label: 'Inventario', icon: InventarioIcon, permission: Permission.GESTIONAR_INVENTARIO },
+  { to: '/conciliacion', label: 'Conciliación', icon: ScaleIcon, permission: Permission.GESTIONAR_CONCILIACION },
+  { to: '/reportes', label: 'Reportes', icon: ReportesIcon, permission: Permission.VER_REPORTES_DGII },
+  { to: '/configuracion', label: 'Configuración', icon: ConfiguracionIcon, permission: Permission.GESTIONAR_CONFIGURACION_EMPRESA },
 ];
 
 const Sidebar: React.FC = () => {
@@ -33,15 +35,16 @@ const Sidebar: React.FC = () => {
       </div>
       <nav className="flex-1 flex flex-col space-y-2">
         {navItems.map(item => (
-          <NavLink
-            key={item.to}
-            to={item.to}
-            end={item.to === '/'}
-            className={({ isActive }) => `${navLinkClasses} ${isActive ? activeNavLinkClasses : ''}`}
-          >
-            <item.icon className="h-5 w-5 mr-3" />
-            <span>{item.label}</span>
-          </NavLink>
+          <Can key={item.to} I={item.permission}>
+            <NavLink
+              to={item.to}
+              end={item.to === '/'}
+              className={({ isActive }) => `${navLinkClasses} ${isActive ? activeNavLinkClasses : ''}`}
+            >
+              <item.icon className="h-5 w-5 mr-3" />
+              <span>{item.label}</span>
+            </NavLink>
+          </Can>
         ))}
       </nav>
       <div className="mt-auto text-center text-xs text-primary-200">

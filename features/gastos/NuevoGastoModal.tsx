@@ -1,9 +1,11 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { Gasto } from '../../types';
 import Modal from '../../components/ui/Modal';
 import Button from '../../components/ui/Button';
 import { useDGIIDataStore } from '../../stores/useDGIIDataStore';
 import { useEnterToNavigate } from '../../hooks/useEnterToNavigate';
+import ToggleSwitch from '../../components/ui/ToggleSwitch';
 
 interface NuevoGastoModalProps {
   isOpen: boolean;
@@ -37,6 +39,7 @@ const NuevoGastoModal: React.FC<NuevoGastoModalProps> = ({ isOpen, onClose, onSa
     const [categoriaGasto, setCategoriaGasto] = useState('');
     const [descripcion, setDescripcion] = useState('');
     const [subtotal, setSubtotal] = useState('');
+    const [aplicaITBIS, setAplicaITBIS] = useState(true);
     const [itbis, setItbis] = useState('0.00');
     const [monto, setMonto] = useState('0.00');
     const [errors, setErrors] = useState<{ fecha?: string; subtotal?: string, descripcion?: string, categoriaGasto?: string }>({});
@@ -56,15 +59,17 @@ const NuevoGastoModal: React.FC<NuevoGastoModalProps> = ({ isOpen, onClose, onSa
                 setCategoriaGasto(gastoParaEditar.categoriaGasto || '');
                 setDescripcion(gastoParaEditar.descripcion);
                 setSubtotal(gastoParaEditar.subtotal.toString());
+                setAplicaITBIS(gastoParaEditar.aplicaITBIS);
             } else if (initialData) {
                 setRncProveedor(initialData.rncProveedor || '');
                 setNcf(initialData.ncf || '');
-                setMonto(initialData.monto?.toFixed(2) || '');
                 const montoNum = initialData.monto || 0;
+                setMonto(montoNum.toFixed(2));
+                // Assume ITBIS is included if not specified
                 const subtotalCalc = montoNum / (1 + ITBIS_RATE);
                 setSubtotal(subtotalCalc.toFixed(2));
-                setItbis((montoNum - subtotalCalc).toFixed(2));
-                handleRNCProveedorBlur(initialData.rncProveedor); // Trigger name lookup
+                setAplicaITBIS(true);
+                handleRNCProveedorBlur(initialData.rncProveedor);
             } else {
                 resetForm();
             }
@@ -72,10 +77,9 @@ const NuevoGastoModal: React.FC<NuevoGastoModalProps> = ({ isOpen, onClose, onSa
     }, [isOpen, gastoParaEditar, initialData]);
 
     useEffect(() => {
-        if (isEditMode || initialData) return;
         const subtotalNum = parseFloat(subtotal);
         if (!isNaN(subtotalNum) && subtotalNum >= 0) {
-            const itbisCalculado = subtotalNum * ITBIS_RATE;
+            const itbisCalculado = aplicaITBIS ? subtotalNum * ITBIS_RATE : 0;
             const totalCalculado = subtotalNum + itbisCalculado;
             setItbis(itbisCalculado.toFixed(2));
             setMonto(totalCalculado.toFixed(2));
@@ -83,7 +87,7 @@ const NuevoGastoModal: React.FC<NuevoGastoModalProps> = ({ isOpen, onClose, onSa
             setItbis('0.00');
             setMonto('0.00');
         }
-    }, [subtotal, isEditMode, initialData]);
+    }, [subtotal, aplicaITBIS]);
     
     const validate = () => {
         const newErrors: { fecha?: string; subtotal?: string, descripcion?: string, categoriaGasto?: string } = {};
@@ -108,9 +112,12 @@ const NuevoGastoModal: React.FC<NuevoGastoModalProps> = ({ isOpen, onClose, onSa
             fecha,
             categoriaGasto,
             descripcion,
+            aplicaITBIS,
             subtotal: parseFloat(subtotal),
             itbis: parseFloat(itbis),
             monto: parseFloat(monto),
+            comments: [],
+            auditLog: [],
         });
         resetForm();
         onClose();
@@ -124,6 +131,7 @@ const NuevoGastoModal: React.FC<NuevoGastoModalProps> = ({ isOpen, onClose, onSa
         setCategoriaGasto('');
         setDescripcion('');
         setSubtotal('');
+        setAplicaITBIS(true);
         setErrors({});
     };
 
@@ -178,9 +186,9 @@ const NuevoGastoModal: React.FC<NuevoGastoModalProps> = ({ isOpen, onClose, onSa
             <form ref={formRef} onSubmit={handleSubmit} noValidate>
                 <div className="p-6 space-y-4">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {renderInput('Proveedor', 'proveedor', 'text', proveedorNombre, setProveedorNombre, undefined, 'Nombre del proveedor', false, undefined, isEditMode)}
-                        {renderInput('RNC Proveedor', 'rncProveedor', 'text', rncProveedor, setRncProveedor, undefined, 'Ej: 130123456', false, () => handleRNCProveedorBlur(), isEditMode)}
-                        {renderInput('NCF', 'ncfGasto', 'text', ncf, setNcf, undefined, 'Ej: B0200000001')}
+                        {renderInput('Proveedor', 'proveedor', 'text', proveedorNombre, setProveedorNombre, undefined, 'Nombre del proveedor')}
+                        {renderInput('RNC Proveedor', 'rncProveedor', 'text', rncProveedor, setRncProveedor, undefined, 'Ej: 130123456', false, () => handleRNCProveedorBlur())}
+                        {renderInput('NCF', 'ncfGasto', 'text', ncf, setNcf, undefined, 'Ej: B0100000001')}
                         {renderInput('Fecha *', 'fechaGasto', 'date', fecha, setFecha, errors.fecha)}
                     </div>
                     
@@ -211,10 +219,13 @@ const NuevoGastoModal: React.FC<NuevoGastoModalProps> = ({ isOpen, onClose, onSa
                          {errors.descripcion && <p className="mt-1 text-sm text-red-600">{errors.descripcion}</p>}
                     </div>
                     
-                    <div className="grid grid-cols-3 gap-4 border-t pt-4 mt-2">
+                    <div className="grid grid-cols-3 gap-4 border-t pt-4 mt-2 items-end">
+                        <div className="col-span-3">
+                            <ToggleSwitch id="toggle-itbis-gasto" checked={aplicaITBIS} onChange={setAplicaITBIS} label="Este gasto incluye ITBIS deducible" />
+                        </div>
                         {renderInput('Subtotal *', 'subtotalGasto', 'number', subtotal, setSubtotal, errors.subtotal, '0.00')}
                         {renderInput('ITBIS', 'itbisGasto', 'number', itbis, setItbis, undefined, '0.00', true)}
-                        {renderInput('Monto Total', 'montoGasto', 'number', monto, setMonto, undefined, '0.00', false)}
+                        {renderInput('Monto Total', 'montoGasto', 'number', monto, setMonto, undefined, '0.00')}
                     </div>
                 </div>
                  <div className="flex justify-end items-center p-4 bg-secondary-50 border-t border-secondary-200 rounded-b-lg space-x-3">

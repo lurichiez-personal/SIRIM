@@ -2,12 +2,15 @@
 import { create } from 'zustand';
 import { Empresa } from '../types';
 import { useAuthStore } from './useAuthStore';
+import { useDataStore } from './useDataStore';
 
 interface TenantState {
   selectedTenant: Empresa | null;
   availableTenants: Empresa[];
   setTenant: (tenantId: number) => void;
   fetchAvailableTenants: () => void;
+  getTenantById: (tenantId: number) => Empresa | undefined;
+  clearTenants: () => void;
 }
 
 const mockEmpresas: Empresa[] = [
@@ -37,30 +40,29 @@ export const useTenantStore = create<TenantState>((set, get) => ({
     const { availableTenants } = get();
     const newTenant = availableTenants.find(t => t.id === tenantId) || null;
     set({ selectedTenant: newTenant });
-    // TODO: Al cambiar de tenant, invalidar queries de React Query para recargar datos.
+    if (newTenant) {
+        useDataStore.getState().fetchData(newTenant.id);
+    }
     console.log(`Tenant cambiado a: ${newTenant?.nombre}`);
   },
   fetchAvailableTenants: async () => {
     const user = useAuthStore.getState().user;
-    if (user) {
-        const tenants = await fetchTenantsFromApi(user.id);
-        set({ availableTenants: tenants });
-        if (tenants.length > 0) {
-            // Seleccionar la primera empresa por defecto o la asociada al usuario
-            const defaultTenantId = user.empresaId || tenants[0].id;
-            const defaultTenant = tenants.find(t => t.id === defaultTenantId);
-            set({ selectedTenant: defaultTenant });
+    const tenants = await fetchTenantsFromApi(user?.id);
+    set({ availableTenants: tenants });
+    if (user && tenants.length > 0) {
+        const defaultTenantId = user.empresaId || tenants[0].id;
+        const defaultTenant = tenants.find(t => t.id === defaultTenantId);
+        set({ selectedTenant: defaultTenant });
+        if (defaultTenant) {
+            useDataStore.getState().fetchData(defaultTenant.id);
         }
     }
   },
+  getTenantById: (tenantId: number) => {
+    const { availableTenants } = get();
+    return availableTenants.find(t => t.id === tenantId);
+  },
+  clearTenants: () => {
+    set({ selectedTenant: null, availableTenants: [] });
+  }
 }));
-
-// Sincronizar el tenant cuando el usuario se loguea
-useAuthStore.subscribe((state, prevState) => {
-    if (state.isAuthenticated && !prevState.isAuthenticated) {
-        useTenantStore.getState().fetchAvailableTenants();
-    }
-    if (!state.isAuthenticated && prevState.isAuthenticated) {
-        useTenantStore.setState({ selectedTenant: null, availableTenants: [] });
-    }
-});

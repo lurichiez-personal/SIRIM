@@ -245,9 +245,9 @@ const NuevaNotaModal: React.FC<NuevaNotaModalProps> = ({ isOpen, onClose, onSave
                 {/* Totals */}
                 <div className="flex justify-between pt-4 border-t">
                      <div className="space-y-3">
-                        <ToggleSwitch checked={aplicaITBIS} onChange={setAplicaITBIS} label="Aplica ITBIS" disabled={!isEditable}/>
-                        <ToggleSwitch checked={aplicaISC} onChange={setAplicaISC} label="Aplica ISC" disabled={!isEditable}/>
-                        <ToggleSwitch checked={aplicaPropina} onChange={setAplicaPropina} label="Aplica Propina" disabled={!isEditable}/>
+                        <ToggleSwitch id="toggle-itbis-nota" checked={aplicaITBIS} onChange={setAplicaITBIS} label="Aplica ITBIS" disabled={!isEditable}/>
+                        <ToggleSwitch id="toggle-isc-nota" checked={aplicaISC} onChange={setAplicaISC} label="Aplica ISC" disabled={!isEditable}/>
+                        <ToggleSwitch id="toggle-propina-nota" checked={aplicaPropina} onChange={setAplicaPropina} label="Aplica Propina" disabled={!isEditable}/>
                     </div>
                     <div className="w-full max-w-sm space-y-2">
                         <div className="flex justify-between items-center text-sm">

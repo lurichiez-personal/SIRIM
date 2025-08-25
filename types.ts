@@ -1,3 +1,4 @@
+
 export enum Role {
   Admin = 'Admin',
   Operaciones = 'Operaciones',
@@ -11,7 +12,10 @@ export interface User {
   nombre: string;
   email: string;
   roles: Role[];
-  empresaId?: number; // Para usuarios de una sola empresa
+  empresaId?: number; 
+  authMethod: 'microsoft' | 'local';
+  password?: string;
+  activo: boolean;
 }
 
 export interface Empresa {
@@ -47,7 +51,7 @@ export interface FacturaItem {
     descripcion: string;
     cantidad: number;
     precioUnitario: number;
-    subtotal: number; // cantidad * precioUnitario
+    subtotal: number; 
 }
 
 export interface Factura {
@@ -73,6 +77,8 @@ export interface Factura {
   cotizacionId?: number;
   facturaRecurrenteId?: number;
   conciliado: boolean;
+  comments: Comment[];
+  auditLog: AuditLogEntry[];
 }
 
 export interface Gasto {
@@ -84,10 +90,13 @@ export interface Gasto {
     fecha: string;
     subtotal: number;
     itbis: number;
-    monto: number; // monto = subtotal + itbis
+    monto: number; 
     ncf?: string;
     descripcion: string;
     conciliado: boolean;
+    aplicaITBIS: boolean;
+    comments: Comment[];
+    auditLog: AuditLogEntry[];
 }
 
 export enum MetodoPago {
@@ -121,7 +130,7 @@ export interface Item {
     nombre: string;
     descripcion?: string;
     precio: number;
-    cantidadDisponible?: number; // Para control de stock
+    cantidadDisponible?: number; 
 }
 
 export enum CotizacionEstado {
@@ -151,9 +160,10 @@ export interface Cotizacion {
   propinaLegal?: number;
   montoTotal: number;
   estado: CotizacionEstado;
+  comments: Comment[];
+  auditLog: AuditLogEntry[];
 }
 
-// Nuevos tipos para NCF Management
 export enum NCFType {
     B01 = 'B01 - Crédito Fiscal',
     B02 = 'B02 - Consumidor Final',
@@ -178,7 +188,6 @@ export interface NCFSequence {
     alertaActiva: boolean;
 }
 
-// Nuevos tipos para Notas de Crédito/Débito
 export enum NotaType {
     Credito = 'credito',
     Debito = 'debito',
@@ -199,7 +208,7 @@ export interface NotaCreditoDebito {
     tipo: NotaType;
     facturaAfectadaId: number;
     facturaAfectadaNCF: string;
-    ncf: string; // NCF de la nota (e.g., B04)
+    ncf: string; 
     fecha: string;
     clienteId: number;
     clienteNombre: string;
@@ -215,7 +224,6 @@ export interface NotaCreditoDebito {
     descripcion: string;
 }
 
-// --- Nuevos Tipos para Super App ---
 export interface PagedResult<T> {
   items: T[];
   totalCount: number;
@@ -251,6 +259,8 @@ export enum NotificationType {
     FACTURA_VENCIDA = 'FACTURA_VENCIDA',
     STOCK_BAJO = 'STOCK_BAJO',
     RECURRENTE_LISTA = 'RECURRENTE_LISTA',
+    COTIZACION_APROBADA = 'COTIZACION_APROBADA',
+    COTIZACION_RECHAZADA = 'COTIZACION_RECHAZADA'
 }
 
 export interface Notificacion {
@@ -271,7 +281,6 @@ export interface CustomizationSettings {
     footerText?: string;
 }
 
-// --- Pilar 1: Tipos de Dashboard ---
 export interface KpiData {
     totalFacturado: number;
     totalCobrado: number;
@@ -297,13 +306,12 @@ export interface PieChartDataPoint {
     value: number;
 }
 
-// --- Pilar 2: Tipos de Conciliación ---
 export interface BankTransaction {
     fecha: string;
     descripcion: string;
     monto: number;
     tipo: 'credito' | 'debito';
-    id: string; // Unique ID for the transaction line
+    id: string; 
 }
 
 export type MatchableRecord =
@@ -316,4 +324,56 @@ export interface ReconciliationMatch {
     recordId: number;
     recordType: 'factura' | 'gasto' | 'ingreso';
     status: 'sugerido' | 'confirmado';
+}
+
+// --- Pilar 3: Tipos de Colaboración ---
+export interface ClientUser {
+    id: string;
+    clienteId: number;
+    nombre: string;
+    email: string;
+}
+
+export interface Comment {
+    id: string;
+    userId: string;
+    userName: string;
+    text: string;
+    timestamp: string;
+}
+
+export interface AuditLogEntry {
+    id: string;
+    userId: string;
+    userName: string;
+    action: string;
+    timestamp: string;
+}
+
+// --- Pilar 4: Tipos de Seguridad y Offline ---
+export enum Permission {
+    VER_DASHBOARD = 'ver_dashboard',
+    GESTIONAR_CLIENTES = 'gestionar_clientes',
+    GESTIONAR_FACTURAS = 'gestionar_facturas',
+    GESTIONAR_COTIZACIONES = 'gestionar_cotizaciones',
+    GESTIONAR_NOTAS = 'gestionar_notas',
+    GESTIONAR_GASTOS = 'gestionar_gastos',
+    GESTIONAR_PAGOS = 'gestionar_pagos',
+    GESTIONAR_INVENTARIO = 'gestionar_inventario',
+    GESTIONAR_CONCILIACION = 'gestionar_conciliacion',
+    VER_REPORTES_DGII = 'ver_reportes_dgii',
+    GESTIONAR_CONFIGURACION_EMPRESA = 'gestionar_configuracion_empresa',
+    GESTIONAR_ROLES = 'gestionar_roles',
+    GESTIONAR_USUARIOS = 'gestionar_usuarios',
+}
+
+export type RolePermissions = {
+    [key in Role]?: Permission[];
+};
+
+export interface OfflineAction {
+    id: string;
+    type: string;
+    payload: any;
+    timestamp: number;
 }

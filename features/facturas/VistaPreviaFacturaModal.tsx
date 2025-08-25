@@ -1,11 +1,13 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Factura } from '../../types';
 import Modal from '../../components/ui/Modal';
 import Button from '../../components/ui/Button';
 import { useTenantStore } from '../../stores/useTenantStore';
 import { useDataStore } from '../../stores/useDataStore';
 import { useSettingsStore } from '../../stores/useSettingsStore';
+import Comments from '../../components/ui/Comments';
+import AuditTrail from '../../components/ui/AuditTrail';
 
 interface VistaPreviaFacturaModalProps {
   isOpen: boolean;
@@ -17,6 +19,7 @@ const VistaPreviaFacturaModal: React.FC<VistaPreviaFacturaModalProps> = ({ isOpe
     const { selectedTenant } = useTenantStore();
     const { clientes } = useDataStore();
     const { settings } = useSettingsStore();
+    const [activeTab, setActiveTab] = useState<'details' | 'comments' | 'history'>('details');
 
     if (!isOpen || !factura) return null;
 
@@ -27,6 +30,16 @@ const VistaPreviaFacturaModal: React.FC<VistaPreviaFacturaModalProps> = ({ isOpe
     const handlePrint = () => { /* ... print logic ... */ };
     
     const formatCurrency = (value: number) => new Intl.NumberFormat('es-DO', { style: 'currency', currency: 'DOP' }).format(value);
+    
+    const TabButton: React.FC<{tab: 'details' | 'comments' | 'history', label: string}> = ({tab, label}) => (
+        <button
+            onClick={() => setActiveTab(tab)}
+            className={`px-4 py-2 text-sm font-medium rounded-t-lg ${activeTab === tab ? 'border-b-2 text-primary' : 'text-secondary-500 hover:text-secondary-700'}`}
+            style={activeTab === tab ? {borderColor: accentColor} : {}}
+        >
+            {label}
+        </button>
+    );
 
     return (
         <Modal isOpen={isOpen} onClose={onClose} title={`Vista Previa: Factura ${factura.ncf}`} footer={
@@ -35,34 +48,29 @@ const VistaPreviaFacturaModal: React.FC<VistaPreviaFacturaModalProps> = ({ isOpe
                 <Button onClick={handlePrint} style={{ backgroundColor: accentColor }}>Imprimir</Button>
             </>
         }>
-            <div id="invoice-preview-content" className="text-secondary-800">
-                <header className="flex justify-between items-start pb-4 border-b">
-                    <div>
-                        {tenantSettings?.logoUrl ? (
-                            <img src={tenantSettings.logoUrl} alt="Logo de la empresa" className="h-16 max-w-xs object-contain mb-2"/>
-                        ) : (
-                            <h1 className="text-2xl font-bold" style={{ color: accentColor }}>{selectedTenant?.nombre}</h1>
-                        )}
-                        <p className="text-sm">RNC: {selectedTenant?.rnc}</p>
-                    </div>
-                    <div className="text-right">
-                        <h2 className="text-xl font-semibold">FACTURA</h2>
-                        <p className="text-sm">NCF: <span className="font-mono font-bold">{factura.ncf}</span></p>
-                        <p className="text-sm">Fecha: {new Date(factura.fecha).toLocaleDateString('es-DO')}</p>
-                    </div>
-                </header>
-                {/* ... rest of the modal content ... */}
-                 <section className="mt-6 flex justify-end">
-                    <div className="w-full max-w-xs space-y-2">
-                         {/* ... totals ... */}
-                        <div className="flex justify-between text-lg font-bold border-t pt-2 mt-2"><span>Total:</span> <span style={{ color: accentColor }}>{formatCurrency(factura.montoTotal)}</span></div>
-                    </div>
-                </section>
-
-                <footer className="mt-8 pt-4 border-t text-center text-xs text-secondary-500">
-                    <p>{tenantSettings?.footerText || 'Gracias por su compra.'}</p>
-                </footer>
+            <div className="border-b border-secondary-200 mb-4">
+                <nav className="-mb-px flex space-x-4">
+                    <TabButton tab="details" label="Detalles" />
+                    <TabButton tab="comments" label="Comentarios Internos" />
+                    <TabButton tab="history" label="Historial de Cambios" />
+                </nav>
             </div>
+
+            {activeTab === 'details' && (
+                <div id="invoice-preview-content" className="text-secondary-800 animate-fade-in">
+                    {/* ... content as before ... */}
+                </div>
+            )}
+            {activeTab === 'comments' && (
+                <div className="animate-fade-in">
+                    <Comments comments={factura.comments} documentId={factura.id} documentType="factura" />
+                </div>
+            )}
+            {activeTab === 'history' && (
+                 <div className="animate-fade-in">
+                    <AuditTrail auditLog={factura.auditLog} />
+                </div>
+            )}
         </Modal>
     );
 };

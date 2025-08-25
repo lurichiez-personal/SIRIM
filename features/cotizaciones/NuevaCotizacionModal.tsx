@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Cotizacion, Cliente, Item, FacturaItem } from '../../types';
 import Modal from '../../components/ui/Modal';
@@ -18,6 +19,8 @@ interface NuevaCotizacionModalProps {
 }
 
 const ITBIS_RATE = 0.18;
+const ISC_RATE = 0.16;
+const PROPINA_RATE = 0.10;
 
 const NuevaCotizacionModal: React.FC<NuevaCotizacionModalProps> = ({ isOpen, onClose, onSave, clientes, itemsDisponibles, onCreateCliente, cotizacionParaEditar }) => {
     const [clienteId, setClienteId] = useState<number | null>(null);
@@ -111,6 +114,8 @@ const NuevaCotizacionModal: React.FC<NuevaCotizacionModalProps> = ({ isOpen, onC
             aplicaPropina,
             propinaLegal: aplicaPropina ? propinaLegal || 0 : 0,
             montoTotal: totals.montoTotal,
+            comments: [],
+            auditLog: [],
         });
         resetForm();
         onClose();
@@ -205,11 +210,11 @@ const NuevaCotizacionModal: React.FC<NuevaCotizacionModalProps> = ({ isOpen, onC
                 {/* Header */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                        <label htmlFor="clienteRNC" className="block text-sm font-medium text-secondary-700">RNC / Cédula</label>
+                        <label htmlFor="clienteRNC-cot" className="block text-sm font-medium text-secondary-700">RNC / Cédula</label>
                         <div className="relative mt-1">
                             <input
                                 type="text"
-                                id="clienteRNC"
+                                id="clienteRNC-cot"
                                 value={clienteRNC}
                                 onChange={(e) => setClienteRNC(e.target.value)}
                                 onBlur={handleRNCBlur}
@@ -228,10 +233,10 @@ const NuevaCotizacionModal: React.FC<NuevaCotizacionModalProps> = ({ isOpen, onC
                         </div>
                     </div>
                      <div>
-                        <label htmlFor="clienteNombre" className="block text-sm font-medium text-secondary-700">Nombre / Razón Social *</label>
+                        <label htmlFor="clienteNombre-cot" className="block text-sm font-medium text-secondary-700">Nombre / Razón Social *</label>
                         <input
                             type="text"
-                            id="clienteNombre"
+                            id="clienteNombre-cot"
                             value={clienteNombre}
                             onChange={(e) => {
                                 setClienteNombre(e.target.value);
@@ -244,8 +249,8 @@ const NuevaCotizacionModal: React.FC<NuevaCotizacionModalProps> = ({ isOpen, onC
                     </div>
 
                      <div>
-                        <label htmlFor="fecha" className="block text-sm font-medium text-secondary-700">Fecha *</label>
-                        <input type="date" id="fecha" value={fecha} onChange={e => setFecha(e.target.value)} className={`mt-1 block w-full px-3 py-2 border ${errors.fecha ? 'border-red-500' : 'border-secondary-300'} rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary sm:text-sm`} />
+                        <label htmlFor="fecha-cot" className="block text-sm font-medium text-secondary-700">Fecha *</label>
+                        <input type="date" id="fecha-cot" value={fecha} onChange={e => setFecha(e.target.value)} className={`mt-1 block w-full px-3 py-2 border ${errors.fecha ? 'border-red-500' : 'border-secondary-300'} rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary sm:text-sm`} />
                         {errors.fecha && <p className="mt-1 text-sm text-red-600">{errors.fecha}</p>}
                     </div>
                 </div>
@@ -276,22 +281,22 @@ const NuevaCotizacionModal: React.FC<NuevaCotizacionModalProps> = ({ isOpen, onC
                 </div>
 
                 {/* Totals */}
-                <div className="flex justify-between pt-4 border-t">
-                     <div className="space-y-3">
-                        <ToggleSwitch checked={aplicaITBIS} onChange={setAplicaITBIS} label="Aplica ITBIS"/>
-                        <ToggleSwitch checked={aplicaISC} onChange={setAplicaISC} label="Aplica ISC"/>
-                        <ToggleSwitch checked={aplicaPropina} onChange={setAplicaPropina} label="Aplica Propina Legal"/>
+                <div className="pt-4 border-t mt-4 flex justify-between">
+                    <div className="w-1/2 space-y-3 pr-4">
+                        <ToggleSwitch id="toggle-itbis-cot" checked={aplicaITBIS} onChange={setAplicaITBIS} label="Aplica ITBIS" />
+                        <ToggleSwitch id="toggle-isc-cot" checked={aplicaISC} onChange={setAplicaISC} label="Aplica ISC" />
+                        <ToggleSwitch id="toggle-propina-cot" checked={aplicaPropina} onChange={setAplicaPropina} label="Aplica Propina Legal" />
                     </div>
-                    <div className="w-full max-w-sm space-y-2">
+                    <div className="w-1/2 space-y-2">
                         <div className="flex justify-between text-sm">
                             <span className="font-medium text-secondary-600">Subtotal:</span>
                             <span className="text-secondary-800">{formatCurrency(totals.subtotal)}</span>
                         </div>
-                         <div className="flex justify-between items-center text-sm">
-                            <label htmlFor="descuento" className="font-medium text-secondary-600">Descuento (%):</label>
+                        <div className="flex justify-between items-center text-sm">
+                            <label htmlFor="descuento-cot" className="font-medium text-secondary-600">Descuento (%):</label>
                             <input
                                 type="number"
-                                id="descuento"
+                                id="descuento-cot"
                                 value={descuentoPorcentaje}
                                 onChange={e => setDescuentoPorcentaje(parseFloat(e.target.value) || 0)}
                                 className="w-20 px-2 py-1 border border-secondary-300 rounded-md shadow-sm sm:text-sm text-right"
@@ -304,21 +309,21 @@ const NuevaCotizacionModal: React.FC<NuevaCotizacionModalProps> = ({ isOpen, onC
                             </div>
                         )}
                         {aplicaISC && (
-                          <div className="flex justify-between items-center text-sm">
-                              <label htmlFor="isc-cot" className="font-medium text-secondary-600">ISC:</label>
-                               <input type="number" id="isc-cot" value={isc} onChange={e => setIsc(parseFloat(e.target.value) || 0)} className="w-28 px-2 py-1 border border-secondary-300 rounded-md shadow-sm sm:text-sm text-right" />
-                          </div>
+                             <div className="flex justify-between items-center text-sm">
+                                <label htmlFor="isc-input-cot" className="font-medium text-secondary-600">ISC ({ISC_RATE * 100}%):</label>
+                                <input type="number" id="isc-input-cot" value={isc} onChange={e => setIsc(parseFloat(e.target.value) || 0)} className="w-28 px-2 py-1 border border-secondary-300 rounded-md shadow-sm sm:text-sm text-right" />
+                            </div>
                         )}
                         <div className="flex justify-between text-sm">
                             <span className="font-medium text-secondary-600">ITBIS ({ITBIS_RATE * 100}%):</span>
                             <span className="text-secondary-800">{formatCurrency(totals.itbis)}</span>
                         </div>
-                         {aplicaPropina && (
-                          <div className="flex justify-between items-center text-sm">
-                              <label htmlFor="propina-cot" className="font-medium text-secondary-600">Propina Legal:</label>
-                               <input type="number" id="propina-cot" value={propinaLegal} onChange={e => setPropinaLegal(parseFloat(e.target.value) || 0)} className="w-28 px-2 py-1 border border-secondary-300 rounded-md shadow-sm sm:text-sm text-right" />
-                          </div>
-                         )}
+                        {aplicaPropina && (
+                            <div className="flex justify-between items-center text-sm">
+                                <label htmlFor="propina-input-cot" className="font-medium text-secondary-600">Propina ({PROPINA_RATE * 100}%):</label>
+                                <input type="number" id="propina-input-cot" value={propinaLegal} onChange={e => setPropinaLegal(parseFloat(e.target.value) || 0)} className="w-28 px-2 py-1 border border-secondary-300 rounded-md shadow-sm sm:text-sm text-right" />
+                            </div>
+                        )}
                         <div className="flex justify-between text-lg font-bold border-t pt-2 mt-2">
                             <span className="text-secondary-800">Total:</span>
                             <span className="text-primary">{formatCurrency(totals.montoTotal)}</span>

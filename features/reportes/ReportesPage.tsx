@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
@@ -6,7 +7,7 @@ import { useDataStore } from '../../stores/useDataStore';
 import { useTenantStore } from '../../stores/useTenantStore';
 import { generate606, generate607, generate608, calculateAnexoA } from '../../utils/dgiiReportUtils';
 import AnexoAModal from './AnexoAModal';
-import { Gasto, Factura, NotaCreditoDebito } from '../../types';
+import { useAlertStore } from '../../stores/useAlertStore';
 
 interface ReportDates {
     start: string;
@@ -46,6 +47,8 @@ const ReporteCard: React.FC<{ title: string, description: string, onGenerate: ()
 const ReportesPage: React.FC = () => {
     const { selectedTenant } = useTenantStore();
     const { getGastosFor606, getVentasFor607, getAnuladosFor608 } = useDataStore();
+    const { showAlert } = useAlertStore();
+
     const [dates, setDates] = useState<Record<string, ReportDates>>({
         '606': { start: '', end: '' },
         '607': { start: '', end: '' },
@@ -71,12 +74,12 @@ const ReportesPage: React.FC = () => {
 
     const handleGenerate = (reporte: '606' | '607' | '608' | 'AnexoA') => {
         if (!selectedTenant) {
-            alert('Por favor, seleccione una empresa.');
+            showAlert('Información', 'Por favor, seleccione una empresa.');
             return;
         }
         const { start, end } = dates[reporte];
         if (!start || !end) {
-            alert('Por favor, seleccione un rango de fechas válido.');
+            showAlert('Información', 'Por favor, seleccione un rango de fechas válido.');
             return;
         }
         
@@ -87,7 +90,7 @@ const ReportesPage: React.FC = () => {
             case '606': {
                 const data = getGastosFor606(start, end);
                 if (data.length === 0) {
-                    alert('No hay datos para generar el Reporte 606 en el período seleccionado.');
+                    showAlert('Sin Datos', 'No hay datos para generar el Reporte 606 en el período seleccionado.');
                     return;
                 }
                 generate606(data, rnc, period);
@@ -96,7 +99,7 @@ const ReportesPage: React.FC = () => {
             case '607': {
                 const { facturas, notas } = getVentasFor607(start, end);
                 if (facturas.length === 0 && notas.length === 0) {
-                    alert('No hay datos para generar el Reporte 607 en el período seleccionado.');
+                    showAlert('Sin Datos', 'No hay datos para generar el Reporte 607 en el período seleccionado.');
                     return;
                 }
                 generate607(facturas, notas, rnc, period);
@@ -105,7 +108,7 @@ const ReportesPage: React.FC = () => {
             case '608': {
                 const data = getAnuladosFor608(start, end);
                 if (data.length === 0) {
-                    alert('No hay datos para generar el Reporte 608 en el período seleccionado.');
+                    showAlert('Sin Datos', 'No hay datos para generar el Reporte 608 en el período seleccionado.');
                     return;
                 }
                 generate608(data, rnc, period);
@@ -115,7 +118,7 @@ const ReportesPage: React.FC = () => {
                 const ventas = getVentasFor607(start, end);
                 const gastos = getGastosFor606(start, end);
                 if (ventas.facturas.length === 0 && ventas.notas.length === 0 && gastos.length === 0) {
-                    alert('No hay datos de ventas ni gastos para generar el Anexo A en el período seleccionado.');
+                    showAlert('Sin Datos', 'No hay datos de ventas ni gastos para generar el Anexo A en el período seleccionado.');
                     return;
                 }
                 const data = calculateAnexoA(ventas, gastos);

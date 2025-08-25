@@ -5,6 +5,7 @@ import Sidebar from './Sidebar';
 import { TaskStatusContainer } from './ui/TaskStatus';
 import CommandPalette from './ui/CommandPalette';
 import { useCommandPaletteStore } from '../stores/useCommandPaletteStore';
+import AlertModal from './ui/AlertModal';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -37,6 +38,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       </div>
       <TaskStatusContainer />
       <CommandPalette />
+      <AlertModal />
     </div>
   );
 };

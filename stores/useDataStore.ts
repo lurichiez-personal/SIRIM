@@ -1,5 +1,6 @@
+
 import { create } from 'zustand';
-import { Factura, Cliente, Item, Gasto, Ingreso, Cotizacion, NotaCreditoDebito, FacturaEstado, CotizacionEstado, MetodoPago, NotaType, FacturaRecurrente, PagedResult, CodigoModificacionNCF, KpiData, ChartDataPoint, PieChartDataPoint } from '../types';
+import { Factura, Cliente, Item, Gasto, Ingreso, Cotizacion, NotaCreditoDebito, FacturaEstado, CotizacionEstado, MetodoPago, NotaType, FacturaRecurrente, PagedResult, CodigoModificacionNCF, KpiData, ChartDataPoint, PieChartDataPoint, Comment, AuditLogEntry } from '../types';
 import { useTenantStore } from './useTenantStore';
 import { useNotificationStore } from './useNotificationStore';
 import { useAuthStore } from './useAuthStore';
@@ -15,9 +16,9 @@ let allClientes: Cliente[] = [
 ];
 
 let allFacturas: Factura[] = [
-    { id: 101, empresaId: 1, clienteId: 1, clienteNombre: 'Cliente A Corp', fecha: '2024-05-20', items: [{itemId: 1001, codigo: 'SERV-CONS', descripcion: 'Servicio de Consultoría', cantidad: 25, precioUnitario: 5000, subtotal: 125000}], subtotal: 125000, aplicaITBIS: true, aplicaISC: true, isc: 2118.64, itbis: 22881.36, aplicaPropina: false, propinaLegal: 0, montoTotal: 150000.00, montoPagado: 150000.00, ncf: 'B0100000101', estado: FacturaEstado.Pagada, conciliado: false },
-    { id: 102, empresaId: 1, clienteId: 2, clienteNombre: 'Cliente B Industrial', fecha: '2024-05-15', items: [], subtotal: 70000.00, descuentoPorcentaje: 5, montoDescuento: 3500, aplicaITBIS: true, aplicaISC: false, isc: 0, itbis: 11970, aplicaPropina: false, propinaLegal: 0, montoTotal: 78470, montoPagado: 40000, ncf: 'B0100000102', estado: FacturaEstado.PagadaParcialmente, conciliado: false },
-    { id: 103, empresaId: 1, clienteId: 4, clienteNombre: 'Comercial C & D', fecha: '2024-04-10', items: [], subtotal: 25000.00, aplicaITBIS: true, itbis: 4500, montoTotal: 29500.00, montoPagado: 0, ncf: 'B0100000103', estado: FacturaEstado.Vencida, conciliado: false },
+    { id: 101, empresaId: 1, clienteId: 1, clienteNombre: 'Cliente A Corp', fecha: '2024-05-20', items: [{itemId: 1001, codigo: 'SERV-CONS', descripcion: 'Servicio de Consultoría', cantidad: 25, precioUnitario: 5000, subtotal: 125000}], subtotal: 125000, aplicaITBIS: true, aplicaISC: true, isc: 2118.64, itbis: 22881.36, aplicaPropina: false, propinaLegal: 0, montoTotal: 150000.00, montoPagado: 150000.00, ncf: 'B0100000101', estado: FacturaEstado.Pagada, conciliado: false, comments: [], auditLog: [] },
+    { id: 102, empresaId: 1, clienteId: 2, clienteNombre: 'Cliente B Industrial', fecha: '2024-05-15', items: [], subtotal: 70000.00, descuentoPorcentaje: 5, montoDescuento: 3500, aplicaITBIS: true, aplicaISC: false, isc: 0, itbis: 11970, aplicaPropina: false, propinaLegal: 0, montoTotal: 78470, montoPagado: 40000, ncf: 'B0100000102', estado: FacturaEstado.PagadaParcialmente, conciliado: false, comments: [], auditLog: [] },
+    { id: 103, empresaId: 1, clienteId: 4, clienteNombre: 'Comercial C & D', fecha: '2024-04-10', items: [], subtotal: 25000.00, aplicaITBIS: true, itbis: 4500, montoTotal: 29500.00, montoPagado: 0, ncf: 'B0100000103', estado: FacturaEstado.Vencida, conciliado: false, comments: [], auditLog: [] },
 ];
 let allItems: Item[] = [
     { id: 1001, empresaId: 1, codigo: 'SERV-CONS', nombre: 'Servicio de Consultoría', precio: 5000.00, cantidadDisponible: undefined },
@@ -27,12 +28,12 @@ let allItems: Item[] = [
 ];
 
 let allCotizaciones: Cotizacion[] = [
-    { id: 201, empresaId: 1, clienteId: 1, clienteNombre: 'Cliente A Corp', clienteRNC: '130123456', fecha: '2024-05-10', items: [], subtotal: 50000, aplicaITBIS: true, montoTotal: 59000, estado: CotizacionEstado.Pendiente, itbis: 9000 },
-    { id: 202, empresaId: 1, clienteId: 2, clienteNombre: 'Cliente B Industrial', clienteRNC: '131987654', fecha: '2024-04-25', items: [], subtotal: 120000, aplicaITBIS: true, montoTotal: 141600, estado: CotizacionEstado.Facturada, itbis: 21600 } as Cotizacion,
+    { id: 201, empresaId: 1, clienteId: 1, clienteNombre: 'Cliente A Corp', clienteRNC: '130123456', fecha: '2024-05-10', items: [], subtotal: 50000, aplicaITBIS: true, montoTotal: 59000, estado: CotizacionEstado.Pendiente, itbis: 9000, comments: [], auditLog: [] },
+    { id: 202, empresaId: 1, clienteId: 2, clienteNombre: 'Cliente B Industrial', clienteRNC: '131987654', fecha: '2024-04-25', items: [], subtotal: 120000, aplicaITBIS: true, montoTotal: 141600, estado: CotizacionEstado.Facturada, itbis: 21600, comments: [], auditLog: [] },
 ];
 
 let allGastos: Gasto[] = [
-    { id: 301, empresaId: 1, proveedorNombre: 'Proveedor de Oficina S.A.', rncProveedor: '130999888', categoriaGasto: '09 - COMPRAS Y GASTOS QUE FORMARAN PARTE DEL COSTO DE VENTA', fecha: '2024-05-18', subtotal: 15000, itbis: 2700, monto: 17700, ncf: 'B0100003456', descripcion: 'Compra de papelería y suministros de oficina', conciliado: false },
+    { id: 301, empresaId: 1, proveedorNombre: 'Proveedor de Oficina S.A.', rncProveedor: '130999888', categoriaGasto: '09 - COMPRAS Y GASTOS QUE FORMARAN PARTE DEL COSTO DE VENTA', fecha: '2024-05-18', subtotal: 15000, itbis: 2700, monto: 17700, ncf: 'B0100003456', descripcion: 'Compra de papelería y suministros de oficina', conciliado: false, aplicaITBIS: true, comments: [], auditLog: [] },
 ];
 
 let allIngresos: Ingreso[] = [
@@ -60,6 +61,7 @@ interface DataState {
   clientes: Cliente[]; facturas: Factura[]; items: Item[]; cotizaciones: Cotizacion[]; notas: NotaCreditoDebito[]; gastos: Gasto[]; ingresos: Ingreso[]; facturasRecurrentes: FacturaRecurrente[];
   // Actions
   fetchData: (empresaId: number) => void;
+  clearData: () => void;
   // Paged Getters
   getPagedClientes: (options: { page: number, pageSize: number, searchTerm?: string, status?: 'todos' | 'activo' | 'inactivo' }) => PagedResult<Cliente>;
   getPagedFacturas: (options: { page: number, pageSize: number, searchTerm?: string, status?: string, startDate?: string, endDate?: string }) => PagedResult<Factura>;
@@ -80,7 +82,6 @@ interface DataState {
   getSalesVsExpensesData: (period: 'year' | '30days') => ChartDataPoint[];
   getGastosByCategoryData: () => PieChartDataPoint[];
   getIngresosByClientData: () => PieChartDataPoint[];
-
 
   // Mutators
   addFactura: (facturaData: Omit<Factura, 'id' | 'empresaId' | 'conciliado'>) => void;
@@ -110,6 +111,9 @@ interface DataState {
 
   addFacturaRecurrente: (data: Omit<FacturaRecurrente, 'id' | 'empresaId' | 'fechaProxima' | 'activa'>) => void;
   updateFacturaRecurrente: (data: FacturaRecurrente) => void;
+  
+  addComment: (documentType: 'factura' | 'gasto' | 'cotizacion', documentId: number, text: string) => void;
+  addAuditLog: (documentType: 'factura' | 'gasto' | 'cotizacion', documentId: number, action: string) => void;
 
   // --- Pilar 2: Conciliación Mutators ---
   setConciliadoStatus: (recordType: 'factura' | 'gasto' | 'ingreso', recordId: number, status: boolean) => void;
@@ -145,6 +149,9 @@ export const useDataStore = create<DataState>((set, get) => ({
         ingresos: [...allIngresos.filter(i => i.empresaId === empresaId)],
         facturasRecurrentes: [...allFacturasRecurrentes.filter(fr => fr.empresaId === empresaId)],
     });
+  },
+  clearData: () => {
+    set({ clientes: [], facturas: [], items: [], cotizaciones: [], notas: [], gastos: [], ingresos: [], facturasRecurrentes: [] });
   },
     
   // --- PAGED GETTERS ---
@@ -349,13 +356,68 @@ export const useDataStore = create<DataState>((set, get) => ({
   getIngresosByClientData: () => { return []; },
 
   // --- MUTATORS ---
+  addAuditLog: (documentType, documentId, action) => {
+      const user = useAuthStore.getState().user;
+      if (!user) return;
+
+      const newLog: AuditLogEntry = {
+          id: `${Date.now()}`,
+          userId: user.id,
+          userName: user.nombre,
+          action,
+          timestamp: new Date().toISOString()
+      };
+
+      let targetArray;
+      switch (documentType) {
+          case 'factura': targetArray = allFacturas; break;
+          case 'gasto': targetArray = allGastos; break;
+          case 'cotizacion': targetArray = allCotizaciones; break;
+          default: return;
+      }
+      
+      const docIndex = targetArray.findIndex(doc => doc.id === documentId);
+      if (docIndex > -1) {
+          targetArray[docIndex].auditLog.push(newLog);
+      }
+  },
+  
+  addComment: (documentType, documentId, text) => {
+    const user = useAuthStore.getState().user;
+    if (!user) return;
+    
+    const newComment: Comment = {
+      id: `${Date.now()}`,
+      userId: user.id,
+      userName: user.nombre,
+      text,
+      timestamp: new Date().toISOString()
+    };
+    
+    let targetArray;
+      switch (documentType) {
+          case 'factura': targetArray = allFacturas; break;
+          case 'gasto': targetArray = allGastos; break;
+          case 'cotizacion': targetArray = allCotizaciones; break;
+          default: return;
+      }
+      
+      const docIndex = targetArray.findIndex(doc => doc.id === documentId);
+      if (docIndex > -1) {
+          targetArray[docIndex].comments.push(newComment);
+      }
+      
+      const empresaId = useTenantStore.getState().selectedTenant?.id;
+      if(empresaId) get().fetchData(empresaId);
+  },
+
   addFactura: (facturaData) => {
     const empresaId = useTenantStore.getState().selectedTenant?.id;
     if (!empresaId) return;
     const newFactura: Factura = { ...facturaData, id: Date.now(), empresaId, conciliado: false };
+    get().addAuditLog('factura', newFactura.id, `creó la factura con NCF ${newFactura.ncf}.`);
     allFacturas.unshift(newFactura);
     
-    // Stock management
     newFactura.items.forEach(itemFacturado => {
         const itemIndex = allItems.findIndex(i => i.id === itemFacturado.itemId);
         if (itemIndex > -1 && allItems[itemIndex].cantidadDisponible !== undefined) {
@@ -363,17 +425,17 @@ export const useDataStore = create<DataState>((set, get) => ({
         }
     });
     
-    // Recurring invoice management
     if (newFactura.facturaRecurrenteId) {
         const recurrenteIndex = allFacturasRecurrentes.findIndex(f => f.id === newFactura.facturaRecurrenteId);
         if (recurrenteIndex > -1) {
             const recurrente = allFacturasRecurrentes[recurrenteIndex];
             recurrente.fechaProxima = calculateNextDate(recurrente.fechaProxima, recurrente.frecuencia);
+            get().addAuditLog('factura', newFactura.id, `fue generada desde la plantilla recurrente #${recurrente.id}.`);
         }
     }
 
     get().fetchData(empresaId);
-    useNotificationStore.getState().fetchNotifications(empresaId); // Re-check for low stock
+    useNotificationStore.getState().fetchNotifications(empresaId); 
   },
   updateFactura: (factura) => {
     const empresaId = useTenantStore.getState().selectedTenant?.id;
@@ -381,6 +443,7 @@ export const useDataStore = create<DataState>((set, get) => ({
     const index = allFacturas.findIndex(f => f.id === factura.id);
     if (index > -1) {
         allFacturas[index] = factura;
+        get().addAuditLog('factura', factura.id, `actualizó la factura.`);
     }
     get().fetchData(empresaId);
   },
@@ -390,20 +453,12 @@ export const useDataStore = create<DataState>((set, get) => ({
     const index = allFacturas.findIndex(f => f.id === facturaId);
     if (index > -1) {
         allFacturas[index].estado = status;
+        get().addAuditLog('factura', facturaId, `cambió el estado a ${status}.`);
     }
     get().fetchData(empresaId);
   },
   bulkUpdateFacturaStatus: (facturaIds, status) => {
-    allFacturas.forEach((factura, index) => {
-        if (facturaIds.includes(factura.id)) {
-            allFacturas[index].estado = status;
-            if (status === FacturaEstado.Pagada) {
-                 allFacturas[index].montoPagado = allFacturas[index].montoTotal;
-            }
-        }
-    });
-    const empresaId = useTenantStore.getState().selectedTenant?.id;
-    if (empresaId) get().fetchData(empresaId);
+    facturaIds.forEach(id => get().updateFacturaStatus(id, status));
   },
 
   addCliente: (clienteData) => {
@@ -452,10 +507,12 @@ export const useDataStore = create<DataState>((set, get) => ({
     if (facturaIndex > -1) {
         const factura = allFacturas[facturaIndex];
         factura.montoPagado += ingresoData.monto;
-        if (factura.montoPagado >= factura.montoTotal) {
-            factura.estado = FacturaEstado.Pagada;
+        const newStatus = factura.montoPagado >= factura.montoTotal ? FacturaEstado.Pagada : FacturaEstado.PagadaParcialmente;
+        if(factura.estado !== newStatus) {
+            factura.estado = newStatus;
+            get().addAuditLog('factura', factura.id, `registró un pago de ${ingresoData.monto} y cambió el estado a ${newStatus}.`);
         } else {
-            factura.estado = FacturaEstado.PagadaParcialmente;
+            get().addAuditLog('factura', factura.id, `registró un pago de ${ingresoData.monto}.`);
         }
     }
     get().fetchData(empresaId);
@@ -485,7 +542,8 @@ export const useDataStore = create<DataState>((set, get) => ({
   addGasto: (gastoData) => {
     const empresaId = useTenantStore.getState().selectedTenant?.id;
     if (!empresaId) return;
-    const newGasto: Gasto = { ...gastoData, id: Date.now(), empresaId, conciliado: false };
+    const newGasto: Gasto = { ...gastoData, id: Date.now(), empresaId, conciliado: false, comments: [], auditLog: [] };
+    get().addAuditLog('gasto', newGasto.id, `registró el gasto.`);
     allGastos.unshift(newGasto);
     get().fetchData(empresaId);
   },
@@ -495,6 +553,7 @@ export const useDataStore = create<DataState>((set, get) => ({
     const index = allGastos.findIndex(g => g.id === gasto.id);
     if (index > -1) {
         allGastos[index] = gasto;
+        get().addAuditLog('gasto', gasto.id, `actualizó el gasto.`);
     }
     get().fetchData(empresaId);
   },
@@ -508,6 +567,7 @@ export const useDataStore = create<DataState>((set, get) => ({
     const empresaId = useTenantStore.getState().selectedTenant?.id;
     if (!empresaId) return;
     const newCotizacion: Cotizacion = { ...cotizacionData, id: Date.now(), empresaId, estado: CotizacionEstado.Pendiente };
+    get().addAuditLog('cotizacion', newCotizacion.id, `creó la cotización.`);
     allCotizaciones.unshift(newCotizacion);
     get().fetchData(empresaId);
   },
@@ -517,6 +577,7 @@ export const useDataStore = create<DataState>((set, get) => ({
     const index = allCotizaciones.findIndex(c => c.id === cotizacion.id);
     if (index > -1) {
         allCotizaciones[index] = cotizacion;
+        get().addAuditLog('cotizacion', cotizacion.id, `actualizó la cotización.`);
     }
     get().fetchData(empresaId);
   },
@@ -526,6 +587,7 @@ export const useDataStore = create<DataState>((set, get) => ({
     const index = allCotizaciones.findIndex(c => c.id === cotizacionId);
     if (index > -1) {
         allCotizaciones[index].estado = status;
+        get().addAuditLog('cotizacion', cotizacionId, `cambió el estado a ${status}.`);
     }
     get().fetchData(empresaId);
   },
@@ -580,17 +642,3 @@ export const useDataStore = create<DataState>((set, get) => ({
     get().fetchData(empresaId);
   },
 }));
-
-// Re-fetch data when tenant changes
-useTenantStore.subscribe((state, prevState) => {
-    if (state.selectedTenant && state.selectedTenant.id !== prevState.selectedTenant?.id) {
-        useDataStore.getState().fetchData(state.selectedTenant.id);
-    }
-});
-
-// Clear all data on logout
-useAuthStore.subscribe((state, prevState) => {
-    if (!state.isAuthenticated && prevState.isAuthenticated) {
-        useDataStore.setState({ clientes: [], facturas: [], items: [], cotizaciones:[], notas:[], gastos:[], ingresos:[], facturasRecurrentes:[] });
-    }
-});

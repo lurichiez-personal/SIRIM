@@ -2,6 +2,7 @@
 import React from 'react';
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useAuthStore } from './stores/useAuthStore';
+import { useClientAuthStore } from './stores/useClientAuthStore';
 
 import Layout from './components/Layout';
 import ProtectedRoute from './components/ProtectedRoute';
@@ -21,19 +22,42 @@ import NotasPage from './features/notas/NotasPage';
 import PersonalizacionPage from './features/configuracion/PersonalizacionPage';
 import FacturacionRecurrentePage from './features/configuracion/FacturacionRecurrentePage';
 import ConciliacionPage from './features/conciliacion/ConciliacionPage';
+import RolesPage from './features/configuracion/RolesPage';
+import GestionUsuariosPage from './features/configuracion/GestionUsuariosPage';
 
-// TODO: Implementar React Query para el fetching de datos.
-// import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-// const queryClient = new QueryClient();
+// Client Portal
+import ClientPortalLayout from './features/portal/ClientPortalLayout';
+import ClientPortalLoginPage from './features/portal/ClientPortalLoginPage';
+import PortalDashboardPage from './features/portal/PortalDashboardPage';
+import PortalFacturasPage from './features/portal/PortalFacturasPage';
+import PortalCotizacionesPage from './features/portal/PortalCotizacionesPage';
 
 function App(): React.ReactNode {
   const { isAuthenticated } = useAuthStore();
+  const { isClientAuthenticated } = useClientAuthStore();
 
   return (
-    // <QueryClientProvider client={queryClient}>
     <HashRouter>
       <Routes>
         <Route path="/login" element={isAuthenticated ? <Navigate to="/" /> : <LoginPage />} />
+        
+        {/* Client Portal Routes */}
+        <Route path="/portal/login" element={isClientAuthenticated ? <Navigate to="/portal" /> : <ClientPortalLoginPage />} />
+        <Route path="/portal/*" element={isClientAuthenticated ? (
+            <ClientPortalLayout>
+              <Routes>
+                <Route path="/" element={<PortalDashboardPage />} />
+                <Route path="/facturas" element={<PortalFacturasPage />} />
+                <Route path="/cotizaciones" element={<PortalCotizacionesPage />} />
+                <Route path="*" element={<Navigate to="/portal" />} />
+              </Routes>
+            </ClientPortalLayout>
+          ) : (
+            <Navigate to="/portal/login" />
+          )
+        } />
+
+        {/* Main App Routes */}
         <Route 
           path="/*"
           element={
@@ -54,6 +78,8 @@ function App(): React.ReactNode {
                   <Route path="/configuracion/ncf" element={<NCFPage />} />
                   <Route path="/configuracion/personalizacion" element={<PersonalizacionPage />} />
                   <Route path="/configuracion/facturacion-recurrente" element={<FacturacionRecurrentePage />} />
+                  <Route path="/configuracion/roles" element={<RolesPage />} />
+                  <Route path="/configuracion/usuarios" element={<GestionUsuariosPage />} />
                   <Route path="*" element={<Navigate to="/" />} />
                 </Routes>
               </Layout>
@@ -62,7 +88,6 @@ function App(): React.ReactNode {
         />
       </Routes>
     </HashRouter>
-    // </QueryClientProvider>
   );
 }
 

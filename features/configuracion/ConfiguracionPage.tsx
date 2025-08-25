@@ -2,7 +2,9 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/Card';
-import { FacturasIcon, UserCircleIcon, ClientesIcon, DocumentDuplicateIcon } from '../../components/icons/Icons';
+import { FacturasIcon, UserCircleIcon, ClientesIcon, DocumentDuplicateIcon, ConfiguracionIcon } from '../../components/icons/Icons';
+import { Permission } from '../../types';
+import Can from '../../components/Can';
 
 interface SettingCardProps {
     to: string;
@@ -35,27 +37,37 @@ const ConfiguracionPage: React.FC = () => {
             <SettingCard
                 to="/configuracion/ncf"
                 title="Gestión de Secuencias NCF"
-                description="Añada y administre las secuencias de comprobantes fiscales aprobadas por la DGII para su uso en facturación."
+                description="Añada y administre las secuencias de comprobantes fiscales aprobadas por la DGII."
                 icon={FacturasIcon}
             />
              <SettingCard
                 to="/configuracion/personalizacion"
                 title="Personalización de Plantillas"
-                description="Suba el logo de su empresa, elija un color de acento y personalice el pie de página de sus facturas y cotizaciones."
+                description="Suba el logo de su empresa, elija un color de acento y personalice sus documentos."
                 icon={ClientesIcon}
             />
             <SettingCard
                 to="/configuracion/facturacion-recurrente"
                 title="Facturación Recurrente"
-                description="Configure facturas automáticas para clientes con pagos recurrentes, como igualas o suscripciones mensuales."
+                description="Configure facturas automáticas para clientes con pagos recurrentes."
                 icon={DocumentDuplicateIcon}
             />
-            <SettingCard
-                to="#"
-                title="Gestión de Usuarios (Próximamente)"
-                description="Invite y asigne roles a los miembros de su equipo para controlar el acceso a la aplicación."
-                icon={UserCircleIcon}
-            />
+            <Can I={Permission.GESTIONAR_USUARIOS}>
+                <SettingCard
+                    to="/configuracion/usuarios"
+                    title="Gestión de Usuarios"
+                    description="Invite, cree y asigne roles a los miembros de su equipo para controlar el acceso."
+                    icon={UserCircleIcon}
+                />
+            </Can>
+             <Can I={Permission.GESTIONAR_ROLES}>
+                <SettingCard
+                    to="/configuracion/roles"
+                    title="Gestión de Roles y Permisos"
+                    description="Defina qué puede hacer cada rol en la aplicación con permisos granulares."
+                    icon={ConfiguracionIcon}
+                />
+            </Can>
         </div>
     </div>
   );

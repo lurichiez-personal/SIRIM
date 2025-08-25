@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Factura, Cliente, Item, FacturaItem, Cotizacion, NCFType, FacturaRecurrente } from '../../types';
 import Modal from '../../components/ui/Modal';
@@ -22,6 +23,8 @@ interface NuevaFacturaModalProps {
 }
 
 const ITBIS_RATE = 0.18;
+const ISC_RATE = 0.16; // Tasa de referencia
+const PROPINA_RATE = 0.10; // Tasa de referencia
 
 const NuevaFacturaModal: React.FC<NuevaFacturaModalProps> = ({ isOpen, onClose, onSave, clientes, itemsDisponibles, onCreateCliente, cotizacionParaFacturar, facturaRecurrenteParaFacturar, facturaParaEditar }) => {
     const { selectedTenant } = useTenantStore();
@@ -156,6 +159,8 @@ const NuevaFacturaModal: React.FC<NuevaFacturaModalProps> = ({ isOpen, onClose, 
             cotizacionId: sourceCotizacionId,
             facturaRecurrenteId: sourceFacturaRecurrenteId,
             conciliado: false,
+            comments: [],
+            auditLog: [],
         });
         
         onClose(); 
@@ -318,18 +323,18 @@ const NuevaFacturaModal: React.FC<NuevaFacturaModalProps> = ({ isOpen, onClose, 
                     {errors.items && <p className="mt-1 text-sm text-red-600">{errors.items}</p>}
                 </div>
                 
-                <div className="flex justify-between pt-4 border-t">
-                    <div className="space-y-3">
-                        <ToggleSwitch checked={aplicaITBIS} onChange={setAplicaITBIS} label="Aplica ITBIS"/>
-                        <ToggleSwitch checked={aplicaISC} onChange={setAplicaISC} label="Aplica ISC"/>
-                        <ToggleSwitch checked={aplicaPropina} onChange={setAplicaPropina} label="Aplica Propina Legal"/>
+                <div className="pt-4 border-t mt-4 flex justify-between">
+                    <div className="w-1/2 space-y-3 pr-4">
+                        <ToggleSwitch id="toggle-itbis" checked={aplicaITBIS} onChange={setAplicaITBIS} label="Aplica ITBIS" />
+                        <ToggleSwitch id="toggle-isc" checked={aplicaISC} onChange={setAplicaISC} label="Aplica ISC" />
+                        <ToggleSwitch id="toggle-propina" checked={aplicaPropina} onChange={setAplicaPropina} label="Aplica Propina Legal" />
                     </div>
-                    <div className="w-full max-w-sm space-y-2">
+                    <div className="w-1/2 space-y-2">
                         <div className="flex justify-between text-sm">
                             <span className="font-medium text-secondary-600">Subtotal:</span>
                             <span className="text-secondary-800">{formatCurrency(totals.subtotal)}</span>
                         </div>
-                         <div className="flex justify-between items-center text-sm">
+                        <div className="flex justify-between items-center text-sm">
                             <label htmlFor="descuento" className="font-medium text-secondary-600">Descuento (%):</label>
                             <input
                                 type="number"
@@ -346,21 +351,21 @@ const NuevaFacturaModal: React.FC<NuevaFacturaModalProps> = ({ isOpen, onClose, 
                             </div>
                         )}
                         {aplicaISC && (
-                          <div className="flex justify-between items-center text-sm">
-                              <label htmlFor="isc-fact" className="font-medium text-secondary-600">ISC:</label>
-                               <input type="number" id="isc-fact" value={isc} onChange={e => setIsc(parseFloat(e.target.value) || 0)} className="w-28 px-2 py-1 border border-secondary-300 rounded-md shadow-sm sm:text-sm text-right" />
-                          </div>
+                             <div className="flex justify-between items-center text-sm">
+                                <label htmlFor="isc-input" className="font-medium text-secondary-600">ISC ({ISC_RATE * 100}%):</label>
+                                <input type="number" id="isc-input" value={isc} onChange={e => setIsc(parseFloat(e.target.value) || 0)} className="w-28 px-2 py-1 border border-secondary-300 rounded-md shadow-sm sm:text-sm text-right" />
+                            </div>
                         )}
                         <div className="flex justify-between text-sm">
                             <span className="font-medium text-secondary-600">ITBIS ({ITBIS_RATE * 100}%):</span>
                             <span className="text-secondary-800">{formatCurrency(totals.itbis)}</span>
                         </div>
-                         {aplicaPropina && (
-                          <div className="flex justify-between items-center text-sm">
-                              <label htmlFor="propina-fact" className="font-medium text-secondary-600">Propina Legal:</label>
-                               <input type="number" id="propina-fact" value={propinaLegal} onChange={e => setPropinaLegal(parseFloat(e.target.value) || 0)} className="w-28 px-2 py-1 border border-secondary-300 rounded-md shadow-sm sm:text-sm text-right" />
-                          </div>
-                         )}
+                        {aplicaPropina && (
+                            <div className="flex justify-between items-center text-sm">
+                                <label htmlFor="propina-input" className="font-medium text-secondary-600">Propina ({PROPINA_RATE * 100}%):</label>
+                                <input type="number" id="propina-input" value={propinaLegal} onChange={e => setPropinaLegal(parseFloat(e.target.value) || 0)} className="w-28 px-2 py-1 border border-secondary-300 rounded-md shadow-sm sm:text-sm text-right" />
+                            </div>
+                        )}
                         <div className="flex justify-between text-lg font-bold border-t pt-2 mt-2">
                             <span className="text-secondary-800">Total:</span>
                             <span className="text-primary">{formatCurrency(totals.montoTotal)}</span>

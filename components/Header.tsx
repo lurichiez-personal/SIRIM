@@ -7,6 +7,7 @@ import { useNotificationStore } from '../stores/useNotificationStore';
 import { Role, Notificacion, NotificationType } from '../types';
 import TenantSelector from './TenantSelector';
 import { LogOutIcon, UserCircleIcon, BellIcon, FacturasIcon, InventarioIcon, ConfiguracionIcon } from './icons/Icons';
+import OfflineIndicator from './ui/OfflineIndicator';
 
 const NotificationIcon: React.FC<{ type: NotificationType }> = ({ type }) => {
     switch (type) {
@@ -66,6 +67,7 @@ const Header: React.FC = () => {
         )}
       </div>
       <div className="flex items-center space-x-4">
+        <OfflineIndicator />
         <div className="relative" ref={notificationsRef}>
           <button
             onClick={() => setIsNotificationsOpen(!isNotificationsOpen)}

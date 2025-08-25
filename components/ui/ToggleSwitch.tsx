@@ -1,13 +1,15 @@
+
 import React from 'react';
 
 interface ToggleSwitchProps {
+  id: string;
   checked: boolean;
   onChange: (checked: boolean) => void;
   label?: string;
   disabled?: boolean;
 }
 
-const ToggleSwitch: React.FC<ToggleSwitchProps> = ({ checked, onChange, label, disabled = false }) => {
+const ToggleSwitch: React.FC<ToggleSwitchProps> = ({ id, checked, onChange, label, disabled = false }) => {
   const handleToggle = () => {
     if (!disabled) {
       onChange(!checked);
@@ -15,10 +17,10 @@ const ToggleSwitch: React.FC<ToggleSwitchProps> = ({ checked, onChange, label, d
   };
 
   return (
-    <label htmlFor="toggle-switch" className="flex items-center cursor-pointer">
+    <label htmlFor={id} className="flex items-center cursor-pointer">
       <div className="relative">
         <input
-          id="toggle-switch"
+          id={id}
           type="checkbox"
           className="sr-only"
           checked={checked}
