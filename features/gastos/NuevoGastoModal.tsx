@@ -225,7 +225,7 @@ const NuevoGastoModal: React.FC<NuevoGastoModalProps> = ({ isOpen, onClose, onSa
                         </div>
                         {renderInput('Subtotal *', 'subtotalGasto', 'number', subtotal, setSubtotal, errors.subtotal, '0.00')}
                         {renderInput('ITBIS', 'itbisGasto', 'number', itbis, setItbis, undefined, '0.00', true)}
-                        {renderInput('Monto Total', 'montoGasto', 'number', monto, setMonto, undefined, '0.00')}
+                        {renderInput('Monto Total', 'montoGasto', 'number', monto, setMonto, undefined, '0.00', true)}
                     </div>
                 </div>
                  <div className="flex justify-end items-center p-4 bg-secondary-50 border-t border-secondary-200 rounded-b-lg space-x-3">
