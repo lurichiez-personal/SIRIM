@@ -6,6 +6,7 @@ import Button from '../../components/ui/Button';
 import { useDGIIDataStore } from '../../stores/useDGIIDataStore';
 import { useEnterToNavigate } from '../../hooks/useEnterToNavigate';
 import ToggleSwitch from '../../components/ui/ToggleSwitch';
+import { ErrorMessages, isValidRNC } from '../../utils/validationUtils';
 
 interface NuevoGastoModalProps {
   isOpen: boolean;
@@ -42,7 +43,7 @@ const NuevoGastoModal: React.FC<NuevoGastoModalProps> = ({ isOpen, onClose, onSa
     const [aplicaITBIS, setAplicaITBIS] = useState(true);
     const [itbis, setItbis] = useState('0.00');
     const [monto, setMonto] = useState('0.00');
-    const [errors, setErrors] = useState<{ fecha?: string; subtotal?: string, descripcion?: string, categoriaGasto?: string }>({});
+    const [errors, setErrors] = useState<{ fecha?: string; subtotal?: string, descripcion?: string, categoriaGasto?: string, rncProveedor?: string, proveedorNombre?: string, ncf?: string }>({});
     
     const { lookupRNC, loading: isLookingUpRNC } = useDGIIDataStore();
     const isEditMode = !!gastoParaEditar;
@@ -90,13 +91,58 @@ const NuevoGastoModal: React.FC<NuevoGastoModalProps> = ({ isOpen, onClose, onSa
     }, [subtotal, aplicaITBIS]);
     
     const validate = () => {
-        const newErrors: { fecha?: string; subtotal?: string, descripcion?: string, categoriaGasto?: string } = {};
-        if (!fecha) newErrors.fecha = 'La fecha es obligatoria.';
-        if (!descripcion) newErrors.descripcion = 'La descripción es obligatoria.';
-        if (!categoriaGasto) newErrors.categoriaGasto = 'Debe seleccionar una categoría.';
-        if (parseFloat(subtotal) <= 0 || isNaN(parseFloat(subtotal))) {
-            newErrors.subtotal = 'El subtotal debe ser un número mayor a cero.';
+        const newErrors: { fecha?: string; subtotal?: string, descripcion?: string, categoriaGasto?: string, proveedorNombre?: string, ncf?: string } = {};
+        
+        // Validar fecha
+        if (!fecha) {
+            newErrors.fecha = ErrorMessages.FECHA_REQUERIDA;
+        } else {
+            const fechaGasto = new Date(fecha);
+            const hoy = new Date();
+            const hace5Anos = new Date();
+            hace5Anos.setFullYear(hoy.getFullYear() - 5);
+            
+            if (fechaGasto > hoy) {
+                newErrors.fecha = ErrorMessages.FECHA_FUTURA;
+            } else if (fechaGasto < hace5Anos) {
+                newErrors.fecha = ErrorMessages.FECHA_MUY_ANTIGUA;
+            }
         }
+        
+        // Validar descripción
+        if (!descripcion.trim()) {
+            newErrors.descripcion = ErrorMessages.DESCRIPCION_REQUERIDA;
+        } else if (descripcion.trim().length < 5) {
+            newErrors.descripcion = ErrorMessages.TEXTO_MUY_CORTO('La descripción', 5);
+        }
+        
+        // Validar categoría
+        if (!categoriaGasto) {
+            newErrors.categoriaGasto = ErrorMessages.CATEGORIA_REQUERIDA;
+        }
+        
+        // Validar subtotal
+        const subtotalNum = parseFloat(subtotal);
+        if (isNaN(subtotalNum) || subtotalNum <= 0) {
+            newErrors.subtotal = ErrorMessages.SUBTOTAL_INVALIDO;
+        } else if (subtotalNum > 99999999) {
+            newErrors.subtotal = ErrorMessages.SUBTOTAL_EXCEDE_LIMITE;
+        }
+        
+        // Validar proveedor (opcional pero si se proporciona debe ser válido)
+        if (proveedorNombre.trim() && proveedorNombre.trim().length < 2) {
+            newErrors.proveedorNombre = ErrorMessages.TEXTO_MUY_CORTO('El nombre del proveedor', 2);
+        }
+        // Validar RNC del proveedor
+        if (rncProveedor.trim() && !isValidRNC(rncProveedor)) {
+            newErrors.rncProveedor = ErrorMessages.RNC_FORMATO_INVALIDO;
+        }
+        
+        // Validar NCF (opcional pero si se proporciona debe tener formato válido)
+        if (ncf.trim() && (ncf.trim().length < 11 || ncf.trim().length > 19)) {
+            newErrors.ncf = ErrorMessages.NCF_FORMATO_INVALIDO;
+        }
+        
         setErrors(newErrors);
         return Object.keys(newErrors).length === 0;
     };
@@ -142,9 +188,15 @@ const NuevoGastoModal: React.FC<NuevoGastoModalProps> = ({ isOpen, onClose, onSa
 
     const handleRNCProveedorBlur = async (rnc: string = rncProveedor) => {
         if (rnc && rnc.trim() !== '') {
-            const result = await lookupRNC(rnc);
-            if (result) {
-                setProveedorNombre(result.nombre);
+            try {
+                const result = await lookupRNC(rnc);
+                if (result) {
+                    setProveedorNombre(result.nombre);
+                } else {
+                    setErrors(prev => ({ ...prev, rncProveedor: 'No se encontró el RNC en DGII.' }));
+                }
+            } catch (error: any) {
+                setErrors(prev => ({ ...prev, rncProveedor: error?.message || 'Error al buscar el RNC. Intente nuevamente.' }));
             }
         }
     };
@@ -178,13 +230,16 @@ const NuevoGastoModal: React.FC<NuevoGastoModalProps> = ({ isOpen, onClose, onSa
     );
 
     return (
-        <Modal
-            isOpen={isOpen}
-            onClose={handleClose}
-            title={isEditMode ? "Editar Gasto" : "Registrar Nuevo Gasto"}
-        >
-            <form ref={formRef} onSubmit={handleSubmit} noValidate>
-                <div className="p-6 space-y-4">
+                <Modal
+                        isOpen={isOpen}
+                        onClose={handleClose}
+                        title={isEditMode ? "Editar Gasto" : "Registrar Nuevo Gasto"}
+                >
+                        <form ref={formRef} onSubmit={handleSubmit} noValidate>
+                                <div className="p-6 space-y-4">
+                                    {errors.rncProveedor && (
+                                        <div className="mb-2 p-2 bg-red-100 text-red-700 rounded">{errors.rncProveedor}</div>
+                                    )}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         {renderInput('Proveedor', 'proveedor', 'text', proveedorNombre, setProveedorNombre, undefined, 'Nombre del proveedor')}
                         {renderInput('RNC Proveedor', 'rncProveedor', 'text', rncProveedor, setRncProveedor, undefined, 'Ej: 130123456', false, () => handleRNCProveedorBlur())}

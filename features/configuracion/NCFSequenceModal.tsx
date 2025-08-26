@@ -3,6 +3,7 @@ import { NCFSequence, NCFType } from '../../types';
 import Modal from '../../components/ui/Modal';
 import Button from '../../components/ui/Button';
 import { useEnterToNavigate } from '../../hooks/useEnterToNavigate';
+import { ErrorMessages } from '../../utils/validationUtils';
 
 interface NCFSequenceModalProps {
   isOpen: boolean;
@@ -29,9 +30,32 @@ const NCFSequenceModal: React.FC<NCFSequenceModalProps> = ({ isOpen, onClose, on
     const validate = () => {
         const newErrors: any = {};
         if (!tipo) newErrors.tipo = "Debe seleccionar un tipo de NCF.";
-        if (parseInt(secuenciaDesde) <= 0) newErrors.secuenciaDesde = "Debe ser mayor a 0.";
-        if (parseInt(secuenciaHasta) <= parseInt(secuenciaDesde)) newErrors.secuenciaHasta = "Debe ser mayor que la secuencia inicial.";
-        if (!fechaVencimiento) newErrors.fechaVencimiento = "La fecha es obligatoria.";
+        
+        // Validar que secuenciaDesde sea un número válido y mayor a 0
+        const desde = parseInt(secuenciaDesde);
+        if (isNaN(desde) || desde <= 0) {
+            newErrors.secuenciaDesde = ErrorMessages.SECUENCIA_DESDE_INVALIDA;
+        }
+        
+        // Validar que secuenciaHasta sea un número válido y mayor que desde
+        const hasta = parseInt(secuenciaHasta);
+        if (isNaN(hasta) || hasta <= desde) {
+            newErrors.secuenciaHasta = ErrorMessages.SECUENCIA_HASTA_INVALIDA;
+        } else if ((hasta - desde) > 50000000) {
+            newErrors.secuenciaHasta = ErrorMessages.SECUENCIA_RANGO_INVALIDO;
+        }
+        
+        // Validar que la fecha de vencimiento no sea en el pasado
+        if (!fechaVencimiento) {
+            newErrors.fechaVencimiento = ErrorMessages.FECHA_REQUERIDA;
+        } else {
+            const fechaVenc = new Date(fechaVencimiento);
+            const hoy = new Date();
+            hoy.setHours(0, 0, 0, 0); // Reset time to start of day
+            if (fechaVenc < hoy) {
+                newErrors.fechaVencimiento = ErrorMessages.FECHA_VENCIMIENTO_PASADA;
+            }
+        }
         
         setErrors(newErrors);
         return Object.keys(newErrors).length === 0;

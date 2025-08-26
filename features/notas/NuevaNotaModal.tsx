@@ -5,6 +5,7 @@ import Modal from '../../components/ui/Modal';
 import Button from '../../components/ui/Button';
 import ToggleSwitch from '../../components/ui/ToggleSwitch';
 import { useEnterToNavigate } from '../../hooks/useEnterToNavigate';
+import { useToastStore } from '../../stores/useToastStore';
 
 interface NuevaNotaModalProps {
   isOpen: boolean;
@@ -30,11 +31,13 @@ interface NuevaNotaModalProps {
 const ITBIS_RATE = 0.18;
 
 const NuevaNotaModal: React.FC<NuevaNotaModalProps> = ({ isOpen, onClose, onSave, facturasDisponibles, facturaAfectadaInicial }) => {
+    const { showSuccess, showError } = useToastStore();
     const [facturaAfectada, setFacturaAfectada] = useState<Factura | null>(null);
     const [codigoModificacion, setCodigoModificacion] = useState<keyof typeof CodigoModificacionNCF>('01');
     const [fecha, setFecha] = useState(new Date().toISOString().split('T')[0]);
     const [descripcion, setDescripcion] = useState('');
     const [searchTerm, setSearchTerm] = useState('');
+    const [showAllResults, setShowAllResults] = useState(false);
     
     // Amounts state
     const [subtotal, setSubtotal] = useState(0);
@@ -44,7 +47,7 @@ const NuevaNotaModal: React.FC<NuevaNotaModalProps> = ({ isOpen, onClose, onSave
     const [isc, setIsc] = useState(0);
     const [propinaLegal, setPropinaLegal] = useState(0);
     
-    const [errors, setErrors] = useState<{ factura?: string; fecha?: string; descripcion?: string }>({});
+    const [errors, setErrors] = useState<{ factura?: string; fecha?: string; descripcion?: string; general?: string }>({});
 
     const formRef = useRef<HTMLFormElement>(null);
     useEnterToNavigate(formRef);
@@ -103,11 +106,24 @@ const NuevaNotaModal: React.FC<NuevaNotaModalProps> = ({ isOpen, onClose, onSave
 
     const filteredFacturas = useMemo(() => {
         if (!searchTerm) return [];
-        return facturasDisponibles.filter(f => 
+        const results = facturasDisponibles.filter(f => 
             f.ncf?.toLowerCase().includes(searchTerm.toLowerCase()) ||
             f.clienteNombre.toLowerCase().includes(searchTerm.toLowerCase())
-        ).slice(0, 5); // Limit results for performance
-    }, [searchTerm, facturasDisponibles]);
+        );
+        
+        // Show first 10 results, or all if showAllResults is true
+        const limit = showAllResults ? results.length : Math.min(10, results.length);
+        return results.slice(0, limit);
+    }, [searchTerm, facturasDisponibles, showAllResults]);
+
+    const hasMoreResults = useMemo(() => {
+        if (!searchTerm) return false;
+        const totalResults = facturasDisponibles.filter(f => 
+            f.ncf?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            f.clienteNombre.toLowerCase().includes(searchTerm.toLowerCase())
+        ).length;
+        return totalResults > 10 && !showAllResults;
+    }, [searchTerm, facturasDisponibles, showAllResults]);
 
     const validate = () => {
         const newErrors: { factura?: string; fecha?: string; descripcion?: string } = {};
@@ -118,24 +134,30 @@ const NuevaNotaModal: React.FC<NuevaNotaModalProps> = ({ isOpen, onClose, onSave
         return Object.keys(newErrors).length === 0;
     };
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!validate()) return;
-        onSave({
-            facturaAfectada: facturaAfectada!,
-            codigoModificacion,
-            fecha,
-            descripcion,
-            subtotal,
-            isc: aplicaISC ? isc || 0 : 0,
-            itbis: totals.itbis,
-            propinaLegal: aplicaPropina ? propinaLegal || 0 : 0,
-            montoTotal: totals.montoTotal,
-            aplicaITBIS,
-            aplicaISC,
-            aplicaPropina,
-        });
-        onClose();
+        try {
+            await onSave({
+                facturaAfectada: facturaAfectada!,
+                codigoModificacion,
+                fecha,
+                descripcion,
+                subtotal,
+                isc: aplicaISC ? isc || 0 : 0,
+                itbis: totals.itbis,
+                propinaLegal: aplicaPropina ? propinaLegal || 0 : 0,
+                montoTotal: totals.montoTotal,
+                aplicaITBIS,
+                aplicaISC,
+                aplicaPropina,
+            });
+            showSuccess('Nota de crédito creada exitosamente.');
+            onClose();
+        } catch (error: any) {
+            showError(error?.message || 'Ocurrió un error al guardar la nota. Intente nuevamente.');
+            setErrors(prev => ({ ...prev, general: error?.message || 'Ocurrió un error al guardar la nota. Intente nuevamente.' }));
+        }
     };
     
     const resetForm = () => {
@@ -144,6 +166,7 @@ const NuevaNotaModal: React.FC<NuevaNotaModalProps> = ({ isOpen, onClose, onSave
         setFecha(new Date().toISOString().split('T')[0]);
         setDescripcion('');
         setSearchTerm('');
+        setShowAllResults(false);
         setSubtotal(0);
         setIsc(0);
         setPropinaLegal(0);
@@ -161,13 +184,16 @@ const NuevaNotaModal: React.FC<NuevaNotaModalProps> = ({ isOpen, onClose, onSave
     const formatCurrency = (value: number) => new Intl.NumberFormat('es-DO', { style: 'currency', currency: 'DOP' }).format(value);
 
     return (
-        <Modal
-            isOpen={isOpen}
-            onClose={handleClose}
-            title="Emitir Nueva Nota de Crédito"
-        >
-          <form ref={formRef} onSubmit={handleSubmit} noValidate>
-            <div className="p-6 space-y-4">
+                <Modal
+                        isOpen={isOpen}
+                        onClose={handleClose}
+                        title="Emitir Nueva Nota de Crédito"
+                >
+                    <form ref={formRef} onSubmit={handleSubmit} noValidate>
+                        <div className="p-6 space-y-4">
+                            {errors.general && (
+                                <div className="mb-2 p-2 bg-red-100 text-red-700 rounded">{errors.general}</div>
+                            )}
                 {/* Search for Invoice */}
                 {!facturaAfectada && (
                     <div>
@@ -189,6 +215,14 @@ const NuevaNotaModal: React.FC<NuevaNotaModalProps> = ({ isOpen, onClose, onSave
                                             <p className="text-sm text-secondary-600">{f.clienteNombre} - {formatCurrency(f.montoTotal)}</p>
                                         </li>
                                     ))}
+                                    {hasMoreResults && (
+                                        <li 
+                                            onClick={() => setShowAllResults(true)} 
+                                            className="px-3 py-2 cursor-pointer hover:bg-primary-50 text-primary-600 border-t border-secondary-200 text-center font-medium"
+                                        >
+                                            Ver más resultados...
+                                        </li>
+                                    )}
                                 </ul>
                             )}
                         </div>

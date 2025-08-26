@@ -3,6 +3,7 @@ import { Ingreso, Factura, MetodoPago } from '../../types';
 import Modal from '../../components/ui/Modal';
 import Button from '../../components/ui/Button';
 import { useEnterToNavigate } from '../../hooks/useEnterToNavigate';
+import { ErrorMessages } from '../../utils/validationUtils';
 
 interface NuevoPagoModalProps {
   isOpen: boolean;
@@ -42,11 +43,28 @@ const NuevoPagoModal: React.FC<NuevoPagoModalProps> = ({ isOpen, onClose, onSave
 
     const validate = () => {
         const newErrors: any = {};
-        if (!facturaId) newErrors.factura = "Debe seleccionar una factura.";
-        if (parseFloat(monto) <= 0) newErrors.monto = "El monto debe ser mayor a cero.";
-        if (selectedFactura && parseFloat(monto) > (selectedFactura.montoTotal - selectedFactura.montoPagado)) {
-            newErrors.monto = "El monto no puede ser mayor al balance pendiente.";
+        
+        if (!facturaId) {
+            newErrors.factura = ErrorMessages.FACTURA_REQUERIDA;
         }
+        
+        const montoNum = parseFloat(monto);
+        if (isNaN(montoNum) || montoNum <= 0) {
+            newErrors.monto = ErrorMessages.MONTO_INVALIDO;
+        } else if (selectedFactura && montoNum > (selectedFactura.montoTotal - selectedFactura.montoPagado)) {
+            newErrors.monto = ErrorMessages.MONTO_EXCEDE_BALANCE;
+        }
+        
+        if (!fecha) {
+            newErrors.fecha = ErrorMessages.FECHA_REQUERIDA;
+        } else {
+            const fechaPago = new Date(fecha);
+            const hoy = new Date();
+            if (fechaPago > hoy) {
+                newErrors.fecha = ErrorMessages.FECHA_FUTURA_INVALIDA;
+            }
+        }
+        
         setErrors(newErrors);
         return Object.keys(newErrors).length === 0;
     };

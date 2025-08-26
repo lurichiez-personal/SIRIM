@@ -5,9 +5,11 @@ import { UploadIcon } from '../../components/icons/Icons';
 import { useDataStore } from '../../stores/useDataStore';
 import { BankTransaction, FacturaEstado, MatchableRecord } from '../../types';
 import { parseBankStatementCSV } from '../../utils/csvParser';
+import { useToastStore } from '../../stores/useToastStore';
 
 const ConciliacionPage: React.FC = () => {
     const { facturas, gastos, ingresos, setConciliadoStatus } = useDataStore();
+    const { showError } = useToastStore();
     const [bankTransactions, setBankTransactions] = useState<BankTransaction[]>([]);
     const [matches, setMatches] = useState<any[]>([]);
 
@@ -22,7 +24,8 @@ const ConciliacionPage: React.FC = () => {
                     setBankTransactions(parsed);
                     suggestMatches(parsed);
                 } catch (error) {
-                    alert(`Error al procesar el archivo: ${error instanceof Error ? error.message : 'Error desconocido'}`);
+                    const errorMessage = error instanceof Error ? error.message : 'Error desconocido al procesar el archivo';
+                    showError(`Error al procesar el archivo: ${errorMessage}`);
                 }
             };
             reader.readAsText(file);

@@ -19,7 +19,7 @@ const NuevoClienteModal: React.FC<NuevoClienteModalProps> = ({ isOpen, onClose, 
     const [telefono, setTelefono] = useState('');
     const [condicionesPago, setCondicionesPago] = useState('');
     const [activo, setActivo] = useState(true);
-    const [errors, setErrors] = useState<{ nombre?: string }>({});
+    const [errors, setErrors] = useState<{ nombre?: string; rnc?: string }>({});
     
     const { lookupRNC, loading: isLookingUpRNC } = useDGIIDataStore();
     const isEditMode = !!clienteParaEditar;
@@ -83,9 +83,15 @@ const NuevoClienteModal: React.FC<NuevoClienteModalProps> = ({ isOpen, onClose, 
     
     const handleRNCBlur = async () => {
         if (rnc && rnc.trim() !== '') {
-            const result = await lookupRNC(rnc);
-            if (result) {
-                setNombre(result.nombre);
+            try {
+                const result = await lookupRNC(rnc);
+                if (result) {
+                    setNombre(result.nombre);
+                } else {
+                    setErrors(prev => ({ ...prev, rnc: 'No se encontró el RNC en DGII.' }));
+                }
+            } catch (error: any) {
+                setErrors(prev => ({ ...prev, rnc: error?.message || 'Error al buscar el RNC. Intente nuevamente.' }));
             }
         }
     };
@@ -122,8 +128,11 @@ const NuevoClienteModal: React.FC<NuevoClienteModalProps> = ({ isOpen, onClose, 
             onClose={handleClose}
             title={isEditMode ? "Editar Cliente" : "Crear Nuevo Cliente"}
         >
-          <form ref={formRef} onSubmit={handleSubmit} noValidate>
-            <div className="p-6 space-y-4">
+                <form ref={formRef} onSubmit={handleSubmit} noValidate>
+                        <div className="p-6 space-y-4">
+                            {errors.rnc && (
+                                <div className="mb-2 p-2 bg-red-100 text-red-700 rounded">{errors.rnc}</div>
+                            )}
                 {renderInput('Nombre / Razón Social *', 'nombre', nombre, setNombre, errors.nombre, 'Ej: Mi Empresa S.R.L.')}
                 {renderInput('RNC', 'rnc', rnc, setRnc, undefined, 'Ej: 130123456', handleRNCBlur)}
                 {renderInput('Email', 'email', email, setEmail, undefined, 'Ej: contacto@empresa.com')}

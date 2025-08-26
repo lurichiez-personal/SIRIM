@@ -13,6 +13,7 @@ import NuevaNotaModal from '../notas/NuevaNotaModal';
 import Pagination from '../../components/ui/Pagination';
 import Checkbox from '../../components/ui/Checkbox';
 import { exportToCSV } from '../../utils/csvExport';
+import { useToastStore } from '../../stores/useToastStore';
 
 const ITEMS_PER_PAGE = 10;
 
@@ -20,6 +21,7 @@ const FacturasPage: React.FC = () => {
     const { selectedTenant } = useTenantStore();
     const { getNextNCF } = useNCFStore();
     const { facturas, clientes, items, addFactura, updateFactura, addCliente, updateCotizacionStatus, addNota, updateFacturaStatus, getPagedFacturas, bulkUpdateFacturaStatus } = useDataStore();
+    const { showError } = useToastStore();
     
     const location = useLocation();
     const navigate = useNavigate();
@@ -86,7 +88,7 @@ const FacturasPage: React.FC = () => {
         } else {
             const ncf = await getNextNCF(selectedTenant.id, ncfTipo);
             if (!ncf) {
-                alert('Error: No hay NCF disponibles para el tipo seleccionado.');
+                showError('Error: No hay NCF disponibles para el tipo seleccionado.');
                 return;
             }
             addFactura({ ...restOfData, ncf, estado: FacturaEstado.Emitida, montoPagado: 0 });
@@ -103,7 +105,7 @@ const FacturasPage: React.FC = () => {
 
         const ncf = await getNextNCF(selectedTenant.id, NCFType.B04);
         if (!ncf) {
-            alert('Error: No hay NCF de tipo Nota de Crédito (B04) disponibles.');
+            showError('Error: No hay NCF de tipo Nota de Crédito (B04) disponibles.');
             return;
         }
 

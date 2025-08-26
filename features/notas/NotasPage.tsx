@@ -9,6 +9,7 @@ import { useDataStore } from '../../stores/useDataStore';
 import { useNCFStore } from '../../stores/useNCFStore';
 import Pagination from '../../components/ui/Pagination';
 import { exportToCSV } from '../../utils/csvExport';
+import { useToastStore } from '../../stores/useToastStore';
 
 const ITEMS_PER_PAGE = 10;
 
@@ -16,6 +17,7 @@ const NotasPage: React.FC = () => {
     const { selectedTenant } = useTenantStore();
     const { facturas, addNota, updateFacturaStatus, getPagedNotas } = useDataStore();
     const { getNextNCF } = useNCFStore();
+    const { showError } = useToastStore();
     
     const [loading, setLoading] = useState(true);
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -58,7 +60,7 @@ const NotasPage: React.FC = () => {
 
         const ncf = await getNextNCF(selectedTenant.id, NCFType.B04);
         if (!ncf) {
-            alert('Error: No hay NCF de tipo Nota de Crédito (B04) disponibles. Por favor, configure nuevas secuencias.');
+            showError('Error: No hay NCF de tipo Nota de Crédito (B04) disponibles. Por favor, configure nuevas secuencias.');
             return;
         }
 

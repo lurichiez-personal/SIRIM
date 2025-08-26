@@ -47,7 +47,7 @@ const NuevaFacturaModal: React.FC<NuevaFacturaModalProps> = ({ isOpen, onClose, 
     const [isc, setIsc] = useState(0);
     const [propinaLegal, setPropinaLegal] = useState(0);
 
-    const [errors, setErrors] = useState<{ cliente?: string; fecha?: string; items?: string, lineItemStock?: {[key: number]: string} }>({});
+    const [errors, setErrors] = useState<{ cliente?: string; fecha?: string; items?: string, lineItemStock?: {[key: number]: string}, clienteRNC?: string }>({});
     const [sourceCotizacionId, setSourceCotizacionId] = useState<number | undefined>(undefined);
     const [sourceFacturaRecurrenteId, setSourceFacturaRecurrenteId] = useState<number | undefined>(undefined);
 
@@ -101,7 +101,7 @@ const NuevaFacturaModal: React.FC<NuevaFacturaModalProps> = ({ isOpen, onClose, 
     }, [lineItems, descuentoPorcentaje, aplicaITBIS, aplicaISC, isc, aplicaPropina, propinaLegal]);
     
     const validate = () => {
-        const newErrors: any = { lineItemStock: {} };
+        const newErrors: any = { lineItemStock: {}, clienteRNC: undefined };
         if (!clienteNombre.trim()) newErrors.cliente = 'Debe especificar un cliente.';
         if (!fecha) newErrors.fecha = 'La fecha es obligatoria.';
         
@@ -197,10 +197,16 @@ const NuevaFacturaModal: React.FC<NuevaFacturaModalProps> = ({ isOpen, onClose, 
             return;
         }
 
-        const result = await lookupRNC(trimmedRNC);
-        if (result) {
-            setClienteNombre(result.nombre);
-            setClienteId(null); // Es un cliente nuevo
+        try {
+            const result = await lookupRNC(trimmedRNC);
+            if (result) {
+                setClienteNombre(result.nombre);
+                setClienteId(null); // Es un cliente nuevo
+            } else {
+                setErrors(prev => ({ ...prev, clienteRNC: 'No se encontró el RNC en DGII.' }));
+            }
+        } catch (error: any) {
+            setErrors(prev => ({ ...prev, clienteRNC: error?.message || 'Error al buscar el RNC. Intente nuevamente.' }));
         }
     };
 
@@ -252,6 +258,9 @@ const NuevaFacturaModal: React.FC<NuevaFacturaModalProps> = ({ isOpen, onClose, 
         >
             <form ref={formRef} onSubmit={handleSubmit} noValidate>
             <div className="p-6 space-y-4 max-h-[75vh] overflow-y-auto pr-3">
+                {errors.clienteRNC && (
+                    <div className="mb-2 p-2 bg-red-100 text-red-700 rounded">{errors.clienteRNC}</div>
+                )}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                         <label htmlFor="clienteRNC" className="block text-sm font-medium text-secondary-700">RNC / Cédula</label>

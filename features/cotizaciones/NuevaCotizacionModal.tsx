@@ -34,7 +34,7 @@ const NuevaCotizacionModal: React.FC<NuevaCotizacionModalProps> = ({ isOpen, onC
     const [aplicaPropina, setAplicaPropina] = useState(false);
     const [isc, setIsc] = useState(0);
     const [propinaLegal, setPropinaLegal] = useState(0);
-    const [errors, setErrors] = useState<{ cliente?: string; fecha?: string; items?: string }>({});
+    const [errors, setErrors] = useState<{ cliente?: string; fecha?: string; items?: string; clienteRNC?: string }>({});
 
     const { lookupRNC, loading: isLookingUpRNC } = useDGIIDataStore();
     const isEditMode = !!cotizacionParaEditar;
@@ -72,7 +72,7 @@ const NuevaCotizacionModal: React.FC<NuevaCotizacionModalProps> = ({ isOpen, onC
     }, [lineItems, descuentoPorcentaje, aplicaITBIS, aplicaISC, isc, aplicaPropina, propinaLegal]);
     
     const validate = () => {
-        const newErrors: { cliente?: string; fecha?: string; items?: string } = {};
+        const newErrors: { cliente?: string; fecha?: string; items?: string; clienteRNC?: string } = {};
         if (!clienteNombre.trim()) newErrors.cliente = 'Debe especificar un cliente.';
         if (!fecha) newErrors.fecha = 'La fecha es obligatoria.';
         if (lineItems.length === 0 || lineItems.some(item => !item.itemId || !(item.cantidad! > 0) || !(item.precioUnitario! >= 0))) {
@@ -145,18 +145,24 @@ const NuevaCotizacionModal: React.FC<NuevaCotizacionModalProps> = ({ isOpen, onC
         if (isEditMode) return;
         const trimmedRNC = clienteRNC.trim();
         if (trimmedRNC === '') return;
-    
+
         const existingClient = clientes.find(c => c.rnc === trimmedRNC);
         if (existingClient) {
             setClienteId(existingClient.id);
             setClienteNombre(existingClient.nombre);
             return;
         }
-    
-        const result = await lookupRNC(trimmedRNC);
-        if (result) {
-            setClienteNombre(result.nombre);
-            setClienteId(null); 
+
+        try {
+            const result = await lookupRNC(trimmedRNC);
+            if (result) {
+                setClienteNombre(result.nombre);
+                setClienteId(null);
+            } else {
+                setErrors(prev => ({ ...prev, clienteRNC: 'No se encontró el RNC en DGII.' }));
+            }
+        } catch (error: any) {
+            setErrors(prev => ({ ...prev, clienteRNC: error?.message || 'Error al buscar el RNC. Intente nuevamente.' }));
         }
     };
 
@@ -207,6 +213,9 @@ const NuevaCotizacionModal: React.FC<NuevaCotizacionModalProps> = ({ isOpen, onC
         >
           <form ref={formRef} onSubmit={handleSubmit} noValidate>
             <div className="p-6 space-y-4 max-h-[75vh] overflow-y-auto pr-2">
+                {errors.clienteRNC && (
+                    <div className="mb-2 p-2 bg-red-100 text-red-700 rounded">{errors.clienteRNC}</div>
+                )}
                 {/* Header */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
