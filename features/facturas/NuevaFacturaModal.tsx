@@ -9,6 +9,7 @@ import { useNCFStore } from '../../stores/useNCFStore';
 import { useTenantStore } from '../../stores/useTenantStore';
 import ToggleSwitch from '../../components/ui/ToggleSwitch';
 import { useEnterToNavigate } from '../../hooks/useEnterToNavigate';
+import { useToastStore } from '../../stores/useToastStore';
 
 interface NuevaFacturaModalProps {
   isOpen: boolean;
@@ -29,6 +30,7 @@ const PROPINA_RATE = 0.10; // Tasa de referencia
 const NuevaFacturaModal: React.FC<NuevaFacturaModalProps> = ({ isOpen, onClose, onSave, clientes, itemsDisponibles, onCreateCliente, cotizacionParaFacturar, facturaRecurrenteParaFacturar, facturaParaEditar }) => {
     const { selectedTenant } = useTenantStore();
     const { getAvailableTypes } = useNCFStore();
+    const { showError } = useToastStore();
     const formRef = useRef<HTMLFormElement>(null);
     useEnterToNavigate(formRef);
 
@@ -38,7 +40,12 @@ const NuevaFacturaModal: React.FC<NuevaFacturaModalProps> = ({ isOpen, onClose, 
     const [fecha, setFecha] = useState(new Date().toISOString().split('T')[0]);
     const [ncfTipo, setNcfTipo] = useState<NCFType>(NCFType.B02);
     const [ncfNumero, setNcfNumero] = useState('');
-    const [lineItems, setLineItems] = useState<Partial<FacturaItem & { key: number, stock?: number }>[]>([{ key: Date.now() }]);
+    const [lineItems, setLineItems] = useState<Partial<FacturaItem & { key: number, stock?: number }>[]>([{ 
+        key: Date.now(),
+        cantidad: 1,
+        precioUnitario: 0,
+        subtotal: 0
+    }]);
     const [descuentoPorcentaje, setDescuentoPorcentaje] = useState(0);
     
     const [aplicaITBIS, setAplicaITBIS] = useState(true);
@@ -92,23 +99,54 @@ const NuevaFacturaModal: React.FC<NuevaFacturaModalProps> = ({ isOpen, onClose, 
         const subtotal = lineItems.reduce((acc, item) => acc + (item.subtotal || 0), 0);
         const montoDescuento = subtotal * ((descuentoPorcentaje || 0) / 100);
         const baseImponible = subtotal - montoDescuento;
-        const currentISC = aplicaISC ? (isc || 0) : 0;
-        const currentPropina = aplicaPropina ? (propinaLegal || 0) : 0;
+        
+        // Calcular ISC automáticamente si está aplicado
+        const currentISC = aplicaISC ? baseImponible * ISC_RATE : 0;
+        
+        // Base para ITBIS incluye el ISC
         const baseParaITBIS = baseImponible + currentISC;
         const itbis = aplicaITBIS ? baseParaITBIS * ITBIS_RATE : 0;
-        const montoTotal = baseParaITBIS + itbis + currentPropina;
-        return { subtotal, montoDescuento, baseImponible, itbis, montoTotal };
-    }, [lineItems, descuentoPorcentaje, aplicaITBIS, aplicaISC, isc, aplicaPropina, propinaLegal]);
+        
+        // Calcular propina automáticamente si está aplicada (sobre subtotal + ISC + ITBIS)
+        const baseMasTributos = baseParaITBIS + itbis;
+        const currentPropina = aplicaPropina ? baseMasTributos * PROPINA_RATE : 0;
+        
+        const montoTotal = baseMasTributos + currentPropina;
+        
+        return { subtotal, montoDescuento, baseImponible, itbis, montoTotal, currentISC, currentPropina };
+    }, [lineItems, descuentoPorcentaje, aplicaITBIS, aplicaISC, aplicaPropina]);
+
+    // Efecto para actualizar automáticamente ISC y propina cuando cambien los totales
+    useEffect(() => {
+        if (totals.currentISC !== undefined) {
+            setIsc(totals.currentISC);
+        }
+        if (totals.currentPropina !== undefined) {
+            setPropinaLegal(totals.currentPropina);
+        }
+    }, [totals.currentISC, totals.currentPropina]);
     
     const validate = () => {
-        const newErrors: any = { lineItemStock: {}, clienteRNC: undefined };
+        const newErrors: any = { lineItemStock: {} };
         if (!clienteNombre.trim()) newErrors.cliente = 'Debe especificar un cliente.';
         if (!fecha) newErrors.fecha = 'La fecha es obligatoria.';
         
         let hasInvalidItem = false;
-        lineItems.forEach(item => {
-            if (!item.itemId || !(item.cantidad! > 0) || !(item.precioUnitario! >= 0)) {
+        let invalidItemMessages: string[] = [];
+        
+        lineItems.forEach((item, index) => {
+            const itemNum = index + 1;
+            if (!item.itemId) {
                 hasInvalidItem = true;
+                invalidItemMessages.push(`Item ${itemNum}: Debe seleccionar un producto/servicio`);
+            }
+            if (!(item.cantidad! > 0)) {
+                hasInvalidItem = true;
+                invalidItemMessages.push(`Item ${itemNum}: La cantidad debe ser mayor a 0`);
+            }
+            if (!(item.precioUnitario! >= 0)) {
+                hasInvalidItem = true;
+                invalidItemMessages.push(`Item ${itemNum}: El precio debe ser mayor o igual a 0`);
             }
             if (item.stock !== undefined && item.cantidad! > item.stock) {
                 newErrors.lineItemStock[item.key!] = `Stock insuficiente (Disp: ${item.stock})`;
@@ -116,54 +154,96 @@ const NuevaFacturaModal: React.FC<NuevaFacturaModalProps> = ({ isOpen, onClose, 
             }
         });
 
-        if (lineItems.length === 0 || hasInvalidItem) {
-            newErrors.items = 'Debe agregar al menos un ítem válido y con stock suficiente.';
+        if (lineItems.length === 0) {
+            newErrors.items = 'Debe agregar al menos un ítem a la factura.';
+        } else if (hasInvalidItem) {
+            newErrors.items = invalidItemMessages.join('; ');
         }
 
         setErrors(newErrors);
-        return Object.keys(newErrors).length === 1 && Object.keys(newErrors.lineItemStock).length === 0;
+        
+        // Validación corregida: retorna true cuando NO hay errores
+        const hasClienteError = newErrors.cliente;
+        const hasFechaError = newErrors.fecha;
+        const hasItemsError = newErrors.items;
+        const hasStockErrors = Object.keys(newErrors.lineItemStock).length > 0;
+        
+        console.log('🔍 Estado de validación:', {
+            hasClienteError,
+            hasFechaError,
+            hasItemsError,
+            hasStockErrors,
+            lineItemsCount: lineItems.length,
+            lineItems: lineItems
+        });
+        
+        return !hasClienteError && !hasFechaError && !hasItemsError && !hasStockErrors;
     };
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        if (!validate()) return;
         
-        let finalClientId = clienteId;
-        
-        if (!isEditMode && finalClientId === null && clienteNombre) {
-            const newClient = onCreateCliente({ nombre: clienteNombre, rnc: clienteRNC });
-            finalClientId = newClient.id;
-        }
+        try {
+            console.log('🔍 Iniciando validación de factura...');
+            
+            if (!validate()) {
+                console.log('❌ Validación falló, errores:', errors);
+                showError('Por favor, corrige los errores en el formulario antes de guardar.');
+                return;
+            }
+            
+            console.log('✅ Validación exitosa, procediendo a guardar...');
+            
+            let finalClientId = clienteId;
+            
+            if (!isEditMode && finalClientId === null && clienteNombre) {
+                console.log('🆕 Creando nuevo cliente...');
+                const newClient = onCreateCliente({ nombre: clienteNombre, rnc: clienteRNC });
+                finalClientId = newClient.id;
+                console.log('✅ Cliente creado con ID:', finalClientId);
+            }
 
-        if (!finalClientId) {
-            setErrors(prev => ({ ...prev, cliente: 'Se requiere un cliente válido para guardar la factura.' }));
-            return;
-        }
+            if (!finalClientId) {
+                console.log('❌ No se pudo obtener ID de cliente');
+                setErrors(prev => ({ ...prev, cliente: 'Se requiere un cliente válido para guardar la factura.' }));
+                return;
+            }
 
-        onSave({
-            clienteId: finalClientId,
-            clienteNombre: clienteNombre,
-            fecha,
-            ncfTipo,
-            items: lineItems.filter(item => item.itemId).map(item => ({...item, itemId: item.itemId! , codigo: item.codigo!, descripcion: item.descripcion!, cantidad: item.cantidad!, precioUnitario: item.precioUnitario!, subtotal: item.subtotal! })),
-            subtotal: totals.subtotal,
-            descuentoPorcentaje,
-            montoDescuento: totals.montoDescuento,
-            aplicaITBIS,
-            aplicaISC,
-            isc: aplicaISC ? isc || 0 : 0,
-            itbis: totals.itbis,
-            aplicaPropina,
-            propinaLegal: aplicaPropina ? propinaLegal || 0 : 0,
-            montoTotal: totals.montoTotal,
-            cotizacionId: sourceCotizacionId,
-            facturaRecurrenteId: sourceFacturaRecurrenteId,
-            conciliado: false,
-            comments: [],
-            auditLog: [],
-        });
-        
-        onClose(); 
+            const facturaData = {
+                clienteId: finalClientId,
+                clienteNombre: clienteNombre,
+                fecha,
+                ncfTipo,
+                items: lineItems.filter(item => item.itemId).map(item => ({...item, itemId: item.itemId! , codigo: item.codigo!, descripcion: item.descripcion!, cantidad: item.cantidad!, precioUnitario: item.precioUnitario!, subtotal: item.subtotal! })),
+                subtotal: totals.subtotal,
+                descuentoPorcentaje,
+                montoDescuento: totals.montoDescuento,
+                aplicaITBIS,
+                aplicaISC,
+                isc: totals.currentISC,
+                itbis: totals.itbis,
+                aplicaPropina,
+                propinaLegal: totals.currentPropina,
+                montoTotal: totals.montoTotal,
+                cotizacionId: sourceCotizacionId,
+                facturaRecurrenteId: sourceFacturaRecurrenteId,
+                conciliado: false,
+                comments: [],
+                auditLog: [],
+            };
+            
+            console.log('📄 Datos de factura preparados:', facturaData);
+            console.log('🚀 Llamando onSave...');
+            
+            onSave(facturaData);
+            
+            console.log('✅ onSave ejecutado exitosamente');
+            onClose(); 
+            
+        } catch (error: any) {
+            console.error('💥 Error en handleSubmit:', error);
+            showError(`Error al procesar la factura: ${error.message || 'Error desconocido'}`);
+        }
     };
     
     const resetForm = () => {
@@ -173,7 +253,12 @@ const NuevaFacturaModal: React.FC<NuevaFacturaModalProps> = ({ isOpen, onClose, 
         setFecha(new Date().toISOString().split('T')[0]);
         setNcfTipo(NCFType.B02);
         setNcfNumero('');
-        setLineItems([{ key: Date.now() }]);
+        setLineItems([{ 
+            key: Date.now(),
+            cantidad: 1,
+            precioUnitario: 0,
+            subtotal: 0
+        }]);
         setErrors({});
         setSourceCotizacionId(undefined);
         setSourceFacturaRecurrenteId(undefined);
@@ -334,21 +419,9 @@ const NuevaFacturaModal: React.FC<NuevaFacturaModalProps> = ({ isOpen, onClose, 
                 
                 <div className="pt-4 border-t mt-4 grid grid-cols-1 md:grid-cols-2 gap-8">
                     <div className="space-y-4">
-                        <ToggleSwitch id="toggle-itbis-factura" checked={aplicaITBIS} onChange={setAplicaITBIS} label="Aplica ITBIS" />
-                        <ToggleSwitch id="toggle-isc-factura" checked={aplicaISC} onChange={setAplicaISC} label="Aplica ISC" />
-                         {aplicaISC && (
-                            <div className="pl-12 animate-fade-in">
-                                <label htmlFor="isc-input" className="text-sm font-medium text-secondary-600">Monto ISC:</label>
-                                <input type="number" id="isc-input" value={isc} onChange={e => setIsc(parseFloat(e.target.value) || 0)} className="w-full mt-1 px-2 py-1 border border-secondary-300 rounded-md shadow-sm sm:text-sm text-right" />
-                            </div>
-                        )}
-                        <ToggleSwitch id="toggle-propina-factura" checked={aplicaPropina} onChange={setAplicaPropina} label="Aplica Propina Legal" />
-                        {aplicaPropina && (
-                            <div className="pl-12 animate-fade-in">
-                                <label htmlFor="propina-input" className="text-sm font-medium text-secondary-600">Monto Propina:</label>
-                                <input type="number" id="propina-input" value={propinaLegal} onChange={e => setPropinaLegal(parseFloat(e.target.value) || 0)} className="w-full mt-1 px-2 py-1 border border-secondary-300 rounded-md shadow-sm sm:text-sm text-right" />
-                            </div>
-                        )}
+                        <ToggleSwitch id="toggle-itbis-factura" checked={aplicaITBIS} onChange={setAplicaITBIS} label="Aplica ITBIS (18%)" />
+                        <ToggleSwitch id="toggle-isc-factura" checked={aplicaISC} onChange={setAplicaISC} label="Aplica ISC (16% - cálculo automático)" />
+                        <ToggleSwitch id="toggle-propina-factura" checked={aplicaPropina} onChange={setAplicaPropina} label="Aplica Propina Legal (10% - cálculo automático)" />
                     </div>
                     <div className="space-y-2 border-l-0 md:border-l md:pl-8">
                         <div className="flex justify-between text-sm">
@@ -373,8 +446,8 @@ const NuevaFacturaModal: React.FC<NuevaFacturaModalProps> = ({ isOpen, onClose, 
                         )}
                         {aplicaISC && (
                              <div className="flex justify-between text-sm">
-                                <span className="font-medium text-secondary-600">ISC ({ISC_RATE * 100}% ref.):</span>
-                                <span className="text-secondary-800">{formatCurrency(isc || 0)}</span>
+                                <span className="font-medium text-secondary-600">ISC ({ISC_RATE * 100}%):</span>
+                                <span className="text-secondary-800">{formatCurrency(totals.currentISC)}</span>
                             </div>
                         )}
                         <div className="flex justify-between text-sm">
@@ -383,8 +456,8 @@ const NuevaFacturaModal: React.FC<NuevaFacturaModalProps> = ({ isOpen, onClose, 
                         </div>
                         {aplicaPropina && (
                              <div className="flex justify-between text-sm">
-                                <span className="font-medium text-secondary-600">Propina ({PROPINA_RATE * 100}% ref.):</span>
-                                <span className="text-secondary-800">{formatCurrency(propinaLegal || 0)}</span>
+                                <span className="font-medium text-secondary-600">Propina ({PROPINA_RATE * 100}%):</span>
+                                <span className="text-secondary-800">{formatCurrency(totals.currentPropina)}</span>
                             </div>
                         )}
                         <div className="flex justify-between text-lg font-bold border-t pt-2 mt-2">

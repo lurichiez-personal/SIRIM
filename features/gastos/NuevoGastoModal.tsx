@@ -17,6 +17,7 @@ interface NuevoGastoModalProps {
 }
 
 const ITBIS_RATE = 0.18;
+const ISC_RATE = 0.16;
 
 const GASTO_CATEGORIAS_606 = [
     '01 - GASTOS DE PERSONAL',
@@ -41,8 +42,12 @@ const NuevoGastoModal: React.FC<NuevoGastoModalProps> = ({ isOpen, onClose, onSa
     const [descripcion, setDescripcion] = useState('');
     const [subtotal, setSubtotal] = useState('');
     const [aplicaITBIS, setAplicaITBIS] = useState(true);
+    const [aplicaISC, setAplicaISC] = useState(false);
     const [itbis, setItbis] = useState('0.00');
+    const [isc, setIsc] = useState('0.00');
     const [monto, setMonto] = useState('0.00');
+    const [descuentoPorcentaje, setDescuentoPorcentaje] = useState(0);
+    const [propinaLegal, setPropinaLegal] = useState(0);
     const [errors, setErrors] = useState<{ fecha?: string; subtotal?: string, descripcion?: string, categoriaGasto?: string, rncProveedor?: string, proveedorNombre?: string, ncf?: string }>({});
     
     const { lookupRNC, loading: isLookingUpRNC } = useDGIIDataStore();
@@ -62,15 +67,52 @@ const NuevoGastoModal: React.FC<NuevoGastoModalProps> = ({ isOpen, onClose, onSa
                 setSubtotal(gastoParaEditar.subtotal.toString());
                 setAplicaITBIS(gastoParaEditar.aplicaITBIS);
             } else if (initialData) {
+                setProveedorNombre(initialData.proveedorNombre || '');
                 setRncProveedor(initialData.rncProveedor || '');
                 setNcf(initialData.ncf || '');
+                setFecha(initialData.fecha || new Date().toISOString().split('T')[0]);
+                
+                // NUEVA LÓGICA: Configurar automáticamente toggles y montos basándose en datos detectados por OCR
                 const montoNum = initialData.monto || 0;
+                const subtotalFromOCR = (initialData as any).subtotal;
+                const itbisFromOCR = (initialData as any).itbis || 0;
+                const iscFromOCR = (initialData as any).iscMonto || 0;
+                const descuentoFromOCR = (initialData as any).descuentoPorcentaje || 0;
+                const propinaFromOCR = (initialData as any).propinaLegal || 0;
+                
+                // Configurar montos principales
                 setMonto(montoNum.toFixed(2));
-                // Assume ITBIS is included if not specified
-                const subtotalCalc = montoNum / (1 + ITBIS_RATE);
-                setSubtotal(subtotalCalc.toFixed(2));
-                setAplicaITBIS(true);
-                handleRNCProveedorBlur(initialData.rncProveedor);
+                setDescuentoPorcentaje(descuentoFromOCR);
+                setPropinaLegal(propinaFromOCR);
+                
+                // ITBIS: Habilitar toggle y colocar monto si se detectó
+                if (itbisFromOCR > 0) {
+                    setAplicaITBIS(true);
+                    setItbis(itbisFromOCR.toFixed(2));
+                } else {
+                    setAplicaITBIS((initialData as any).aplicaITBIS ?? true);
+                }
+                
+                // ISC: Habilitar toggle y colocar monto si se detectó
+                if (iscFromOCR > 0) {
+                    setAplicaISC(true);
+                    setIsc(iscFromOCR.toFixed(2));
+                }
+                
+                // Subtotal: Usar detectado o calcular inteligentemente
+                if (subtotalFromOCR > 0) {
+                    setSubtotal(subtotalFromOCR.toFixed(2));
+                } else {
+                    // Calcular subtotal: Total - todos los impuestos
+                    const impuestosTotales = itbisFromOCR + iscFromOCR + propinaFromOCR;
+                    const subtotalCalc = montoNum - impuestosTotales;
+                    setSubtotal(Math.max(0, subtotalCalc).toFixed(2));
+                }
+                
+                // Auto-lookup de RNC si se detectó
+                if (initialData.rncProveedor) {
+                    handleRNCProveedorBlur(initialData.rncProveedor);
+                }
             } else {
                 resetForm();
             }
@@ -80,18 +122,24 @@ const NuevoGastoModal: React.FC<NuevoGastoModalProps> = ({ isOpen, onClose, onSa
     useEffect(() => {
         const subtotalNum = parseFloat(subtotal);
         if (!isNaN(subtotalNum) && subtotalNum >= 0) {
-            const itbisCalculado = aplicaITBIS ? subtotalNum * ITBIS_RATE : 0;
-            const totalCalculado = subtotalNum + itbisCalculado;
+            const montoDescuento = subtotalNum * (descuentoPorcentaje / 100);
+            const baseImponible = subtotalNum - montoDescuento;
+            const itbisCalculado = aplicaITBIS ? baseImponible * ITBIS_RATE : 0;
+            const iscCalculado = aplicaISC ? baseImponible * ISC_RATE : 0;
+            const totalCalculado = baseImponible + itbisCalculado + iscCalculado + propinaLegal;
+            
             setItbis(itbisCalculado.toFixed(2));
+            setIsc(iscCalculado.toFixed(2));
             setMonto(totalCalculado.toFixed(2));
         } else {
             setItbis('0.00');
+            setIsc('0.00');
             setMonto('0.00');
         }
-    }, [subtotal, aplicaITBIS]);
+    }, [subtotal, aplicaITBIS, aplicaISC, descuentoPorcentaje, propinaLegal]);
     
     const validate = () => {
-        const newErrors: { fecha?: string; subtotal?: string, descripcion?: string, categoriaGasto?: string, proveedorNombre?: string, ncf?: string } = {};
+        const newErrors: { fecha?: string; subtotal?: string, descripcion?: string, categoriaGasto?: string, rncProveedor?: string, proveedorNombre?: string, ncf?: string } = {};
         
         // Validar fecha
         if (!fecha) {
@@ -159,9 +207,13 @@ const NuevoGastoModal: React.FC<NuevoGastoModalProps> = ({ isOpen, onClose, onSa
             categoriaGasto,
             descripcion,
             aplicaITBIS,
+            aplicaISC,
             subtotal: parseFloat(subtotal),
             itbis: parseFloat(itbis),
+            isc: parseFloat(isc),
             monto: parseFloat(monto),
+            descuentoPorcentaje,
+            propinaLegal,
             comments: [],
             auditLog: [],
         });
@@ -178,6 +230,10 @@ const NuevoGastoModal: React.FC<NuevoGastoModalProps> = ({ isOpen, onClose, onSa
         setDescripcion('');
         setSubtotal('');
         setAplicaITBIS(true);
+        setAplicaISC(false);
+        setIsc('0.00');
+        setDescuentoPorcentaje(0);
+        setPropinaLegal(0);
         setErrors({});
     };
 
@@ -274,13 +330,106 @@ const NuevoGastoModal: React.FC<NuevoGastoModalProps> = ({ isOpen, onClose, onSa
                          {errors.descripcion && <p className="mt-1 text-sm text-red-600">{errors.descripcion}</p>}
                     </div>
                     
-                    <div className="grid grid-cols-3 gap-4 border-t pt-4 mt-2 items-end">
-                        <div className="col-span-3">
-                            <ToggleSwitch id="toggle-itbis-gasto" checked={aplicaITBIS} onChange={setAplicaITBIS} label="Este gasto incluye ITBIS deducible" />
+                    <div className="border-t pt-4 mt-4 space-y-4">
+                        {/* Toggles para impuestos */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <ToggleSwitch 
+                                    id="toggle-itbis-gasto" 
+                                    checked={aplicaITBIS} 
+                                    onChange={setAplicaITBIS} 
+                                    label="Este gasto incluye ITBIS deducible (18%)" 
+                                />
+                            </div>
+                            <div>
+                                <ToggleSwitch 
+                                    id="toggle-isc-gasto" 
+                                    checked={aplicaISC} 
+                                    onChange={setAplicaISC} 
+                                    label="Este gasto incluye ISC (16%)" 
+                                />
+                            </div>
                         </div>
-                        {renderInput('Subtotal *', 'subtotalGasto', 'number', subtotal, setSubtotal, errors.subtotal, '0.00')}
-                        {renderInput('ITBIS', 'itbisGasto', 'number', itbis, setItbis, undefined, '0.00', true)}
-                        {renderInput('Monto Total', 'montoGasto', 'number', monto, setMonto, undefined, '0.00', true)}
+                        
+                        {/* Sección de montos y cálculos */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            {/* Columna izquierda: Inputs */}
+                            <div className="space-y-4">
+                                {renderInput('Subtotal *', 'subtotalGasto', 'number', subtotal, setSubtotal, errors.subtotal, '0.00')}
+                                
+                                <div>
+                                    <label htmlFor="descuentoPorcentaje" className="block text-sm font-medium text-secondary-700">Descuento (%)</label>
+                                    <input
+                                        type="number"
+                                        id="descuentoPorcentaje"
+                                        value={descuentoPorcentaje}
+                                        onChange={(e) => setDescuentoPorcentaje(parseFloat(e.target.value) || 0)}
+                                        className="mt-1 block w-full px-3 py-2 border border-secondary-300 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary sm:text-sm"
+                                        placeholder="0"
+                                        min="0"
+                                        max="100"
+                                        step="0.01"
+                                    />
+                                </div>
+                                
+                                <div>
+                                    <label htmlFor="propinaLegal" className="block text-sm font-medium text-secondary-700">Propina Legal (RD$)</label>
+                                    <input
+                                        type="number"
+                                        id="propinaLegal"
+                                        value={propinaLegal}
+                                        onChange={(e) => setPropinaLegal(parseFloat(e.target.value) || 0)}
+                                        className="mt-1 block w-full px-3 py-2 border border-secondary-300 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary sm:text-sm"
+                                        placeholder="0.00"
+                                        min="0"
+                                        step="0.01"
+                                    />
+                                </div>
+                            </div>
+                            
+                            {/* Columna derecha: Resumen de cálculos */}
+                            <div className="space-y-2 border-l pl-6">
+                                <h4 className="text-sm font-medium text-secondary-700 mb-3">📊 Resumen de Cálculos</h4>
+                                
+                                <div className="flex justify-between text-sm">
+                                    <span className="text-secondary-600">Subtotal:</span>
+                                    <span className="text-secondary-800">RD$ {parseFloat(subtotal || '0').toFixed(2)}</span>
+                                </div>
+                                
+                                {descuentoPorcentaje > 0 && (
+                                    <div className="flex justify-between text-sm">
+                                        <span className="text-secondary-600">Descuento ({descuentoPorcentaje}%):</span>
+                                        <span className="text-red-600">- RD$ {(parseFloat(subtotal || '0') * (descuentoPorcentaje / 100)).toFixed(2)}</span>
+                                    </div>
+                                )}
+                                
+                                {aplicaITBIS && (
+                                    <div className="flex justify-between text-sm">
+                                        <span className="text-secondary-600">ITBIS (18%):</span>
+                                        <span className="text-secondary-800">RD$ {itbis}</span>
+                                    </div>
+                                )}
+                                
+                                {aplicaISC && (
+                                    <div className="flex justify-between text-sm">
+                                        <span className="text-secondary-600">ISC (16%):</span>
+                                        <span className="text-secondary-800">RD$ {isc}</span>
+                                    </div>
+                                )}
+                                
+                                {propinaLegal > 0 && (
+                                    <div className="flex justify-between text-sm">
+                                        <span className="text-secondary-600">Propina Legal:</span>
+                                        <span className="text-secondary-800">RD$ {propinaLegal.toFixed(2)}</span>
+                                    </div>
+                                )}
+                                
+                                <div className="flex justify-between text-lg font-bold border-t pt-2 mt-2">
+                                    <span className="text-secondary-800">💰 Total:</span>
+                                    <span className="text-primary">RD$ {monto}</span>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
                  <div className="flex justify-end items-center p-4 bg-secondary-50 border-t border-secondary-200 rounded-b-lg space-x-3">
