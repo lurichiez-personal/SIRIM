@@ -59,17 +59,33 @@ export const useDGIIDataStore = create<DGIIDataState>((set, get) => ({
       
       const txtFile = zip.file(txtFileName);
       if (!txtFile) throw new Error('No se pudo leer el archivo .txt.');
-      const txtContent = await txtFile.async('text');
+      
+      // More robust decoding to handle potential Windows encoding
+      const fileContentAsUint8Array = await txtFile.async('uint8array');
+      const decoder = new TextDecoder('windows-1252'); // Common encoding for government files
+      const txtContent = decoder.decode(fileContentAsUint8Array);
 
       // 3. Parse the content
-      const lines = txtContent.split('\n');
+      const lines = txtContent.split(/\r?\n/); // Robust line splitting for Windows/Unix
       const dataToStore: { rnc: string, name: string, status: string }[] = [];
       lines.forEach(line => {
-        const parts = line.split('|');
-        // RNC|RAZON SOCIAL|NOMBRE COMERCIAL|CATEGORIA|REGIMEN DE PAGOS|ESTATUS
+        const cleanLine = line.trim();
+        if (!cleanLine) return;
+        
+        const parts = cleanLine.split('|');
         const rnc = parts[0]?.trim();
-        if (parts.length >= 6 && rnc && (rnc.length === 9 || rnc.length === 11) && /^\d+$/.test(rnc)) {
-          dataToStore.push({ rnc, name: parts[1].trim(), status: parts[5].trim() });
+
+        // Per user feedback: Status is in column 10 (index 9) and some columns can be empty.
+        // Validate the row structure to ensure it has enough columns.
+        if (parts.length >= 10 && rnc && (rnc.length === 9 || rnc.length === 11) && /^\d+$/.test(rnc)) {
+          const rawStatus = parts[9]?.trim(); // Column 10 is index 9.
+          const status = rawStatus && rawStatus.length > 0 ? rawStatus : 'DESCONOCIDO';
+          
+          dataToStore.push({ 
+            rnc, 
+            name: (parts[1] || '').trim(), // Razon Social is column 2.
+            status: status 
+          });
         }
       });
       

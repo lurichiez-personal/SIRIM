@@ -280,54 +280,78 @@ const NuevaFacturaModal: React.FC<NuevaFacturaModalProps> = ({ isOpen, onClose, 
             footer={modalFooter}
         >
             <form ref={formRef} onSubmit={handleSubmit} noValidate id="factura-form">
-              <div className="p-6 space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                        <label htmlFor="clienteRNC" className="block text-sm font-medium text-secondary-700">RNC / Cédula</label>
-                        <div className="relative mt-1">
+              <div className="p-6">
+                <div className="space-y-6 mb-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4">
+                        {/* RNC Cell */}
+                        <div>
+                            <label htmlFor="clienteRNC" className="block text-sm font-medium text-secondary-700">RNC / Cédula</label>
+                            <div className="relative mt-1">
+                                <input
+                                    type="text"
+                                    id="clienteRNC"
+                                    value={clienteRNC}
+                                    onChange={(e) => setClienteRNC(e.target.value)}
+                                    onKeyDown={handleRNCKeyDown}
+                                    onBlur={handleRNCBlur}
+                                    className="block w-full px-3 py-2 border border-secondary-300 rounded-md shadow-sm disabled:bg-secondary-100"
+                                    placeholder="Buscar o introducir RNC"
+                                    disabled={isEditMode || !!cotizacionParaFacturar || !!facturaRecurrenteParaFacturar}
+                                />
+                                {isLookingUpRNC && (
+                                    <div className="absolute inset-y-0 right-0 pr-3 flex items-center">
+                                        <svg className="animate-spin h-5 w-5 text-primary" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                        {/* Nombre Cell */}
+                        <div>
+                            <label htmlFor="clienteNombre" className="block text-sm font-medium text-secondary-700">Nombre / Razón Social *</label>
                             <input
                                 type="text"
-                                id="clienteRNC"
-                                value={clienteRNC}
-                                onChange={(e) => setClienteRNC(e.target.value)}
-                                onKeyDown={handleRNCKeyDown}
-                                onBlur={handleRNCBlur}
-                                className="block w-full px-3 py-2 border border-secondary-300 rounded-md shadow-sm disabled:bg-secondary-100"
-                                placeholder="Buscar o introducir RNC"
+                                id="clienteNombre"
+                                value={clienteNombre}
+                                onChange={(e) => setClienteNombre(e.target.value)}
+                                className={`mt-1 block w-full px-3 py-2 border rounded-md shadow-sm disabled:bg-secondary-100 ${nombreInputClass}`}
                                 disabled={isEditMode || !!cotizacionParaFacturar || !!facturaRecurrenteParaFacturar}
                             />
-                             {isLookingUpRNC && (
-                                <div className="absolute inset-y-0 right-0 pr-3 flex items-center">
-                                    <svg className="animate-spin h-5 w-5 text-primary" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                            <div className="mt-2 min-h-[22px]">
+                                {clienteEstadoDGII && (
+                                    <span className={`px-2 py-0.5 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                                        clienteEstadoDGII.toUpperCase() === 'ACTIVO' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                                    }`}>
+                                        {clienteEstadoDGII}
+                                    </span>
+                                )}
+                            </div>
+                            {errors.cliente && <p className="mt-1 text-sm text-red-600">{errors.cliente}</p>}
+                        </div>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4">
+                        {/* Fecha Cell */}
+                        <div>
+                            <label htmlFor="fecha" className="block text-sm font-medium text-secondary-700">Fecha *</label>
+                            <input type="date" id="fecha" value={fecha} onChange={e => setFecha(e.target.value)} className={`mt-1 block w-full px-3 py-2 border ${errors.fecha ? 'border-red-500' : 'border-secondary-300'} rounded-md shadow-sm`} />
+                            {errors.fecha && <p className="mt-1 text-sm text-red-600">{errors.fecha}</p>}
+                        </div>
+                        {/* NCF Tipo Cell */}
+                        <div>
+                            {isEditMode ? (
+                                <div>
+                                    <label className="block text-sm font-medium text-secondary-700">NCF</label>
+                                    <p className="mt-1 block w-full px-3 py-2 text-secondary-500 font-mono bg-secondary-100 rounded-md">{ncfNumero}</p>
+                                </div>
+                            ) : (
+                                <div>
+                                    <label htmlFor="ncfTipo" className="block text-sm font-medium text-secondary-700">Tipo de NCF *</label>
+                                    <select id="ncfTipo" value={ncfTipo} onChange={e => setNcfTipo(e.target.value as NCFType)} className="mt-1 block w-full px-3 py-2 border border-secondary-300 rounded-md shadow-sm">
+                                        {Object.values(NCFType).map(type => <option key={type} value={type}>{type}</option>)}
+                                    </select>
                                 </div>
                             )}
                         </div>
                     </div>
-                     <div>
-                        <label htmlFor="clienteNombre" className="block text-sm font-medium text-secondary-700">Nombre / Razón Social *</label>
-                        <input
-                            type="text"
-                            id="clienteNombre"
-                            value={clienteNombre}
-                            onChange={(e) => setClienteNombre(e.target.value)}
-                            className={`mt-1 block w-full px-3 py-2 border rounded-md shadow-sm disabled:bg-secondary-100 ${nombreInputClass}`}
-                            disabled={isEditMode || !!cotizacionParaFacturar || !!facturaRecurrenteParaFacturar}
-                        />
-                         {errors.cliente && <p className="mt-1 text-sm text-red-600">{errors.cliente}</p>}
-                    </div>
-                    <div>
-                        <label htmlFor="fecha" className="block text-sm font-medium text-secondary-700">Fecha *</label>
-                        <input type="date" id="fecha" value={fecha} onChange={e => setFecha(e.target.value)} className={`mt-1 block w-full px-3 py-2 border ${errors.fecha ? 'border-red-500' : 'border-secondary-300'} rounded-md shadow-sm`} />
-                        {errors.fecha && <p className="mt-1 text-sm text-red-600">{errors.fecha}</p>}
-                    </div>
-                    {!isEditMode && (
-                        <div>
-                            <label htmlFor="ncfTipo" className="block text-sm font-medium text-secondary-700">Tipo de NCF *</label>
-                            <select id="ncfTipo" value={ncfTipo} onChange={e => setNcfTipo(e.target.value as NCFType)} className="mt-1 block w-full px-3 py-2 border border-secondary-300 rounded-md shadow-sm">
-                                {Object.values(NCFType).map(type => <option key={type} value={type}>{type}</option>)}
-                            </select>
-                        </div>
-                    )}
                 </div>
                 
                 <div className="space-y-2 pt-4 border-t">
@@ -353,7 +377,7 @@ const NuevaFacturaModal: React.FC<NuevaFacturaModalProps> = ({ isOpen, onClose, 
                     {errors.items && <p className="mt-1 text-sm text-red-600">{errors.items}</p>}
                 </div>
                 
-                <div className="pt-4 border-t mt-4 grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div className="pt-4 border-t mt-6 grid grid-cols-1 md:grid-cols-2 gap-8">
                     <div className="space-y-4">
                         <ToggleSwitch id="toggle-itbis-factura" checked={aplicaITBIS} onChange={setAplicaITBIS} label="Aplica ITBIS" />
                         <ToggleSwitch id="toggle-isc-factura" checked={aplicaISC} onChange={setAplicaISC} label="Aplica ISC" />

@@ -25,6 +25,7 @@ import ConciliacionPage from './features/conciliacion/ConciliacionPage';
 import RolesPage from './features/configuracion/RolesPage';
 import GestionUsuariosPage from './features/configuracion/GestionUsuariosPage';
 import TasasPage from './features/configuracion/TasasPage';
+import GestionEmpresasPage from './features/configuracion/GestionEmpresasPage';
 
 // Client Portal
 import ClientPortalLayout from './features/portal/ClientPortalLayout';
@@ -82,6 +83,7 @@ function App(): React.ReactNode {
                   <Route path="/configuracion/roles" element={<RolesPage />} />
                   <Route path="/configuracion/usuarios" element={<GestionUsuariosPage />} />
                   <Route path="/configuracion/tasas" element={<TasasPage />} />
+                  <Route path="/configuracion/empresas" element={<GestionEmpresasPage />} />
                   <Route path="*" element={<Navigate to="/" />} />
                 </Routes>
               </Layout>

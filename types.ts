@@ -383,6 +383,7 @@ export enum Permission {
     GESTIONAR_CONFIGURACION_EMPRESA = 'gestionar_configuracion_empresa',
     GESTIONAR_ROLES = 'gestionar_roles',
     GESTIONAR_USUARIOS = 'gestionar_usuarios',
+    GESTIONAR_EMPRESAS = 'gestionar_empresas',
 }
 
 export type RolePermissions = {

@@ -2,7 +2,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/Card';
-import { FacturasIcon, UserCircleIcon, ClientesIcon, DocumentDuplicateIcon, ConfiguracionIcon, ReceiptPercentIcon } from '../../components/icons/Icons';
+import { FacturasIcon, UserCircleIcon, ClientesIcon, DocumentDuplicateIcon, ConfiguracionIcon, ReceiptPercentIcon, BuildingStorefrontIcon } from '../../components/icons/Icons';
 import { Permission } from '../../types';
 import Can from '../../components/Can';
 
@@ -34,6 +34,14 @@ const ConfiguracionPage: React.FC = () => {
         <h1 className="text-3xl font-bold text-secondary-800 mb-6">Configuración</h1>
 
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+            <Can I={Permission.GESTIONAR_EMPRESAS}>
+                 <SettingCard
+                    to="/configuracion/empresas"
+                    title="Gestión de Empresas"
+                    description="Cree y administre las empresas disponibles en el sistema."
+                    icon={BuildingStorefrontIcon}
+                />
+            </Can>
             <SettingCard
                 to="/configuracion/ncf"
                 title="Gestión de Secuencias NCF"

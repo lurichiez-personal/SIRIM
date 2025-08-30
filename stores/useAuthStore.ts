@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { User, Role } from '../types';
 import { useTenantStore } from './useTenantStore';
 import { useDataStore } from './useDataStore';
+import { useAlertStore } from './useAlertStore';
 
 interface AuthState {
   isAuthenticated: boolean;
@@ -61,9 +62,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     await new Promise(resolve => setTimeout(resolve, 500)); // Simular latencia
     const cleanEmail = email.trim().toLowerCase();
     const cleanPassword = password.trim();
+    
     const foundUser = get().users.find(u => u.email.toLowerCase() === cleanEmail && u.authMethod === 'local');
     
-    if (foundUser && foundUser.password === cleanPassword) {
+    if (foundUser && foundUser.password?.trim() === cleanPassword) {
         if (!foundUser.activo) {
             console.error("Login fallido: Usuario inactivo.");
             return false;
@@ -78,10 +80,31 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     return get().users.filter(u => u.empresaId === empresaId);
   },
   addUser: (userData) => {
+    const { users } = get();
+    // Rule: Max 3 admins per company
+    if (userData.roles.includes(Role.Admin)) {
+        const adminsInCompany = users.filter(u => u.empresaId === userData.empresaId && u.roles.includes(Role.Admin));
+        if (adminsInCompany.length >= 3) {
+            useAlertStore.getState().showAlert('Límite Alcanzado', 'Una empresa no puede tener más de 3 administradores.');
+            return;
+        }
+    }
+
     const newUser: User = { ...userData, id: `user-local-${Date.now()}`};
     set(state => ({ users: [...state.users, newUser]}));
   },
   updateUser: (userData) => {
+    const { users } = get();
+     // Rule: Max 3 admins per company
+    if (userData.roles.includes(Role.Admin)) {
+        // Find other admins in the company, excluding the user being edited.
+        const otherAdmins = users.filter(u => u.id !== userData.id && u.empresaId === userData.empresaId && u.roles.includes(Role.Admin));
+        if (otherAdmins.length >= 3) {
+            useAlertStore.getState().showAlert('Límite Alcanzado', 'Una empresa no puede tener más de 3 administradores.');
+            return;
+        }
+    }
+
     set(state => ({
         users: state.users.map(u => u.id === userData.id ? userData : u)
     }));

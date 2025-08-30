@@ -10,13 +10,13 @@ interface PermissionsState {
 }
 
 const defaultPermissions: RolePermissions = {
-    [Role.Admin]: Object.values(Permission), // Admin can do everything
-    [Role.Contador]: [
+    [Role.Admin]: [
         Permission.VER_DASHBOARD, Permission.GESTIONAR_CLIENTES, Permission.GESTIONAR_FACTURAS,
         Permission.GESTIONAR_COTIZACIONES, Permission.GESTIONAR_NOTAS, Permission.GESTIONAR_GASTOS,
         Permission.GESTIONAR_PAGOS, Permission.GESTIONAR_INVENTARIO, Permission.GESTIONAR_CONCILIACION,
-        Permission.VER_REPORTES_DGII, Permission.GESTIONAR_CONFIGURACION_EMPRESA, Permission.GESTIONAR_ROLES, Permission.GESTIONAR_USUARIOS
+        Permission.VER_REPORTES_DGII, Permission.GESTIONAR_CONFIGURACION_EMPRESA, Permission.GESTIONAR_USUARIOS
     ],
+    [Role.Contador]: Object.values(Permission), // Contador (Master User) can do everything
     [Role.Operaciones]: [
         Permission.VER_DASHBOARD, Permission.GESTIONAR_CLIENTES, Permission.GESTIONAR_FACTURAS,
         Permission.GESTIONAR_COTIZACIONES, Permission.GESTIONAR_GASTOS, Permission.GESTIONAR_PAGOS,

@@ -11,6 +11,7 @@ interface TenantState {
   fetchAvailableTenants: () => void;
   getTenantById: (tenantId: number) => Empresa | undefined;
   clearTenants: () => void;
+  addEmpresa: (empresaData: Omit<Empresa, 'id'>) => void;
 }
 
 const mockEmpresas: Empresa[] = [
@@ -20,22 +21,20 @@ const mockEmpresas: Empresa[] = [
 ];
 
 // Función para simular una llamada a la API
-const fetchTenantsFromApi = async (userId: string | undefined): Promise<Empresa[]> => {
+const fetchTenantsFromApi = async (userId: string | undefined, allTenants: Empresa[]): Promise<Empresa[]> => {
     console.log(`Fetching tenants for user ${userId}`);
-    // En una app real, aquí se llamaría a GET /api/usuarios/empresas
-    // El backend devolvería las empresas asociadas al usuario.
     await new Promise(resolve => setTimeout(resolve, 500));
     const user = useAuthStore.getState().user;
     if (user?.empresaId) {
-        return mockEmpresas.filter(e => e.id === user.empresaId);
+        return allTenants.filter(e => e.id === user.empresaId);
     }
-    return mockEmpresas; // El contador ve todas
+    return allTenants; // El contador ve todas
 };
 
 
 export const useTenantStore = create<TenantState>((set, get) => ({
   selectedTenant: null,
-  availableTenants: [],
+  availableTenants: mockEmpresas,
   setTenant: (tenantId: number) => {
     const { availableTenants } = get();
     const newTenant = availableTenants.find(t => t.id === tenantId) || null;
@@ -47,14 +46,22 @@ export const useTenantStore = create<TenantState>((set, get) => ({
   },
   fetchAvailableTenants: async () => {
     const user = useAuthStore.getState().user;
-    const tenants = await fetchTenantsFromApi(user?.id);
-    set({ availableTenants: tenants });
+    const allTenants = get().availableTenants;
+    const tenants = await fetchTenantsFromApi(user?.id, allTenants);
+    
+    // Do not set availableTenants here again as it's the source of truth now.
+    // Only determine the selected one.
+    
     if (user && tenants.length > 0) {
-        const defaultTenantId = user.empresaId || tenants[0].id;
-        const defaultTenant = tenants.find(t => t.id === defaultTenantId);
-        set({ selectedTenant: defaultTenant });
-        if (defaultTenant) {
-            useDataStore.getState().fetchData(defaultTenant.id);
+        const currentSelected = get().selectedTenant;
+        // If there's no selection or the current selection is not in the available list, set a default.
+        if (!currentSelected || !tenants.some(t => t.id === currentSelected.id)) {
+            const defaultTenantId = user.empresaId || tenants[0].id;
+            const defaultTenant = tenants.find(t => t.id === defaultTenantId);
+            set({ selectedTenant: defaultTenant });
+            if (defaultTenant) {
+                useDataStore.getState().fetchData(defaultTenant.id);
+            }
         }
     }
   },
@@ -63,6 +70,15 @@ export const useTenantStore = create<TenantState>((set, get) => ({
     return availableTenants.find(t => t.id === tenantId);
   },
   clearTenants: () => {
-    set({ selectedTenant: null, availableTenants: [] });
+    set({ selectedTenant: null });
+  },
+  addEmpresa: (empresaData) => {
+    const newEmpresa: Empresa = {
+        ...empresaData,
+        id: Date.now(),
+    };
+    set(state => ({
+        availableTenants: [...state.availableTenants, newEmpresa]
+    }));
   }
 }));

@@ -1,10 +1,11 @@
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { User, Role } from '../../types';
 import Modal from '../../components/ui/Modal';
 import Button from '../../components/ui/Button';
 import { useEnterToNavigate } from '../../hooks/useEnterToNavigate';
 import Checkbox from '../../components/ui/Checkbox';
+import { useAuthStore } from '../../stores/useAuthStore';
 
 interface NuevoUsuarioModalProps {
   isOpen: boolean;
@@ -14,6 +15,8 @@ interface NuevoUsuarioModalProps {
 }
 
 const NuevoUsuarioModal: React.FC<NuevoUsuarioModalProps> = ({ isOpen, onClose, onSave, userToEdit }) => {
+    const { user: currentUser } = useAuthStore();
+
     const [nombre, setNombre] = useState('');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
@@ -24,6 +27,17 @@ const NuevoUsuarioModal: React.FC<NuevoUsuarioModalProps> = ({ isOpen, onClose, 
     const isEditMode = !!userToEdit;
     const formRef = useRef<HTMLFormElement>(null);
     useEnterToNavigate(formRef);
+
+    const availableRoles = useMemo(() => {
+        if (currentUser?.roles.includes(Role.Contador)) {
+            return Object.values(Role); // Master user can assign any role
+        }
+        if (currentUser?.roles.includes(Role.Admin)) {
+            // Admin can only assign lower-level roles
+            return [Role.Operaciones, Role.Aprobador, Role.Usuario];
+        }
+        return [];
+    }, [currentUser]);
 
     useEffect(() => {
         if (isOpen) {
@@ -110,7 +124,7 @@ const NuevoUsuarioModal: React.FC<NuevoUsuarioModalProps> = ({ isOpen, onClose, 
                     <div>
                         <p className="block text-sm font-medium">Roles *</p>
                         <div className="mt-2 grid grid-cols-2 gap-2">
-                            {Object.values(Role).map(role => (
+                            {availableRoles.map(role => (
                                 <Checkbox key={role} label={role} checked={roles.has(role)} onChange={(checked) => handleRoleChange(role, checked)} />
                             ))}
                         </div>

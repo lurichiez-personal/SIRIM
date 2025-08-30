@@ -82,6 +82,12 @@ export const BuildingOfficeIcon: React.FC<IconProps> = (props) => (
     </svg>
 );
 
+export const BuildingStorefrontIcon: React.FC<IconProps> = (props) => (
+    <svg {...props} fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 21v-7.5A.75.75 0 0114.25 12h.01a.75.75 0 01.75.75v7.5m-4.5 0v-7.5A.75.75 0 009.75 12h-.01a.75.75 0 00-.75.75v7.5m-4.5 0v-7.5A.75.75 0 015.25 12h.01a.75.75 0 01.75.75v7.5m-4.5 0V7.875c0-.621.504-1.125 1.125-1.125h16.5c.621 0 1.125.504 1.125 1.125v13.125m-18.75 0h18.75a1.125 1.125 0 001.125-1.125v-9.125a1.125 1.125 0 00-1.125-1.125h-1.534c-.464 0-.91.192-1.226.519l-4.5 4.903a.75.75 0 01-1.04 0l-4.5-4.903a1.427 1.427 0 00-1.226-.519H2.25A1.125 1.125 0 001.125 7.875v9.125A1.125 1.125 0 002.25 21z" />
+    </svg>
+);
+
 export const ChevronDownIcon: React.FC<IconProps> = (props) => (
     <svg {...props} fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
         <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
