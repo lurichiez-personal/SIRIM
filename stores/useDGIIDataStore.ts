@@ -42,7 +42,7 @@ export const useDGIIDataStore = create<DGIIState>((set) => ({
           data?.RGE_NOMBRE_COMERCIAL;
       } catch {
         const parser = new DOMParser();
-        const doc = parser.parseFromString(text, 'text/html');
+        let doc = parser.parseFromString(text, 'text/html');
         nombre =
           doc.querySelector('#lblNombreComercial')?.textContent?.trim() ||
           doc.querySelector('#lblRazonSocial')?.textContent?.trim() ||
@@ -56,6 +56,14 @@ export const useDGIIDataStore = create<DGIIState>((set) => ({
             );
             return label?.nextElementSibling?.textContent?.trim() || undefined;
           })();
+
+        if (!nombre) {
+          doc = parser.parseFromString(text, 'text/xml');
+          nombre =
+            doc.querySelector('RGE_RAZON_SOCIAL')?.textContent?.trim() ||
+            doc.querySelector('RGE_NOMBRE_COMERCIAL')?.textContent?.trim() ||
+            undefined;
+        }
       }
 
       if (nombre) {
