@@ -1,0 +1,6 @@
+services:
+  - type: static
+    name: sirim-app
+    env: node
+    buildCommand: npm install && npm run build
+    publishDir: dist
