@@ -101,7 +101,10 @@ const NuevaFacturaModal: React.FC<NuevaFacturaModalProps> = ({ isOpen, onClose, 
         const subtotal = lineItems.reduce((acc, item) => acc + (item.subtotal || 0), 0);
         const montoDescuento = subtotal * ((descuentoPorcentaje || 0) / 100);
         const baseImponible = subtotal - montoDescuento;
-        
+
+        // Calcular propina automáticamente antes de incluir tributos
+        const currentPropina = aplicaPropina ? round2(baseImponible * PROPINA_RATE) : 0;
+
         // Calcular ISC automáticamente si está aplicado
         const currentISC = aplicaISC ? round2(baseImponible * ISC_RATE) : 0;
 
@@ -109,12 +112,9 @@ const NuevaFacturaModal: React.FC<NuevaFacturaModalProps> = ({ isOpen, onClose, 
         const baseParaITBIS = baseImponible + currentISC;
         const itbis = aplicaITBIS ? round2(baseParaITBIS * ITBIS_RATE) : 0;
 
-        // Calcular propina automáticamente si está aplicada (sobre subtotal + ISC + ITBIS)
-        const baseMasTributos = baseParaITBIS + itbis;
-        const currentPropina = aplicaPropina ? round2(baseMasTributos * PROPINA_RATE) : 0;
+        // Monto total incluye base imponible, tributos y propina
+        const montoTotal = round2(baseImponible + currentISC + itbis + currentPropina);
 
-        const montoTotal = round2(baseMasTributos + currentPropina);
-        
         return { subtotal, montoDescuento, baseImponible, itbis, montoTotal, currentISC, currentPropina };
     }, [lineItems, descuentoPorcentaje, aplicaITBIS, aplicaISC, aplicaPropina]);
 
@@ -126,7 +126,7 @@ const NuevaFacturaModal: React.FC<NuevaFacturaModalProps> = ({ isOpen, onClose, 
         if (totals.currentPropina !== undefined) {
             setPropinaLegal(totals.currentPropina);
         }
-    }, [totals.currentISC, totals.currentPropina]);
+    }, [totals.subtotal, descuentoPorcentaje, aplicaITBIS, aplicaISC, aplicaPropina, totals.currentISC, totals.currentPropina]);
     
     const validate = () => {
         const newErrors: any = { lineItemStock: {} };
