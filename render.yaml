@@ -1,4 +1,17 @@
 services:
+  # Backend API Service
+  - type: web
+    name: sirim-backend
+    env: node
+    buildCommand: cd backend && npm install
+    startCommand: cd backend && npm start
+    envVars:
+      - key: JWT_SECRET
+        generateValue: true
+      - key: PORT
+        value: 10000
+    
+  # Frontend Static Site
   - type: static
     name: sirim-app
     env: node
@@ -6,4 +19,7 @@ services:
     staticPublishPath: dist
     envVars:
       - key: VITE_API_URL
-        value: https://your-backend-url.example.com
+        fromService:
+          type: web
+          name: sirim-backend
+          property: host

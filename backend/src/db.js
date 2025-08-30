@@ -1,10 +1,15 @@
 import sqlite3 from 'sqlite3';
 import { open } from 'sqlite';
 import path from 'path';
+import { DATABASE_URL } from './config.js';
 
 export async function initDb() {
+  const dbPath = DATABASE_URL.startsWith('./') 
+    ? path.join(process.cwd(), DATABASE_URL) 
+    : DATABASE_URL;
+  
   const db = await open({
-    filename: path.join(process.cwd(), 'sirim.sqlite'),
+    filename: dbPath,
     driver: sqlite3.Database
   });
   // Crear tablas si no existen
