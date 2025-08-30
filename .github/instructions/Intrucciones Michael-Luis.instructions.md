@@ -1,0 +1,57 @@
+---
+applyTo: "**"
+---
+
+# Reglas del repo (obligatorias)
+
+## Prioridad y confirmación
+- Si cualquier petición mía contradice estas reglas, *prioriza estas reglas* y *pídeme confirmación explícita* antes de proceder.
+- Si falta contexto o hay ambigüedad, *pregunta* y *no generes código* hasta aclarar.
+
+## PLAN obligatorio antes de escribir código
+- Antes de cambiar nada, presenta un *PLAN* con:
+  - Alcance y objetivo.
+  - Archivos a tocar/crear (con rutas).
+  - APIs/funciones existentes que usarás (y dónde están).
+  - Migraciones o cambios en DB (S/N y detalle).
+  - Dependencias nuevas (S/N y motivo).
+  - Riesgos/impacto y plan de rollback.
+  - Pruebas unitarias/e2e previstas y cómo validar el cambio.
+- *Espera mi OK* para ejecutar.
+
+## Contexto técnico del proyecto
+- Antes de cualquier mejora, *lee prisma/schema.prisma* y entiende modelos/relaciones.
+- Asegura *codificación UTF-8* en todos los archivos.
+- Ajusta estilo y *arquitectura a lo existente en src/*; reutiliza servicios/utilidades. No hagas refactors masivos si no lo pido.
+
+## Credenciales y seguridad
+- Usa solo las *credenciales del seed de super admin* cuando yo lo solicite; *no inventes credenciales* ni llaves.
+- *No inventes APIs, funciones ni archivos* que no se puedan probar.
+- *No* hagas bypass de autenticación/autorización; respeta middlewares y permisos existentes.
+
+## Dependencias y contratos
+- *No importes paquetes* que no estén en package.json. Si hace falta uno, *consúltame primero*.
+- *No pegues snippets de Internet* sin adaptación y justificación.
+- Si falta una API/contrato, *pregunta* y propone la interfaz mínima; *no asumas*.
+
+## Calidad de código
+- Sin *comentarios* ni *logs* innecesarios.
+- *TypeScript estricto*; evita any. Añade tipos/DTOs donde falten.
+- Validaciones consistentes y manejo centralizado de errores; no silencies errores.
+
+## Entregables y documentación
+- Tras cambios *aprobados, **actualiza README.md* con instrucciones de uso/pruebas y notas de migración.
+- Si cambias *estructura de carpetas/archivos, **actualiza todas las referencias* afectadas en el proyecto.
+
+## UX/CX
+- Actúa como *diseñador centrado en UI/CX*: consistencia visual, accesibilidad básica, estados de carga/error/vacío y sin romper flujos existentes.
+
+## Reporte y comunicación
+- Si detectas riesgo de romper algo, *detente y avisa* con alternativas más seguras.
+- Reporta cualquier bug o comportamiento inesperado con *pasos para reproducir*.
+
+## Formato de entrega preferido
+1) *PLAN* (como arriba).  
+2) *Diff unificado* por archivo (o bloques de código completos si el diff no aplica).  
+3) *Comandos* para correr migraciones/tests y verificación manual.  
+4) *Checklist* de validación (qué revisar tras aplicar los cambios).
