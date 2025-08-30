@@ -5,7 +5,6 @@ import Modal from '../../components/ui/Modal';
 import Button from '../../components/ui/Button';
 import { useEnterToNavigate } from '../../hooks/useEnterToNavigate';
 import Checkbox from '../../components/ui/Checkbox';
-import { useToastStore } from '../../stores/useToastStore';
 
 interface NuevoUsuarioModalProps {
   isOpen: boolean;
@@ -15,7 +14,6 @@ interface NuevoUsuarioModalProps {
 }
 
 const NuevoUsuarioModal: React.FC<NuevoUsuarioModalProps> = ({ isOpen, onClose, onSave, userToEdit }) => {
-    const { showError } = useToastStore();
     const [nombre, setNombre] = useState('');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
@@ -54,11 +52,11 @@ const NuevoUsuarioModal: React.FC<NuevoUsuarioModalProps> = ({ isOpen, onClose, 
         e.preventDefault();
         // Basic validation
         if (!nombre.trim() || !email.trim() || roles.size === 0) {
-            showError('Por favor, complete todos los campos obligatorios.');
+            alert('Por favor, complete todos los campos obligatorios.');
             return;
         }
         if (!isEditMode && !password.trim()) {
-            showError('La contraseña es obligatoria para nuevos usuarios.');
+            alert('La contraseña es obligatoria para nuevos usuarios.');
             return;
         }
 

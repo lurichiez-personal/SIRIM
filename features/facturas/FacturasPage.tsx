@@ -13,7 +13,6 @@ import NuevaNotaModal from '../notas/NuevaNotaModal';
 import Pagination from '../../components/ui/Pagination';
 import Checkbox from '../../components/ui/Checkbox';
 import { exportToCSV } from '../../utils/csvExport';
-import { useToastStore } from '../../stores/useToastStore';
 
 const ITEMS_PER_PAGE = 10;
 
@@ -21,7 +20,6 @@ const FacturasPage: React.FC = () => {
     const { selectedTenant } = useTenantStore();
     const { getNextNCF } = useNCFStore();
     const { facturas, clientes, items, addFactura, updateFactura, addCliente, updateCotizacionStatus, addNota, updateFacturaStatus, getPagedFacturas, bulkUpdateFacturaStatus } = useDataStore();
-    const { showError, showSuccess } = useToastStore();
     
     const location = useLocation();
     const navigate = useNavigate();
@@ -80,44 +78,21 @@ const FacturasPage: React.FC = () => {
     };
 
     const handleSaveFactura = async (facturaData: Omit<Factura, 'id' | 'empresaId' | 'estado' | 'ncf' | 'montoPagado'> & { ncfTipo: any }) => {
-        if (!selectedTenant) {
-            showError('Error: No hay tenant seleccionado.');
-            return;
-        }
-        
-        try {
-            const { ncfTipo, ...restOfData } = facturaData;
+        if (!selectedTenant) return;
+        const { ncfTipo, ...restOfData } = facturaData;
 
-            if (facturaParaEditar) {
-                updateFactura({ ...facturaParaEditar, ...restOfData });
-                showSuccess('Factura actualizada correctamente.');
-            } else {
-                const ncf = await getNextNCF(selectedTenant.id, ncfTipo);
-                if (!ncf) {
-                    showError('Error: No hay NCF disponibles para el tipo seleccionado.');
-                    return;
-                }
-                addFactura({ ...restOfData, ncf, estado: FacturaEstado.Emitida, montoPagado: 0 });
-                showSuccess(`Factura creada exitosamente con NCF: ${ncf}`);
-                
-                if (restOfData.cotizacionId) {
-                    updateCotizacionStatus(restOfData.cotizacionId, CotizacionEstado.Facturada);
-                }
+        if (facturaParaEditar) {
+            updateFactura({ ...facturaParaEditar, ...restOfData });
+        } else {
+            const ncf = await getNextNCF(selectedTenant.id, ncfTipo);
+            if (!ncf) {
+                alert('Error: No hay NCF disponibles para el tipo seleccionado.');
+                return;
             }
-            
-            // Actualizar la vista de facturas
-            const data = getPagedFacturas({ page: currentPage, pageSize: ITEMS_PER_PAGE, ...filters });
-            setPagedData(data);
-            
-            // Cerrar el modal
-            setIsFacturaModalOpen(false);
-            setFacturaParaEditar(null);
-            setCotizacionParaFacturar(null);
-            setFacturaRecurrenteParaFacturar(null);
-            
-        } catch (error: any) {
-            console.error('Error al guardar factura:', error);
-            showError(`Error al guardar la factura: ${error.message || 'Error desconocido'}`);
+            addFactura({ ...restOfData, ncf, estado: FacturaEstado.Emitida, montoPagado: 0 });
+            if (restOfData.cotizacionId) {
+                updateCotizacionStatus(restOfData.cotizacionId, CotizacionEstado.Facturada);
+            }
         }
     };
 
@@ -128,7 +103,7 @@ const FacturasPage: React.FC = () => {
 
         const ncf = await getNextNCF(selectedTenant.id, NCFType.B04);
         if (!ncf) {
-            showError('Error: No hay NCF de tipo Nota de Crédito (B04) disponibles.');
+            alert('Error: No hay NCF de tipo Nota de Crédito (B04) disponibles.');
             return;
         }
 

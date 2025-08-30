@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Cotizacion, Cliente, Item, FacturaItem } from '../../types';
 import Modal from '../../components/ui/Modal';
@@ -7,6 +6,8 @@ import { PlusIcon, TrashIcon } from '../../components/icons/Icons';
 import { useDGIIDataStore } from '../../stores/useDGIIDataStore';
 import ToggleSwitch from '../../components/ui/ToggleSwitch';
 import { useEnterToNavigate } from '../../hooks/useEnterToNavigate';
+import { useTenantStore } from '../../stores/useTenantStore';
+import { useRatesStore } from '../../stores/useRatesStore';
 
 interface NuevaCotizacionModalProps {
   isOpen: boolean;
@@ -18,11 +19,10 @@ interface NuevaCotizacionModalProps {
   cotizacionParaEditar?: Cotizacion | null;
 }
 
-const ITBIS_RATE = 0.18;
-const ISC_RATE = 0.16;
-const PROPINA_RATE = 0.10;
-
 const NuevaCotizacionModal: React.FC<NuevaCotizacionModalProps> = ({ isOpen, onClose, onSave, clientes, itemsDisponibles, onCreateCliente, cotizacionParaEditar }) => {
+    const { selectedTenant } = useTenantStore();
+    const { getRatesForTenant } = useRatesStore();
+    
     const [clienteId, setClienteId] = useState<number | null>(null);
     const [clienteRNC, setClienteRNC] = useState('');
     const [clienteNombre, setClienteNombre] = useState('');
@@ -32,14 +32,13 @@ const NuevaCotizacionModal: React.FC<NuevaCotizacionModalProps> = ({ isOpen, onC
     const [aplicaITBIS, setAplicaITBIS] = useState(true);
     const [aplicaISC, setAplicaISC] = useState(false);
     const [aplicaPropina, setAplicaPropina] = useState(false);
-    const [isc, setIsc] = useState(0);
-    const [propinaLegal, setPropinaLegal] = useState(0);
-    const [errors, setErrors] = useState<{ cliente?: string; fecha?: string; items?: string; clienteRNC?: string }>({});
+    const [errors, setErrors] = useState<{ cliente?: string; fecha?: string; items?: string }>({});
 
     const { lookupRNC, loading: isLookingUpRNC } = useDGIIDataStore();
     const isEditMode = !!cotizacionParaEditar;
     const formRef = useRef<HTMLFormElement>(null);
     useEnterToNavigate(formRef);
+    const rates = useMemo(() => selectedTenant ? getRatesForTenant(selectedTenant.id) : { itbis: 0.18, isc: 0.16, propina: 0.10 }, [selectedTenant, getRatesForTenant]);
 
     useEffect(() => {
         if (isOpen && cotizacionParaEditar) {
@@ -51,9 +50,7 @@ const NuevaCotizacionModal: React.FC<NuevaCotizacionModalProps> = ({ isOpen, onC
             setDescuentoPorcentaje(cotizacionParaEditar.descuentoPorcentaje || 0);
             setAplicaITBIS(cotizacionParaEditar.aplicaITBIS);
             setAplicaISC(cotizacionParaEditar.aplicaISC || false);
-            setIsc(cotizacionParaEditar.isc || 0);
             setAplicaPropina(cotizacionParaEditar.aplicaPropina || false);
-            setPropinaLegal(cotizacionParaEditar.propinaLegal || 0);
         } else {
             resetForm();
         }
@@ -62,17 +59,18 @@ const NuevaCotizacionModal: React.FC<NuevaCotizacionModalProps> = ({ isOpen, onC
     const totals = useMemo(() => {
         const subtotal = lineItems.reduce((acc, item) => acc + (item.subtotal || 0), 0);
         const montoDescuento = subtotal * ((descuentoPorcentaje || 0) / 100);
-        const baseImponible = subtotal - montoDescuento;
-        const currentISC = aplicaISC ? (isc || 0) : 0;
-        const currentPropina = aplicaPropina ? (propinaLegal || 0) : 0;
-        const baseParaITBIS = baseImponible + currentISC;
-        const itbis = aplicaITBIS ? baseParaITBIS * ITBIS_RATE : 0;
-        const montoTotal = baseParaITBIS + itbis + currentPropina;
-        return { subtotal, montoDescuento, baseImponible, itbis, montoTotal };
-    }, [lineItems, descuentoPorcentaje, aplicaITBIS, aplicaISC, isc, aplicaPropina, propinaLegal]);
+        
+        const itbis = aplicaITBIS ? subtotal * rates.itbis : 0;
+        const isc = aplicaISC ? subtotal * rates.isc : 0;
+        const propinaLegal = aplicaPropina ? subtotal * rates.propina : 0;
+
+        const montoTotal = (subtotal - montoDescuento) + itbis + isc + propinaLegal;
+        
+        return { subtotal, montoDescuento, itbis, isc, propinaLegal, montoTotal };
+    }, [lineItems, descuentoPorcentaje, aplicaITBIS, aplicaISC, aplicaPropina, rates]);
     
     const validate = () => {
-        const newErrors: { cliente?: string; fecha?: string; items?: string; clienteRNC?: string } = {};
+        const newErrors: { cliente?: string; fecha?: string; items?: string } = {};
         if (!clienteNombre.trim()) newErrors.cliente = 'Debe especificar un cliente.';
         if (!fecha) newErrors.fecha = 'La fecha es obligatoria.';
         if (lineItems.length === 0 || lineItems.some(item => !item.itemId || !(item.cantidad! > 0) || !(item.precioUnitario! >= 0))) {
@@ -109,10 +107,10 @@ const NuevaCotizacionModal: React.FC<NuevaCotizacionModalProps> = ({ isOpen, onC
             montoDescuento: totals.montoDescuento,
             aplicaITBIS,
             aplicaISC,
-            isc: aplicaISC ? isc || 0 : 0,
+            isc: totals.isc,
             itbis: totals.itbis,
             aplicaPropina,
-            propinaLegal: aplicaPropina ? propinaLegal || 0 : 0,
+            propinaLegal: totals.propinaLegal,
             montoTotal: totals.montoTotal,
             comments: [],
             auditLog: [],
@@ -130,9 +128,7 @@ const NuevaCotizacionModal: React.FC<NuevaCotizacionModalProps> = ({ isOpen, onC
         setDescuentoPorcentaje(0);
         setAplicaITBIS(true);
         setAplicaISC(false);
-        setIsc(0);
         setAplicaPropina(false);
-        setPropinaLegal(0);
         setErrors({});
     };
 
@@ -145,24 +141,18 @@ const NuevaCotizacionModal: React.FC<NuevaCotizacionModalProps> = ({ isOpen, onC
         if (isEditMode) return;
         const trimmedRNC = clienteRNC.trim();
         if (trimmedRNC === '') return;
-
+    
         const existingClient = clientes.find(c => c.rnc === trimmedRNC);
         if (existingClient) {
             setClienteId(existingClient.id);
             setClienteNombre(existingClient.nombre);
             return;
         }
-
-        try {
-            const result = await lookupRNC(trimmedRNC);
-            if (result) {
-                setClienteNombre(result.nombre);
-                setClienteId(null);
-            } else {
-                setErrors(prev => ({ ...prev, clienteRNC: 'No se encontró el RNC en DGII.' }));
-            }
-        } catch (error: any) {
-            setErrors(prev => ({ ...prev, clienteRNC: error?.message || 'Error al buscar el RNC. Intente nuevamente.' }));
+    
+        const result = await lookupRNC(trimmedRNC);
+        if (result) {
+            setClienteNombre(result.nombre);
+            setClienteId(null); 
         }
     };
 
@@ -205,17 +195,23 @@ const NuevaCotizacionModal: React.FC<NuevaCotizacionModalProps> = ({ isOpen, onC
     
     const formatCurrency = (value: number) => new Intl.NumberFormat('es-DO', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value);
 
+    const modalFooter = (
+      <>
+        <Button type="button" variant="secondary" onClick={handleClose}>Cancelar</Button>
+        <Button type="submit" form="cotizacion-form">{isEditMode ? "Actualizar Cotización" : "Guardar Cotización"}</Button>
+      </>
+    );
+
     return (
         <Modal
             isOpen={isOpen}
             onClose={handleClose}
             title={isEditMode ? "Editar Cotización" : "Crear Nueva Cotización"}
+            size="5xl"
+            footer={modalFooter}
         >
-          <form ref={formRef} onSubmit={handleSubmit} noValidate>
-            <div className="p-6 space-y-4 max-h-[75vh] overflow-y-auto pr-2">
-                {errors.clienteRNC && (
-                    <div className="mb-2 p-2 bg-red-100 text-red-700 rounded">{errors.clienteRNC}</div>
-                )}
+          <form ref={formRef} onSubmit={handleSubmit} noValidate id="cotizacion-form">
+            <div className="p-6 space-y-4">
                 {/* Header */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
@@ -294,19 +290,7 @@ const NuevaCotizacionModal: React.FC<NuevaCotizacionModalProps> = ({ isOpen, onC
                     <div className="space-y-4">
                         <ToggleSwitch id="toggle-itbis-cotizacion" checked={aplicaITBIS} onChange={setAplicaITBIS} label="Aplica ITBIS" />
                         <ToggleSwitch id="toggle-isc-cotizacion" checked={aplicaISC} onChange={setAplicaISC} label="Aplica ISC" />
-                         {aplicaISC && (
-                            <div className="pl-12 animate-fade-in">
-                                <label htmlFor="isc-input-cot" className="text-sm font-medium text-secondary-600">Monto ISC:</label>
-                                <input type="number" id="isc-input-cot" value={isc} onChange={e => setIsc(parseFloat(e.target.value) || 0)} className="w-full mt-1 px-2 py-1 border border-secondary-300 rounded-md shadow-sm sm:text-sm text-right" />
-                            </div>
-                        )}
                         <ToggleSwitch id="toggle-propina-cotizacion" checked={aplicaPropina} onChange={setAplicaPropina} label="Aplica Propina Legal" />
-                        {aplicaPropina && (
-                            <div className="pl-12 animate-fade-in">
-                                <label htmlFor="propina-input-cot" className="text-sm font-medium text-secondary-600">Monto Propina:</label>
-                                <input type="number" id="propina-input-cot" value={propinaLegal} onChange={e => setPropinaLegal(parseFloat(e.target.value) || 0)} className="w-full mt-1 px-2 py-1 border border-secondary-300 rounded-md shadow-sm sm:text-sm text-right" />
-                            </div>
-                        )}
                     </div>
                     <div className="space-y-2 border-l-0 md:border-l md:pl-8">
                         <div className="flex justify-between text-sm">
@@ -331,18 +315,18 @@ const NuevaCotizacionModal: React.FC<NuevaCotizacionModalProps> = ({ isOpen, onC
                         )}
                         {aplicaISC && (
                              <div className="flex justify-between text-sm">
-                                <span className="font-medium text-secondary-600">ISC ({ISC_RATE * 100}% ref.):</span>
-                                <span className="text-secondary-800">{formatCurrency(isc || 0)}</span>
+                                <span className="font-medium text-secondary-600">ISC ({rates.isc * 100}%):</span>
+                                <span className="text-secondary-800">{formatCurrency(totals.isc)}</span>
                             </div>
                         )}
                         <div className="flex justify-between text-sm">
-                            <span className="font-medium text-secondary-600">ITBIS ({ITBIS_RATE * 100}%):</span>
+                            <span className="font-medium text-secondary-600">ITBIS ({rates.itbis * 100}%):</span>
                             <span className="text-secondary-800">{formatCurrency(totals.itbis)}</span>
                         </div>
                         {aplicaPropina && (
                              <div className="flex justify-between text-sm">
-                                <span className="font-medium text-secondary-600">Propina ({PROPINA_RATE * 100}% ref.):</span>
-                                <span className="text-secondary-800">{formatCurrency(propinaLegal || 0)}</span>
+                                <span className="font-medium text-secondary-600">Propina ({rates.propina * 100}%):</span>
+                                <span className="text-secondary-800">{formatCurrency(totals.propinaLegal)}</span>
                             </div>
                         )}
                         <div className="flex justify-between text-lg font-bold border-t pt-2 mt-2">
@@ -351,10 +335,6 @@ const NuevaCotizacionModal: React.FC<NuevaCotizacionModalProps> = ({ isOpen, onC
                         </div>
                     </div>
                 </div>
-            </div>
-             <div className="flex justify-end items-center p-4 bg-secondary-50 border-t border-secondary-200 rounded-b-lg space-x-3">
-                <Button type="button" variant="secondary" onClick={handleClose}>Cancelar</Button>
-                <Button type="submit">{isEditMode ? "Actualizar Cotización" : "Guardar Cotización"}</Button>
             </div>
           </form>
         </Modal>

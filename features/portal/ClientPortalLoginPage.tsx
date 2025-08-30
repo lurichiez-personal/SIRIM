@@ -6,7 +6,8 @@ import Button from '../../components/ui/Button';
 
 const ClientPortalLoginPage: React.FC = () => {
   const { triggerLogin } = useClientAuthStore();
-  const [email, setEmail] = useState('');
+  const [email, setEmail] = useState('cliente@demo.com');
+  const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -14,9 +15,9 @@ const ClientPortalLoginPage: React.FC = () => {
     e.preventDefault();
     setError('');
     setLoading(true);
-    const success = await triggerLogin(email);
+    const success = await triggerLogin(email, password);
     if (!success) {
-      setError('Email no encontrado o no tiene acceso al portal.');
+      setError('Credenciales incorrectas o no tiene acceso al portal.');
     }
     setLoading(false);
   };
@@ -45,6 +46,19 @@ const ClientPortalLoginPage: React.FC = () => {
                     required
                     className="mt-1 block w-full px-3 py-2 border border-secondary-300 rounded-md shadow-sm"
                     placeholder="su-email@ejemplo.com"
+                />
+            </div>
+
+            <div>
+                <label htmlFor="password" className="block text-sm font-medium text-secondary-700">Contraseña</label>
+                <input
+                    id="password"
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                    className="mt-1 block w-full px-3 py-2 border border-secondary-300 rounded-md shadow-sm"
+                    placeholder="Contraseña"
                 />
             </div>
 

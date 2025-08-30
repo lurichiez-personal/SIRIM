@@ -3,7 +3,6 @@ import { Item } from '../../types';
 import Modal from '../../components/ui/Modal';
 import Button from '../../components/ui/Button';
 import { useEnterToNavigate } from '../../hooks/useEnterToNavigate';
-import { ErrorMessages, formatNumber } from '../../utils/validationUtils';
 
 interface NuevoItemModalProps {
   isOpen: boolean;
@@ -19,7 +18,7 @@ const NuevoItemModal: React.FC<NuevoItemModalProps> = ({ isOpen, onClose, onSave
     const [precio, setPrecio] = useState('');
     const [cantidadDisponible, setCantidadDisponible] = useState<string>('');
     const [noManejaStock, setNoManejaStock] = useState(false);
-    const [errors, setErrors] = useState<{ nombre?: string, precio?: string, cantidad?: string, codigo?: string }>({});
+    const [errors, setErrors] = useState<{ nombre?: string, precio?: string, cantidad?: string }>({});
     const isEditMode = !!itemParaEditar;
     const formRef = useRef<HTMLFormElement>(null);
     useEnterToNavigate(formRef);
@@ -39,42 +38,12 @@ const NuevoItemModal: React.FC<NuevoItemModalProps> = ({ isOpen, onClose, onSave
     }, [isOpen, itemParaEditar]);
 
     const validate = () => {
-        const newErrors: { nombre?: string, precio?: string, cantidad?: string, codigo?: string } = {};
-        
-        // Validar nombre
-        if (!nombre.trim()) {
-            newErrors.nombre = ErrorMessages.NOMBRE_REQUERIDO;
-        } else if (nombre.trim().length < 2) {
-            newErrors.nombre = ErrorMessages.TEXTO_MUY_CORTO('El nombre', 2);
+        const newErrors: { nombre?: string, precio?: string, cantidad?: string } = {};
+        if (!nombre.trim()) newErrors.nombre = 'El nombre es obligatorio.';
+        if (parseFloat(precio) <= 0 || isNaN(parseFloat(precio))) newErrors.precio = 'El precio debe ser un número mayor a cero.';
+        if (!noManejaStock && (parseInt(cantidadDisponible) < 0 || isNaN(parseInt(cantidadDisponible)))) {
+            newErrors.cantidad = 'La cantidad debe ser un número igual o mayor a cero.';
         }
-        
-        // Validar código (si se proporciona)
-        if (codigo.trim()) {
-            if (codigo.trim().length < 2) {
-                newErrors.codigo = ErrorMessages.TEXTO_MUY_CORTO('El código', 2);
-            } else if (/\s/.test(codigo.trim())) {
-                newErrors.codigo = ErrorMessages.CODIGO_INVALIDO;
-            }
-        }
-        
-        // Validar precio
-        const precioNum = parseFloat(precio);
-        if (isNaN(precioNum) || precioNum < 0) {
-            newErrors.precio = ErrorMessages.PRECIO_INVALIDO;
-        } else if (precioNum > 999999999) {
-            newErrors.precio = ErrorMessages.PRECIO_EXCEDE_LIMITE;
-        }
-        
-        // Validar cantidad si maneja stock
-        if (!noManejaStock) {
-            const cantidadNum = parseInt(cantidadDisponible);
-            if (isNaN(cantidadNum) || cantidadNum < 0) {
-                newErrors.cantidad = ErrorMessages.CANTIDAD_INVALIDA;
-            } else if (cantidadNum > 999999999) {
-                newErrors.cantidad = ErrorMessages.CANTIDAD_EXCEDE_LIMITE;
-            }
-        }
-        
         setErrors(newErrors);
         return Object.keys(newErrors).length === 0;
     };

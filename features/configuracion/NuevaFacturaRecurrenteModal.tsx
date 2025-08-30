@@ -7,6 +7,8 @@ import { PlusIcon, TrashIcon } from '../../components/icons/Icons';
 import { useDGIIDataStore } from '../../stores/useDGIIDataStore';
 import ToggleSwitch from '../../components/ui/ToggleSwitch';
 import { useEnterToNavigate } from '../../hooks/useEnterToNavigate';
+import { useTenantStore } from '../../stores/useTenantStore';
+import { useRatesStore } from '../../stores/useRatesStore';
 
 interface NuevaFacturaRecurrenteModalProps {
   isOpen: boolean;
@@ -18,9 +20,11 @@ interface NuevaFacturaRecurrenteModalProps {
   plantillaParaEditar?: FacturaRecurrente | null;
 }
 
-const ITBIS_RATE = 0.18;
-
 const NuevaFacturaRecurrenteModal: React.FC<NuevaFacturaRecurrenteModalProps> = ({ isOpen, onClose, onSave, clientes, itemsDisponibles, onCreateCliente, plantillaParaEditar }) => {
+    const { selectedTenant } = useTenantStore();
+    const { getRatesForTenant } = useRatesStore();
+    const rates = useMemo(() => selectedTenant ? getRatesForTenant(selectedTenant.id) : { itbis: 0.18, isc: 0.16, propina: 0.10 }, [selectedTenant, getRatesForTenant]);
+
     const [clienteId, setClienteId] = useState<number | null>(null);
     const [clienteNombre, setClienteNombre] = useState('');
     const [descripcion, setDescripcion] = useState('');
@@ -31,8 +35,6 @@ const NuevaFacturaRecurrenteModal: React.FC<NuevaFacturaRecurrenteModalProps> = 
     const [aplicaITBIS, setAplicaITBIS] = useState(true);
     const [aplicaISC, setAplicaISC] = useState(false);
     const [aplicaPropina, setAplicaPropina] = useState(false);
-    const [isc, setIsc] = useState(0);
-    const [propinaLegal, setPropinaLegal] = useState(0);
     const [activa, setActiva] = useState(true);
     const [errors, setErrors] = useState<{ cliente?: string; fecha?: string; items?: string; descripcion?: string }>({});
 
@@ -51,9 +53,7 @@ const NuevaFacturaRecurrenteModal: React.FC<NuevaFacturaRecurrenteModalProps> = 
             setDescuentoPorcentaje(plantillaParaEditar.descuentoPorcentaje || 0);
             setAplicaITBIS(plantillaParaEditar.aplicaITBIS);
             setAplicaISC(plantillaParaEditar.aplicaISC || false);
-            setIsc(plantillaParaEditar.isc || 0);
             setAplicaPropina(plantillaParaEditar.aplicaPropina || false);
-            setPropinaLegal(plantillaParaEditar.propinaLegal || 0);
             setActiva(plantillaParaEditar.activa);
         } else {
             resetForm();
@@ -63,14 +63,15 @@ const NuevaFacturaRecurrenteModal: React.FC<NuevaFacturaRecurrenteModalProps> = 
     const totals = useMemo(() => {
         const subtotal = lineItems.reduce((acc, item) => acc + (item.subtotal || 0), 0);
         const montoDescuento = subtotal * ((descuentoPorcentaje || 0) / 100);
-        const baseImponible = subtotal - montoDescuento;
-        const currentISC = aplicaISC ? (isc || 0) : 0;
-        const currentPropina = aplicaPropina ? (propinaLegal || 0) : 0;
-        const baseParaITBIS = baseImponible + currentISC;
-        const itbis = aplicaITBIS ? baseParaITBIS * ITBIS_RATE : 0;
-        const montoTotal = baseParaITBIS + itbis + currentPropina;
-        return { subtotal, montoDescuento, itbis, montoTotal };
-    }, [lineItems, descuentoPorcentaje, aplicaITBIS, aplicaISC, isc, aplicaPropina, propinaLegal]);
+        
+        const itbis = aplicaITBIS ? subtotal * rates.itbis : 0;
+        const isc = aplicaISC ? subtotal * rates.isc : 0;
+        const propinaLegal = aplicaPropina ? subtotal * rates.propina : 0;
+
+        const montoTotal = (subtotal - montoDescuento) + itbis + isc + propinaLegal;
+        
+        return { subtotal, montoDescuento, itbis, isc, propinaLegal, montoTotal };
+    }, [lineItems, descuentoPorcentaje, aplicaITBIS, aplicaISC, aplicaPropina, rates]);
     
     const validate = () => {
         const newErrors: any = {};
@@ -100,10 +101,10 @@ const NuevaFacturaRecurrenteModal: React.FC<NuevaFacturaRecurrenteModalProps> = 
             montoDescuento: totals.montoDescuento,
             aplicaITBIS,
             aplicaISC,
-            isc: aplicaISC ? isc || 0 : 0,
+            isc: totals.isc,
             itbis: totals.itbis,
             aplicaPropina,
-            propinaLegal: aplicaPropina ? propinaLegal || 0 : 0,
+            propinaLegal: totals.propinaLegal,
             montoTotal: totals.montoTotal,
             activa
         };
@@ -126,9 +127,7 @@ const NuevaFacturaRecurrenteModal: React.FC<NuevaFacturaRecurrenteModalProps> = 
         setDescuentoPorcentaje(0);
         setAplicaITBIS(true);
         setAplicaISC(false);
-        setIsc(0);
         setAplicaPropina(false);
-        setPropinaLegal(0);
         setActiva(true);
         setErrors({});
     };
@@ -240,9 +239,9 @@ const NuevaFacturaRecurrenteModal: React.FC<NuevaFacturaRecurrenteModalProps> = 
                                 <label htmlFor="descuento" className="font-medium text-secondary-600">Descuento (%):</label>
                                 <input type="number" id="descuento" value={descuentoPorcentaje} onChange={e => setDescuentoPorcentaje(parseFloat(e.target.value) || 0)} className="w-20 px-2 py-1 border rounded-md" />
                             </div>
-                            {aplicaISC && <div className="flex justify-between items-center text-sm"> <label htmlFor="isc-rec">ISC:</label> <input type="number" id="isc-rec" value={isc} onChange={e => setIsc(parseFloat(e.target.value) || 0)} className="w-28 px-2 py-1 border rounded-md" /> </div>}
-                            <div className="flex justify-between text-sm"><span>ITBIS ({ITBIS_RATE * 100}%):</span><span>{formatCurrency(totals.itbis)}</span></div>
-                            {aplicaPropina && <div className="flex justify-between items-center text-sm"> <label htmlFor="propina-rec">Propina:</label> <input type="number" id="propina-rec" value={propinaLegal} onChange={e => setPropinaLegal(parseFloat(e.target.value) || 0)} className="w-28 px-2 py-1 border rounded-md" /> </div>}
+                            {aplicaISC && <div className="flex justify-between text-sm"><span>ISC ({rates.isc * 100}%):</span><span>{formatCurrency(totals.isc)}</span></div>}
+                            <div className="flex justify-between text-sm"><span>ITBIS ({rates.itbis * 100}%):</span><span>{formatCurrency(totals.itbis)}</span></div>
+                            {aplicaPropina && <div className="flex justify-between text-sm"><span>Propina ({rates.propina * 100}%):</span><span>{formatCurrency(totals.propinaLegal)}</span></div>}
                             <div className="flex justify-between text-lg font-bold border-t pt-2 mt-2"><span>Total:</span><span className="text-primary">{formatCurrency(totals.montoTotal)}</span></div>
                         </div>
                     </div>

@@ -1,36 +1,75 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { Cliente } from '../../types';
 import { useTenantStore } from '../../stores/useTenantStore';
 import { useTaskStore } from '../../stores/useTaskStore';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
-import { PlusIcon, UploadIcon, DownloadIcon } from '../../components/icons/Icons';
+import { PlusIcon, DownloadIcon, InformationCircleIcon } from '../../components/icons/Icons';
 import NuevoClienteModal from './NuevoClienteModal';
-import ImportarClientesModal from './ImportarClientesModal';
 import { useDataStore } from '../../stores/useDataStore';
 import Pagination from '../../components/ui/Pagination';
 import Checkbox from '../../components/ui/Checkbox';
 import { exportToCSV } from '../../utils/csvExport';
+import { useDGIIDataStore } from '../../stores/useDGIIDataStore';
 
 const ITEMS_PER_PAGE = 10;
 
+const RNCStatus: React.FC = () => {
+    const { status, lastUpdated, recordCount, errorMessage, progress } = useDGIIDataStore();
+    let text = '';
+    let color = 'text-secondary-500';
+    let showProgress = false;
+
+    switch(status) {
+        case 'checking': text = 'Verificando base de datos local...'; break;
+        case 'downloading': 
+            text = 'Descargando archivo de la DGII...'; 
+            color = 'text-blue-600'; 
+            showProgress = true;
+            break;
+        case 'processing': 
+            text = `Procesando y guardando datos... (${progress}%)`; 
+            color = 'text-blue-600';
+            showProgress = true;
+            break;
+        case 'ready': 
+            text = `Base de datos local lista. ${recordCount.toLocaleString()} registros. Última actualización: ${new Date(lastUpdated).toLocaleString('es-DO')}`;
+            color = 'text-green-600';
+            break;
+        case 'error': text = `Error: ${errorMessage}`; color = 'text-red-600'; break;
+        case 'idle': text = 'Iniciando descarga de la base de datos de RNC...'; break;
+    }
+
+    return (
+        <div>
+            <div className={`text-xs mt-2 flex items-center ${color}`}>
+                <InformationCircleIcon className="h-4 w-4 mr-1"/>
+                <span>{text}</span>
+            </div>
+            {showProgress && (
+                <div className="w-full bg-secondary-200 rounded-full h-1.5 mt-2">
+                    <div className="bg-primary h-1.5 rounded-full" style={{ width: `${progress}%`, transition: 'width 0.2s ease-in-out' }}></div>
+                </div>
+            )}
+        </div>
+    );
+};
+
 const ClientesPage: React.FC = () => {
     const { selectedTenant } = useTenantStore();
-    const { addTask, updateTaskProgress, completeTask, failTask } = useTaskStore();
     const { clientes, addCliente, updateCliente, getPagedClientes, bulkUpdateClienteStatus } = useDataStore();
+    const { status: rncStatus, triggerUpdate: triggerRNCUpdate } = useDGIIDataStore();
     
     const [loading, setLoading] = useState(true);
     const [isModalOpen, setIsModalOpen] = useState(false);
-    const [isImportModalOpen, setIsImportModalOpen] = useState(false);
     const [clienteParaEditar, setClienteParaEditar] = useState<Cliente | null>(null);
     
-    // State for filtering and pagination
     const [currentPage, setCurrentPage] = useState(1);
     const [searchTerm, setSearchTerm] = useState('');
     const [statusFilter, setStatusFilter] = useState<'todos' | 'activo' | 'inactivo'>('todos');
     const [pagedData, setPagedData] = useState({ items: [], totalCount: 0 });
     
-    // State for bulk actions
     const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
 
     useEffect(() => {
@@ -46,7 +85,7 @@ const ClientesPage: React.FC = () => {
             setSelectedIds(new Set());
             setLoading(false);
         }
-    }, [selectedTenant, currentPage, searchTerm, statusFilter, getPagedClientes, clientes]); // depend on 'clientes' to refetch on change
+    }, [selectedTenant, currentPage, searchTerm, statusFilter, getPagedClientes, clientes]);
     
     const handleOpenModalParaCrear = () => {
         setClienteParaEditar(null);
@@ -69,10 +108,6 @@ const ClientesPage: React.FC = () => {
         } else {
             addCliente(clientData);
         }
-    };
-    
-    const handleStartImport = (file: File) => {
-        // ... (import logic remains the same, but it will now trigger a refetch via the store)
     };
     
     const getEstadoDGIIBadge = (estado: string | undefined) => {
@@ -126,9 +161,6 @@ const ClientesPage: React.FC = () => {
             <div className="flex justify-between items-center mb-6">
                 <h1 className="text-3xl font-bold text-secondary-800">Clientes</h1>
                 <div className="flex space-x-2">
-                    <Button variant="secondary" leftIcon={<UploadIcon/>} onClick={() => setIsImportModalOpen(true)}>
-                        Importar
-                    </Button>
                     <Button variant="secondary" leftIcon={<DownloadIcon/>} onClick={handleExport}>
                         Exportar a CSV
                     </Button>
@@ -137,6 +169,25 @@ const ClientesPage: React.FC = () => {
                     </Button>
                 </div>
             </div>
+
+            <Card className="mb-6">
+                <CardHeader>
+                    <div className="flex justify-between items-center">
+                        <CardTitle>Base de Datos de RNC (DGII)</CardTitle>
+                        <Button 
+                            variant="secondary" 
+                            onClick={triggerRNCUpdate}
+                            disabled={rncStatus === 'downloading' || rncStatus === 'processing'}
+                        >
+                            {rncStatus === 'downloading' || rncStatus === 'processing' ? 'Actualizando...' : 'Actualizar Ahora'}
+                        </Button>
+                    </div>
+                </CardHeader>
+                <CardContent>
+                    <RNCStatus />
+                </CardContent>
+            </Card>
+
 
             <Card>
                 <CardHeader>
@@ -228,12 +279,6 @@ const ClientesPage: React.FC = () => {
                 onClose={handleCloseModal}
                 onSave={handleSaveClient}
                 clienteParaEditar={clienteParaEditar}
-            />
-
-            <ImportarClientesModal
-                isOpen={isImportModalOpen}
-                onClose={() => setIsImportModalOpen(false)}
-                onImport={handleStartImport}
             />
         </div>
     );

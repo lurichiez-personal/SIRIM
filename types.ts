@@ -89,11 +89,7 @@ export interface Gasto {
     categoriaGasto?: string;
     fecha: string;
     subtotal: number;
-    descuentoPorcentaje?: number;
     itbis: number;
-    aplicaISC?: boolean;
-    isc?: number;
-    propinaLegal?: number;
     monto: number; 
     ncf?: string;
     descripcion: string;
@@ -336,6 +332,7 @@ export interface ClientUser {
     clienteId: number;
     nombre: string;
     email: string;
+    password?: string;
 }
 
 export interface Comment {

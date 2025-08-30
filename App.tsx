@@ -24,6 +24,7 @@ import FacturacionRecurrentePage from './features/configuracion/FacturacionRecur
 import ConciliacionPage from './features/conciliacion/ConciliacionPage';
 import RolesPage from './features/configuracion/RolesPage';
 import GestionUsuariosPage from './features/configuracion/GestionUsuariosPage';
+import TasasPage from './features/configuracion/TasasPage';
 
 // Client Portal
 import ClientPortalLayout from './features/portal/ClientPortalLayout';
@@ -80,6 +81,7 @@ function App(): React.ReactNode {
                   <Route path="/configuracion/facturacion-recurrente" element={<FacturacionRecurrentePage />} />
                   <Route path="/configuracion/roles" element={<RolesPage />} />
                   <Route path="/configuracion/usuarios" element={<GestionUsuariosPage />} />
+                  <Route path="/configuracion/tasas" element={<TasasPage />} />
                   <Route path="*" element={<Navigate to="/" />} />
                 </Routes>
               </Layout>

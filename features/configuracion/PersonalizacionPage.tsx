@@ -4,12 +4,10 @@ import { useSettingsStore } from '../../stores/useSettingsStore';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import { useEnterToNavigate } from '../../hooks/useEnterToNavigate';
-import { useToastStore } from '../../stores/useToastStore';
 
 const PersonalizacionPage: React.FC = () => {
     const { selectedTenant } = useTenantStore();
     const { settings, updateSettings } = useSettingsStore();
-    const { showSuccess } = useToastStore();
     
     const [logoUrl, setLogoUrl] = useState('');
     const [accentColor, setAccentColor] = useState('#005A9C');
@@ -37,7 +35,7 @@ const PersonalizacionPage: React.FC = () => {
         e.preventDefault();
         if (!selectedTenant) return;
         updateSettings(selectedTenant.id, { logoUrl, accentColor, footerText });
-        showSuccess('Configuración de personalización guardada correctamente.');
+        alert('Configuración guardada!');
     };
 
     return (

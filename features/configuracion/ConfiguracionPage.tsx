@@ -2,7 +2,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/Card';
-import { FacturasIcon, UserCircleIcon, ClientesIcon, DocumentDuplicateIcon, ConfiguracionIcon } from '../../components/icons/Icons';
+import { FacturasIcon, UserCircleIcon, ClientesIcon, DocumentDuplicateIcon, ConfiguracionIcon, ReceiptPercentIcon } from '../../components/icons/Icons';
 import { Permission } from '../../types';
 import Can from '../../components/Can';
 
@@ -52,6 +52,14 @@ const ConfiguracionPage: React.FC = () => {
                 description="Configure facturas automáticas para clientes con pagos recurrentes."
                 icon={DocumentDuplicateIcon}
             />
+            <Can I={Permission.GESTIONAR_CONFIGURACION_EMPRESA}>
+                 <SettingCard
+                    to="/configuracion/tasas"
+                    title="Impuestos y Tasas"
+                    description="Configure las tasas de impuestos como ITBIS, ISC y la propina legal."
+                    icon={ReceiptPercentIcon}
+                />
+            </Can>
             <Can I={Permission.GESTIONAR_USUARIOS}>
                 <SettingCard
                     to="/configuracion/usuarios"

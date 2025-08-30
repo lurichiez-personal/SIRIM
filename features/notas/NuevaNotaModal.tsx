@@ -5,7 +5,8 @@ import Modal from '../../components/ui/Modal';
 import Button from '../../components/ui/Button';
 import ToggleSwitch from '../../components/ui/ToggleSwitch';
 import { useEnterToNavigate } from '../../hooks/useEnterToNavigate';
-import { useToastStore } from '../../stores/useToastStore';
+import { useTenantStore } from '../../stores/useTenantStore';
+import { useRatesStore } from '../../stores/useRatesStore';
 
 interface NuevaNotaModalProps {
   isOpen: boolean;
@@ -28,26 +29,24 @@ interface NuevaNotaModalProps {
   facturaAfectadaInicial?: Factura | null;
 }
 
-const ITBIS_RATE = 0.18;
-
 const NuevaNotaModal: React.FC<NuevaNotaModalProps> = ({ isOpen, onClose, onSave, facturasDisponibles, facturaAfectadaInicial }) => {
-    const { showSuccess, showError } = useToastStore();
+    const { selectedTenant } = useTenantStore();
+    const { getRatesForTenant } = useRatesStore();
+    const rates = useMemo(() => selectedTenant ? getRatesForTenant(selectedTenant.id) : { itbis: 0.18, isc: 0.16, propina: 0.10 }, [selectedTenant, getRatesForTenant]);
+
     const [facturaAfectada, setFacturaAfectada] = useState<Factura | null>(null);
     const [codigoModificacion, setCodigoModificacion] = useState<keyof typeof CodigoModificacionNCF>('01');
     const [fecha, setFecha] = useState(new Date().toISOString().split('T')[0]);
     const [descripcion, setDescripcion] = useState('');
     const [searchTerm, setSearchTerm] = useState('');
-    const [showAllResults, setShowAllResults] = useState(false);
     
     // Amounts state
     const [subtotal, setSubtotal] = useState(0);
     const [aplicaITBIS, setAplicaITBIS] = useState(true);
     const [aplicaISC, setAplicaISC] = useState(false);
     const [aplicaPropina, setAplicaPropina] = useState(false);
-    const [isc, setIsc] = useState(0);
-    const [propinaLegal, setPropinaLegal] = useState(0);
     
-    const [errors, setErrors] = useState<{ factura?: string; fecha?: string; descripcion?: string; general?: string }>({});
+    const [errors, setErrors] = useState<{ factura?: string; fecha?: string; descripcion?: string }>({});
 
     const formRef = useRef<HTMLFormElement>(null);
     useEnterToNavigate(formRef);
@@ -62,9 +61,7 @@ const NuevaNotaModal: React.FC<NuevaNotaModalProps> = ({ isOpen, onClose, onSave
         setSubtotal(factura.subtotal - (factura.montoDescuento || 0));
         setAplicaITBIS(factura.aplicaITBIS);
         setAplicaISC(factura.aplicaISC || false);
-        setIsc(factura.isc || 0);
         setAplicaPropina(factura.aplicaPropina || false);
-        setPropinaLegal(factura.propinaLegal || 0);
 
         if (codigoModificacion === '01') {
             setDescripcion(`Anulación de factura ${factura.ncf}`);
@@ -88,42 +85,26 @@ const NuevaNotaModal: React.FC<NuevaNotaModalProps> = ({ isOpen, onClose, onSave
             setSubtotal(facturaAfectada.subtotal - (facturaAfectada.montoDescuento || 0));
             setAplicaITBIS(facturaAfectada.aplicaITBIS);
             setAplicaISC(facturaAfectada.aplicaISC || false);
-            setIsc(facturaAfectada.isc || 0);
             setAplicaPropina(facturaAfectada.aplicaPropina || false);
-            setPropinaLegal(facturaAfectada.propinaLegal || 0);
         }
     }, [facturaAfectada, isEditable]);
 
     const totals = useMemo(() => {
-        const currentISC = aplicaISC ? (isc || 0) : 0;
-        const currentPropina = aplicaPropina ? (propinaLegal || 0) : 0;
-        const baseParaITBIS = subtotal + currentISC;
-        const itbis = aplicaITBIS ? baseParaITBIS * ITBIS_RATE : 0;
-        const montoTotal = baseParaITBIS + itbis + currentPropina;
-        return { itbis, montoTotal };
-    }, [subtotal, aplicaITBIS, aplicaISC, isc, aplicaPropina, propinaLegal]);
+        const itbis = aplicaITBIS ? subtotal * rates.itbis : 0;
+        const isc = aplicaISC ? subtotal * rates.isc : 0;
+        const propinaLegal = aplicaPropina ? subtotal * rates.propina : 0;
+        const montoTotal = subtotal + itbis + isc + propinaLegal;
+        return { itbis, isc, propinaLegal, montoTotal };
+    }, [subtotal, aplicaITBIS, aplicaISC, aplicaPropina, rates]);
 
 
     const filteredFacturas = useMemo(() => {
         if (!searchTerm) return [];
-        const results = facturasDisponibles.filter(f => 
+        return facturasDisponibles.filter(f => 
             f.ncf?.toLowerCase().includes(searchTerm.toLowerCase()) ||
             f.clienteNombre.toLowerCase().includes(searchTerm.toLowerCase())
-        );
-        
-        // Show first 10 results, or all if showAllResults is true
-        const limit = showAllResults ? results.length : Math.min(10, results.length);
-        return results.slice(0, limit);
-    }, [searchTerm, facturasDisponibles, showAllResults]);
-
-    const hasMoreResults = useMemo(() => {
-        if (!searchTerm) return false;
-        const totalResults = facturasDisponibles.filter(f => 
-            f.ncf?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            f.clienteNombre.toLowerCase().includes(searchTerm.toLowerCase())
-        ).length;
-        return totalResults > 10 && !showAllResults;
-    }, [searchTerm, facturasDisponibles, showAllResults]);
+        ).slice(0, 5); // Limit results for performance
+    }, [searchTerm, facturasDisponibles]);
 
     const validate = () => {
         const newErrors: { factura?: string; fecha?: string; descripcion?: string } = {};
@@ -134,30 +115,24 @@ const NuevaNotaModal: React.FC<NuevaNotaModalProps> = ({ isOpen, onClose, onSave
         return Object.keys(newErrors).length === 0;
     };
 
-    const handleSubmit = async (e: React.FormEvent) => {
+    const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         if (!validate()) return;
-        try {
-            await onSave({
-                facturaAfectada: facturaAfectada!,
-                codigoModificacion,
-                fecha,
-                descripcion,
-                subtotal,
-                isc: aplicaISC ? isc || 0 : 0,
-                itbis: totals.itbis,
-                propinaLegal: aplicaPropina ? propinaLegal || 0 : 0,
-                montoTotal: totals.montoTotal,
-                aplicaITBIS,
-                aplicaISC,
-                aplicaPropina,
-            });
-            showSuccess('Nota de crédito creada exitosamente.');
-            onClose();
-        } catch (error: any) {
-            showError(error?.message || 'Ocurrió un error al guardar la nota. Intente nuevamente.');
-            setErrors(prev => ({ ...prev, general: error?.message || 'Ocurrió un error al guardar la nota. Intente nuevamente.' }));
-        }
+        onSave({
+            facturaAfectada: facturaAfectada!,
+            codigoModificacion,
+            fecha,
+            descripcion,
+            subtotal,
+            isc: totals.isc,
+            itbis: totals.itbis,
+            propinaLegal: totals.propinaLegal,
+            montoTotal: totals.montoTotal,
+            aplicaITBIS,
+            aplicaISC,
+            aplicaPropina,
+        });
+        onClose();
     };
     
     const resetForm = () => {
@@ -166,10 +141,7 @@ const NuevaNotaModal: React.FC<NuevaNotaModalProps> = ({ isOpen, onClose, onSave
         setFecha(new Date().toISOString().split('T')[0]);
         setDescripcion('');
         setSearchTerm('');
-        setShowAllResults(false);
         setSubtotal(0);
-        setIsc(0);
-        setPropinaLegal(0);
         setAplicaITBIS(true);
         setAplicaISC(false);
         setAplicaPropina(false);
@@ -184,16 +156,13 @@ const NuevaNotaModal: React.FC<NuevaNotaModalProps> = ({ isOpen, onClose, onSave
     const formatCurrency = (value: number) => new Intl.NumberFormat('es-DO', { style: 'currency', currency: 'DOP' }).format(value);
 
     return (
-                <Modal
-                        isOpen={isOpen}
-                        onClose={handleClose}
-                        title="Emitir Nueva Nota de Crédito"
-                >
-                    <form ref={formRef} onSubmit={handleSubmit} noValidate>
-                        <div className="p-6 space-y-4">
-                            {errors.general && (
-                                <div className="mb-2 p-2 bg-red-100 text-red-700 rounded">{errors.general}</div>
-                            )}
+        <Modal
+            isOpen={isOpen}
+            onClose={handleClose}
+            title="Emitir Nueva Nota de Crédito"
+        >
+          <form ref={formRef} onSubmit={handleSubmit} noValidate>
+            <div className="p-6 space-y-4">
                 {/* Search for Invoice */}
                 {!facturaAfectada && (
                     <div>
@@ -215,14 +184,6 @@ const NuevaNotaModal: React.FC<NuevaNotaModalProps> = ({ isOpen, onClose, onSave
                                             <p className="text-sm text-secondary-600">{f.clienteNombre} - {formatCurrency(f.montoTotal)}</p>
                                         </li>
                                     ))}
-                                    {hasMoreResults && (
-                                        <li 
-                                            onClick={() => setShowAllResults(true)} 
-                                            className="px-3 py-2 cursor-pointer hover:bg-primary-50 text-primary-600 border-t border-secondary-200 text-center font-medium"
-                                        >
-                                            Ver más resultados...
-                                        </li>
-                                    )}
                                 </ul>
                             )}
                         </div>
@@ -291,18 +252,18 @@ const NuevaNotaModal: React.FC<NuevaNotaModalProps> = ({ isOpen, onClose, onSave
                         </div>
                         {aplicaISC && (
                             <div className="flex justify-between items-center text-sm">
-                                <label htmlFor="isc-nota" className="font-medium text-secondary-600">ISC:</label>
-                                 <input type="number" id="isc-nota" value={isc} onChange={e => setIsc(parseFloat(e.target.value) || 0)} className="w-28 px-2 py-1 border border-secondary-300 rounded-md shadow-sm sm:text-sm text-right disabled:bg-secondary-100" disabled={!isEditable}/>
+                                <span className="font-medium text-secondary-600">ISC ({rates.isc * 100}%):</span>
+                                <span className="font-medium text-secondary-800">{formatCurrency(totals.isc)}</span>
                             </div>
                         )}
                         <div className="flex justify-between text-sm">
-                            <span className="font-medium text-secondary-600">ITBIS ({ITBIS_RATE * 100}%):</span>
+                            <span className="font-medium text-secondary-600">ITBIS ({rates.itbis * 100}%):</span>
                             <span className="text-secondary-800">{formatCurrency(totals.itbis)}</span>
                         </div>
                         {aplicaPropina && (
                             <div className="flex justify-between items-center text-sm">
-                                <label htmlFor="propina-nota" className="font-medium text-secondary-600">Propina Legal:</label>
-                                 <input type="number" id="propina-nota" value={propinaLegal} onChange={e => setPropinaLegal(parseFloat(e.target.value) || 0)} className="w-28 px-2 py-1 border border-secondary-300 rounded-md shadow-sm sm:text-sm text-right disabled:bg-secondary-100" disabled={!isEditable} />
+                                <span className="font-medium text-secondary-600">Propina Legal ({rates.propina * 100}%):</span>
+                                <span className="font-medium text-secondary-800">{formatCurrency(totals.propinaLegal)}</span>
                             </div>
                         )}
                         <div className="flex justify-between text-lg font-bold border-t pt-2 mt-2">

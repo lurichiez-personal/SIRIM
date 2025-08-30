@@ -1,4 +1,3 @@
-
 import { create } from 'zustand';
 import { ClientUser } from '../types';
 
@@ -7,12 +6,13 @@ interface ClientAuthState {
   clientUser: ClientUser | null;
   login: (user: ClientUser) => void;
   logout: () => void;
-  triggerLogin: (email: string) => Promise<boolean>;
+  triggerLogin: (email: string, password: string) => Promise<boolean>;
 }
 
 const mockClientUsers: ClientUser[] = [
-    { id: 'client-user-1', clienteId: 1, nombre: 'Juan Perez (Cliente A)', email: 'clienteA@email.com' },
-    { id: 'client-user-2', clienteId: 2, nombre: 'Maria Gomez (Cliente B)', email: 'clienteB@email.com' },
+    { id: 'client-user-1', clienteId: 1, nombre: 'Juan Perez (Cliente A)', email: 'clienteA@email.com', password: 'password123' },
+    { id: 'client-user-2', clienteId: 2, nombre: 'Maria Gomez (Cliente B)', email: 'clienteB@email.com', password: 'password123' },
+    { id: 'client-user-demo', clienteId: 1, nombre: 'Cliente A Corp (Demo)', email: 'cliente@demo.com', password: 'demo' },
 ];
 
 export const useClientAuthStore = create<ClientAuthState>((set) => ({
@@ -20,10 +20,12 @@ export const useClientAuthStore = create<ClientAuthState>((set) => ({
   clientUser: null,
   login: (user: ClientUser) => set({ isClientAuthenticated: true, clientUser: user }),
   logout: () => set({ isClientAuthenticated: false, clientUser: null }),
-  triggerLogin: async (email: string) => {
+  triggerLogin: async (email: string, password: string) => {
     await new Promise(resolve => setTimeout(resolve, 500));
-    const foundUser = mockClientUsers.find(u => u.email.toLowerCase() === email.toLowerCase());
-    if (foundUser) {
+    const cleanEmail = email.trim().toLowerCase();
+    const cleanPassword = password.trim();
+    const foundUser = mockClientUsers.find(u => u.email.toLowerCase() === cleanEmail);
+    if (foundUser && foundUser.password === cleanPassword) {
         set({ isClientAuthenticated: true, clientUser: foundUser });
         return true;
     }

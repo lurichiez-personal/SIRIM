@@ -3,7 +3,6 @@ import { create } from 'zustand';
 import { Empresa } from '../types';
 import { useAuthStore } from './useAuthStore';
 import { useDataStore } from './useDataStore';
-import { apiFetch } from '../utils/api';
 
 interface TenantState {
   selectedTenant: Empresa | null;
@@ -20,19 +19,17 @@ const mockEmpresas: Empresa[] = [
     { id: 3, nombre: 'Constructora C por A', rnc: '103000003' }
 ];
 
+// Función para simular una llamada a la API
 const fetchTenantsFromApi = async (userId: string | undefined): Promise<Empresa[]> => {
-    if (userId) {
-        try {
-            return await apiFetch<Empresa[]>(`/usuarios/${userId}/empresas`);
-        } catch (error) {
-            console.error('Error fetching tenants', error);
-        }
-    }
+    console.log(`Fetching tenants for user ${userId}`);
+    // En una app real, aquí se llamaría a GET /api/usuarios/empresas
+    // El backend devolvería las empresas asociadas al usuario.
+    await new Promise(resolve => setTimeout(resolve, 500));
     const user = useAuthStore.getState().user;
     if (user?.empresaId) {
         return mockEmpresas.filter(e => e.id === user.empresaId);
     }
-    return mockEmpresas;
+    return mockEmpresas; // El contador ve todas
 };
 
 

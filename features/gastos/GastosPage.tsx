@@ -11,7 +11,6 @@ import Pagination from '../../components/ui/Pagination';
 import Checkbox from '../../components/ui/Checkbox';
 import { exportToCSV } from '../../utils/csvExport';
 import EscanearGastoModal from './EscanearGastoModal';
-import { useToastStore } from '../../stores/useToastStore';
 
 const ITEMS_PER_PAGE = 10;
 const GASTO_CATEGORIAS_606 = [
@@ -24,7 +23,6 @@ const GASTO_CATEGORIAS_606 = [
 const GastosPage: React.FC = () => {
     const { selectedTenant } = useTenantStore();
     const { gastos, getPagedGastos, addGasto, updateGasto, bulkDeleteGastos } = useDataStore(); 
-    const { showQuestion, showSuccess } = useToastStore(); 
     const [loading, setLoading] = useState(true);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isScanModalOpen, setIsScanModalOpen] = useState(false);
@@ -75,12 +73,10 @@ const GastosPage: React.FC = () => {
     const handleSelectOne = (id: number, checked: boolean) => setSelectedIds(prev => { const newSet = new Set(prev); if (checked) newSet.add(id); else newSet.delete(id); return newSet; });
     const isAllSelected = pagedData.items.length > 0 && selectedIds.size === pagedData.items.length;
 
-    const handleBulkDelete = async () => {
-        const confirmed = await showQuestion(`¿Está seguro que desea eliminar ${selectedIds.size} gastos? Esta acción no se puede deshacer.`);
-        if (confirmed) {
+    const handleBulkDelete = () => {
+        if (window.confirm(`¿Está seguro que desea eliminar ${selectedIds.size} gastos?`)) {
             bulkDeleteGastos(Array.from(selectedIds));
             setSelectedIds(new Set());
-            showSuccess(`Se eliminaron ${selectedIds.size} gastos correctamente.`);
         }
     };
 

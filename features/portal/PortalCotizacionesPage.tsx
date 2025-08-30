@@ -5,21 +5,17 @@ import { useDataStore } from '../../stores/useDataStore';
 import { Card, CardHeader, CardTitle, CardContent } from '../../components/ui/Card';
 import { CotizacionEstado } from '../../types';
 import Button from '../../components/ui/Button';
-import { useToastStore } from '../../stores/useToastStore';
 
 const PortalCotizacionesPage: React.FC = () => {
     const { clientUser } = useClientAuthStore();
     const { cotizaciones, updateCotizacionStatus } = useDataStore();
-    const { showQuestion } = useToastStore();
 
     if (!clientUser) return null;
 
     const misCotizaciones = cotizaciones.filter(c => c.clienteId === clientUser.clienteId);
 
-    const handleUpdateStatus = async (id: number, status: CotizacionEstado) => {
-        const action = status === CotizacionEstado.Aprobada ? 'aprobar' : 'rechazar';
-        const confirmed = await showQuestion(`¿Está seguro que desea ${action} esta cotización?`);
-        if (confirmed) {
+    const handleUpdateStatus = (id: number, status: CotizacionEstado) => {
+        if (window.confirm(`¿Seguro que desea ${status === CotizacionEstado.Aprobada ? 'aprobar' : 'rechazar'} esta cotización?`)) {
             updateCotizacionStatus(id, status);
         }
     };
