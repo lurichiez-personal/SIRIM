@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Gasto } from '../../types';
 import Modal from '../../components/ui/Modal';
@@ -47,6 +46,7 @@ const NuevoGastoModal: React.FC<NuevoGastoModalProps> = ({ isOpen, onClose, onSa
     const [itbis, setItbis] = useState('0.00');
     const [monto, setMonto] = useState('0.00');
     const [errors, setErrors] = useState<{ fecha?: string; subtotal?: string, descripcion?: string, categoriaGasto?: string }>({});
+    const [promptForProvider, setPromptForProvider] = useState(false);
     
     const { lookupRNC, loading: isLookingUpRNC } = useDGIIDataStore();
     const isEditMode = !!gastoParaEditar;
@@ -55,6 +55,7 @@ const NuevoGastoModal: React.FC<NuevoGastoModalProps> = ({ isOpen, onClose, onSa
 
     useEffect(() => {
         if (isOpen) {
+            setPromptForProvider(false);
             if (gastoParaEditar) {
                 setProveedorNombre(gastoParaEditar.proveedorNombre || '');
                 setRncProveedor(gastoParaEditar.rncProveedor || '');
@@ -65,15 +66,37 @@ const NuevoGastoModal: React.FC<NuevoGastoModalProps> = ({ isOpen, onClose, onSa
                 setSubtotal(gastoParaEditar.subtotal.toString());
                 setAplicaITBIS(gastoParaEditar.aplicaITBIS);
             } else if (initialData) {
+                // Set RNC and NCF from scan
                 setRncProveedor(initialData.rncProveedor || '');
                 setNcf(initialData.ncf || '');
-                const montoNum = initialData.monto || 0;
-                setMonto(montoNum.toFixed(2));
-                // Assume ITBIS is included if not specified
-                const subtotalCalc = montoNum / (1 + rates.itbis);
-                setSubtotal(subtotalCalc.toFixed(2));
-                setAplicaITBIS(true);
-                handleRNCProveedorBlur(initialData.rncProveedor);
+                setFecha(new Date().toISOString().split('T')[0]);
+
+                // Handle provider name: if RNC was found but name wasn't in DB, prompt user.
+                if (initialData.proveedorNombre) {
+                    setProveedorNombre(initialData.proveedorNombre);
+                } else if (initialData.rncProveedor) {
+                    setProveedorNombre('');
+                    setPromptForProvider(true);
+                } else {
+                    setProveedorNombre('');
+                }
+                
+                // Intelligent calculation of amounts from OCR data
+                let s: number | undefined = initialData.subtotal;
+                let i: number | undefined = initialData.itbis;
+                let m: number | undefined = initialData.monto;
+
+                if (s !== undefined && i !== undefined && m === undefined) m = s + i;
+                else if (m !== undefined && i !== undefined && s === undefined) s = m - i;
+                else if (m !== undefined && s !== undefined && i === undefined) i = m - s;
+                else if (m !== undefined && s === undefined && i === undefined) {
+                    s = m / (1 + rates.itbis);
+                    i = m - s;
+                }
+
+                setSubtotal(s !== undefined ? s.toFixed(2) : '');
+                setAplicaITBIS(i !== undefined ? i > 0 : s !== undefined);
+
             } else {
                 resetForm();
             }
@@ -137,6 +160,7 @@ const NuevoGastoModal: React.FC<NuevoGastoModalProps> = ({ isOpen, onClose, onSa
         setSubtotal('');
         setAplicaITBIS(true);
         setErrors({});
+        setPromptForProvider(false);
     };
 
     const handleClose = () => {
@@ -149,6 +173,7 @@ const NuevoGastoModal: React.FC<NuevoGastoModalProps> = ({ isOpen, onClose, onSa
             const result = await lookupRNC(rnc);
             if (result) {
                 setProveedorNombre(result.nombre);
+                setPromptForProvider(false);
             }
         }
     };
@@ -190,7 +215,10 @@ const NuevoGastoModal: React.FC<NuevoGastoModalProps> = ({ isOpen, onClose, onSa
             <form ref={formRef} onSubmit={handleSubmit} noValidate>
                 <div className="p-6 space-y-4">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {renderInput('Proveedor', 'proveedor', 'text', proveedorNombre, setProveedorNombre, undefined, 'Nombre del proveedor')}
+                        <div>
+                           {renderInput('Proveedor', 'proveedor', 'text', proveedorNombre, setProveedorNombre, undefined, 'Nombre del proveedor')}
+                           {promptForProvider && <p className="text-sm text-yellow-700 mt-1">No se encontró este proveedor. Por favor, ingrese el nombre manualmente.</p>}
+                        </div>
                         {renderInput('RNC Proveedor', 'rncProveedor', 'text', rncProveedor, setRncProveedor, undefined, 'Ej: 130123456', false, () => handleRNCProveedorBlur())}
                         {renderInput('NCF', 'ncfGasto', 'text', ncf, setNcf, undefined, 'Ej: B0100000001')}
                         {renderInput('Fecha *', 'fechaGasto', 'date', fecha, setFecha, errors.fecha)}
