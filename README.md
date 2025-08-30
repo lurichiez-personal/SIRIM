@@ -18,5 +18,7 @@ View your app in AI Studio: https://ai.studio/apps/drive/17sCHUjMls3bjgXkCSIdpvj
 2. Create a `.env.local` file and set your keys:
    - `GEMINI_API_KEY` for Gemini services
    - `VITE_API_URL` pointing to your backend (e.g., `https://your-backend-url.example.com`)
-3. Run the app:
+3. Type-check the project:
+   `npm test`
+4. Run the app:
    `npm run dev`
