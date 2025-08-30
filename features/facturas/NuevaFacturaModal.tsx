@@ -340,6 +340,7 @@ const NuevaFacturaModal: React.FC<NuevaFacturaModalProps> = ({ isOpen, onClose, 
             isOpen={isOpen}
             onClose={onClose}
             title={isEditMode ? `Editar Factura ${ncfNumero}` : "Crear Nueva Factura"}
+            maxWidth="max-w-4xl"
         >
             <form ref={formRef} onSubmit={handleSubmit} noValidate>
             <div className="p-6 space-y-4 max-h-[75vh] overflow-y-auto pr-3">
