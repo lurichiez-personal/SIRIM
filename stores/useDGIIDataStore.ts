@@ -36,10 +36,7 @@ export const useDGIIDataStore = create<DGIIState>((set) => ({
 
       try {
         const data = JSON.parse(text);
-        nombre =
-          data?.nombre ||
-          data?.RGE_RAZON_SOCIAL ||
-          data?.RGE_NOMBRE_COMERCIAL;
+        nombre = data?.RGE_RAZON_SOCIAL || data?.RGE_NOMBRE_COMERCIAL;
       } catch {
         const parser = new DOMParser();
         const doc = parser.parseFromString(text, 'text/xml');
