@@ -6,44 +6,57 @@ import { useNotificationStore } from './useNotificationStore';
 import { useAuthStore } from './useAuthStore';
 import { apiFetch } from '../utils/api';
 
+const useMockData = import.meta.env.DEV;
+
 // --- MOCK DATA SOURCE ---
-
-let allClientes: Cliente[] = [
-    { id: 1, empresaId: 1, nombre: 'Cliente A Corp', rnc: '130123456', email: 'contact@clientea.com', telefono: '809-555-0001', activo: true, createdAt: '2023-01-15T00:00:00Z', estadoDGII: 'ACTIVO', condicionesPago: 'Neto 30' },
-    { id: 2, empresaId: 1, nombre: 'Cliente B Industrial', rnc: '131987654', email: 'info@clienteb.com', telefono: '809-555-0002', activo: true, createdAt: '2023-02-20T00:00:00Z', estadoDGII: 'ACTIVO', condicionesPago: 'Neto 15' },
-    { id: 3, empresaId: 2, nombre: 'Asociados de Consultoría XYZ', rnc: '132112233', email: 'info@consultores.com', telefono: '809-555-0003', activo: true, createdAt: '2023-03-10T00:00:00Z', estadoDGII: 'ACTIVO', condicionesPago: 'Neto 30' },
-    { id: 4, empresaId: 1, nombre: 'Comercial C & D', rnc: '130778899', email: 'ventas@comercialcd.com', telefono: '809-555-0004', activo: false, createdAt: '2023-04-05T00:00:00Z', estadoDGII: 'SUSPENDIDO', condicionesPago: 'Al contado' },
-    { id: 5, empresaId: 3, nombre: 'Constructora Principal', rnc: '132555666', email: 'proyectos@constructorap.com', telefono: '809-555-0005', activo: true, createdAt: '2023-05-12T00:00:00Z', estadoDGII: 'ACTIVO', condicionesPago: 'Neto 60' },
-];
-
-let allFacturas: Factura[] = [
-    { id: 101, empresaId: 1, clienteId: 1, clienteNombre: 'Cliente A Corp', fecha: '2024-05-20', items: [{itemId: 1001, codigo: 'SERV-CONS', descripcion: 'Servicio de Consultoría', cantidad: 25, precioUnitario: 5000, subtotal: 125000}], subtotal: 125000, aplicaITBIS: true, aplicaISC: true, isc: 2118.64, itbis: 22881.36, aplicaPropina: false, propinaLegal: 0, montoTotal: 150000.00, montoPagado: 150000.00, ncf: 'B0100000101', estado: FacturaEstado.Pagada, conciliado: false, comments: [], auditLog: [] },
-    { id: 102, empresaId: 1, clienteId: 2, clienteNombre: 'Cliente B Industrial', fecha: '2024-05-15', items: [], subtotal: 70000.00, descuentoPorcentaje: 5, montoDescuento: 3500, aplicaITBIS: true, aplicaISC: false, isc: 0, itbis: 11970, aplicaPropina: false, propinaLegal: 0, montoTotal: 78470, montoPagado: 40000, ncf: 'B0100000102', estado: FacturaEstado.PagadaParcialmente, conciliado: false, comments: [], auditLog: [] },
-    { id: 103, empresaId: 1, clienteId: 4, clienteNombre: 'Comercial C & D', fecha: '2024-04-10', items: [], subtotal: 25000.00, aplicaITBIS: true, itbis: 4500, montoTotal: 29500.00, montoPagado: 0, ncf: 'B0100000103', estado: FacturaEstado.Vencida, conciliado: false, comments: [], auditLog: [] },
-];
-let allItems: Item[] = [
-    { id: 1001, empresaId: 1, codigo: 'SERV-CONS', nombre: 'Servicio de Consultoría', precio: 5000.00, cantidadDisponible: undefined },
-    { id: 1002, empresaId: 1, codigo: 'SERV-WEB', nombre: 'Desarrollo Web', precio: 8000.00, cantidadDisponible: undefined },
-    { id: 1003, empresaId: 1, codigo: 'PROD-A', nombre: 'Producto A', precio: 750.00, cantidadDisponible: 100 },
-    { id: 1004, empresaId: 1, codigo: 'PROD-B', nombre: 'Producto B', precio: 1200.00, cantidadDisponible: 4 },
-];
-
-let allCotizaciones: Cotizacion[] = [
-    { id: 201, empresaId: 1, clienteId: 1, clienteNombre: 'Cliente A Corp', clienteRNC: '130123456', fecha: '2024-05-10', items: [], subtotal: 50000, aplicaITBIS: true, montoTotal: 59000, estado: CotizacionEstado.Pendiente, itbis: 9000, comments: [], auditLog: [] },
-    { id: 202, empresaId: 1, clienteId: 2, clienteNombre: 'Cliente B Industrial', clienteRNC: '131987654', fecha: '2024-04-25', items: [], subtotal: 120000, aplicaITBIS: true, montoTotal: 141600, estado: CotizacionEstado.Facturada, itbis: 21600, comments: [], auditLog: [] },
-];
-
-let allGastos: Gasto[] = [
-    { id: 301, empresaId: 1, proveedorNombre: 'Proveedor de Oficina S.A.', rncProveedor: '130999888', categoriaGasto: '09 - COMPRAS Y GASTOS QUE FORMARAN PARTE DEL COSTO DE VENTA', fecha: '2024-05-18', subtotal: 15000, itbis: 2700, monto: 17700, ncf: 'B0100003456', descripcion: 'Compra de papelería y suministros de oficina', conciliado: false, aplicaITBIS: true, comments: [], auditLog: [] },
-];
-
-let allIngresos: Ingreso[] = [
-    { id: 401, empresaId: 1, clienteId: 2, clienteNombre: 'Cliente B Industrial', facturaId: 102, fecha: '2024-05-22', monto: 40000, metodoPago: MetodoPago['02-CHEQUES/TRANSFERENCIAS/DEPOSITO'], conciliado: false },
-    { id: 402, empresaId: 1, clienteId: 1, clienteNombre: 'Cliente A Corp', facturaId: 101, fecha: '2024-05-20', monto: 150000.00, metodoPago: MetodoPago['02-CHEQUES/TRANSFERENCIAS/DEPOSITO'], conciliado: false },
-];
-
+let allClientes: Cliente[] = [];
+let allFacturas: Factura[] = [];
+let allItems: Item[] = [];
+let allCotizaciones: Cotizacion[] = [];
+let allGastos: Gasto[] = [];
+let allIngresos: Ingreso[] = [];
 let allNotas: NotaCreditoDebito[] = [];
 let allFacturasRecurrentes: FacturaRecurrente[] = [];
+
+if (useMockData) {
+    allClientes = [
+        { id: 1, empresaId: 1, nombre: 'Cliente A Corp', rnc: '130123456', email: 'contact@clientea.com', telefono: '809-555-0001', activo: true, createdAt: '2023-01-15T00:00:00Z', estadoDGII: 'ACTIVO', condicionesPago: 'Neto 30' },
+        { id: 2, empresaId: 1, nombre: 'Cliente B Industrial', rnc: '131987654', email: 'info@clienteb.com', telefono: '809-555-0002', activo: true, createdAt: '2023-02-20T00:00:00Z', estadoDGII: 'ACTIVO', condicionesPago: 'Neto 15' },
+        { id: 3, empresaId: 2, nombre: 'Asociados de Consultoría XYZ', rnc: '132112233', email: 'info@consultores.com', telefono: '809-555-0003', activo: true, createdAt: '2023-03-10T00:00:00Z', estadoDGII: 'ACTIVO', condicionesPago: 'Neto 30' },
+        { id: 4, empresaId: 1, nombre: 'Comercial C & D', rnc: '130778899', email: 'ventas@comercialcd.com', telefono: '809-555-0004', activo: false, createdAt: '2023-04-05T00:00:00Z', estadoDGII: 'SUSPENDIDO', condicionesPago: 'Al contado' },
+        { id: 5, empresaId: 3, nombre: 'Constructora Principal', rnc: '132555666', email: 'proyectos@constructorap.com', telefono: '809-555-0005', activo: true, createdAt: '2023-05-12T00:00:00Z', estadoDGII: 'ACTIVO', condicionesPago: 'Neto 60' },
+    ];
+
+    allFacturas = [
+        { id: 101, empresaId: 1, clienteId: 1, clienteNombre: 'Cliente A Corp', fecha: '2024-05-20', items: [{itemId: 1001, codigo: 'SERV-CONS', descripcion: 'Servicio de Consultoría', cantidad: 25, precioUnitario: 5000, subtotal: 125000}], subtotal: 125000, aplicaITBIS: true, aplicaISC: true, isc: 2118.64, itbis: 22881.36, aplicaPropina: false, propinaLegal: 0, montoTotal: 150000.00, montoPagado: 150000.00, ncf: 'B0100000101', estado: FacturaEstado.Pagada, conciliado: false, comments: [], auditLog: [] },
+        { id: 102, empresaId: 1, clienteId: 2, clienteNombre: 'Cliente B Industrial', fecha: '2024-05-15', items: [], subtotal: 70000.00, descuentoPorcentaje: 5, montoDescuento: 3500, aplicaITBIS: true, aplicaISC: false, isc: 0, itbis: 11970, aplicaPropina: false, propinaLegal: 0, montoTotal: 78470, montoPagado: 40000, ncf: 'B0100000102', estado: FacturaEstado.PagadaParcialmente, conciliado: false, comments: [], auditLog: [] },
+        { id: 103, empresaId: 1, clienteId: 4, clienteNombre: 'Comercial C & D', fecha: '2024-04-10', items: [], subtotal: 25000.00, aplicaITBIS: true, itbis: 4500, montoTotal: 29500.00, montoPagado: 0, ncf: 'B0100000103', estado: FacturaEstado.Vencida, conciliado: false, comments: [], auditLog: [] },
+    ];
+
+    allItems = [
+        { id: 1001, empresaId: 1, codigo: 'SERV-CONS', nombre: 'Servicio de Consultoría', precio: 5000.00, cantidadDisponible: undefined },
+        { id: 1002, empresaId: 1, codigo: 'SERV-WEB', nombre: 'Desarrollo Web', precio: 8000.00, cantidadDisponible: undefined },
+        { id: 1003, empresaId: 1, codigo: 'PROD-A', nombre: 'Producto A', precio: 750.00, cantidadDisponible: 100 },
+        { id: 1004, empresaId: 1, codigo: 'PROD-B', nombre: 'Producto B', precio: 1200.00, cantidadDisponible: 4 },
+    ];
+
+    allCotizaciones = [
+        { id: 201, empresaId: 1, clienteId: 1, clienteNombre: 'Cliente A Corp', clienteRNC: '130123456', fecha: '2024-05-10', items: [], subtotal: 50000, aplicaITBIS: true, montoTotal: 59000, estado: CotizacionEstado.Pendiente, itbis: 9000, comments: [], auditLog: [] },
+        { id: 202, empresaId: 1, clienteId: 2, clienteNombre: 'Cliente B Industrial', clienteRNC: '131987654', fecha: '2024-04-25', items: [], subtotal: 120000, aplicaITBIS: true, montoTotal: 141600, estado: CotizacionEstado.Facturada, itbis: 21600, comments: [], auditLog: [] },
+    ];
+
+    allGastos = [
+        { id: 301, empresaId: 1, proveedorNombre: 'Proveedor de Oficina S.A.', rncProveedor: '130999888', categoriaGasto: '09 - COMPRAS Y GASTOS QUE FORMARAN PARTE DEL COSTO DE VENTA', fecha: '2024-05-18', subtotal: 15000, itbis: 2700, monto: 17700, ncf: 'B0100003456', descripcion: 'Compra de papelería y suministros de oficina', conciliado: false, aplicaITBIS: true, comments: [], auditLog: [] },
+    ];
+
+    allIngresos = [
+        { id: 401, empresaId: 1, clienteId: 2, clienteNombre: 'Cliente B Industrial', facturaId: 102, fecha: '2024-05-22', monto: 40000, metodoPago: MetodoPago['02-CHEQUES/TRANSFERENCIAS/DEPOSITO'], conciliado: false },
+        { id: 402, empresaId: 1, clienteId: 1, clienteNombre: 'Cliente A Corp', facturaId: 101, fecha: '2024-05-20', monto: 150000.00, metodoPago: MetodoPago['02-CHEQUES/TRANSFERENCIAS/DEPOSITO'], conciliado: false },
+    ];
+
+    allNotas = [];
+    allFacturasRecurrentes = [];
+}
 
 const calculateNextDate = (currentDate: string, frequency: 'diaria' | 'semanal' | 'mensual' | 'anual'): string => {
     const date = new Date(currentDate + 'T00:00:00'); // Ensure correct date parsing
@@ -85,10 +98,10 @@ interface DataState {
   getIngresosByClientData: () => PieChartDataPoint[];
 
   // Mutators
-  addFactura: (facturaData: Omit<Factura, 'id' | 'empresaId' | 'conciliado'>) => void;
-  updateFactura: (factura: Factura) => void;
-  updateFacturaStatus: (facturaId: number, status: FacturaEstado) => void;
-  bulkUpdateFacturaStatus: (facturaIds: number[], status: FacturaEstado) => void;
+  addFactura: (facturaData: Omit<Factura, 'id' | 'empresaId' | 'conciliado'>) => Promise<void>;
+  updateFactura: (factura: Factura) => Promise<void>;
+  updateFacturaStatus: (facturaId: number, status: FacturaEstado) => Promise<void>;
+  bulkUpdateFacturaStatus: (facturaIds: number[], status: FacturaEstado) => Promise<void>;
 
   addCliente: (clienteData: Omit<Cliente, 'id'|'empresaId'|'createdAt'|'activo'>) => Cliente;
   updateCliente: (cliente: Cliente) => void;
@@ -153,16 +166,20 @@ export const useDataStore = create<DataState>((set, get) => ({
         set({ clientes, facturas, items, cotizaciones, notas, gastos, ingresos, facturasRecurrentes });
     } catch (error) {
         console.error('Error fetching data from API, using mock data', error);
-        set({
-            clientes: [...allClientes.filter(c => c.empresaId === empresaId)],
-            facturas: [...allFacturas.filter(f => f.empresaId === empresaId)],
-            items: [...allItems.filter(i => i.empresaId === empresaId)],
-            cotizaciones: [...allCotizaciones.filter(c => c.empresaId === empresaId)],
-            notas: [...allNotas.filter(n => n.empresaId === empresaId)],
-            gastos: [...allGastos.filter(g => g.empresaId === empresaId)],
-            ingresos: [...allIngresos.filter(i => i.empresaId === empresaId)],
-            facturasRecurrentes: [...allFacturasRecurrentes.filter(fr => fr.empresaId === empresaId)],
-        });
+        if (useMockData) {
+            set({
+                clientes: [...allClientes.filter(c => c.empresaId === empresaId)],
+                facturas: [...allFacturas.filter(f => f.empresaId === empresaId)],
+                items: [...allItems.filter(i => i.empresaId === empresaId)],
+                cotizaciones: [...allCotizaciones.filter(c => c.empresaId === empresaId)],
+                notas: [...allNotas.filter(n => n.empresaId === empresaId)],
+                gastos: [...allGastos.filter(g => g.empresaId === empresaId)],
+                ingresos: [...allIngresos.filter(i => i.empresaId === empresaId)],
+                facturasRecurrentes: [...allFacturasRecurrentes.filter(fr => fr.empresaId === empresaId)],
+            });
+        } else {
+            set({ clientes: [], facturas: [], items: [], cotizaciones: [], notas: [], gastos: [], ingresos: [], facturasRecurrentes: [] });
+        }
     }
   },
   clearData: () => {
@@ -383,24 +400,31 @@ export const useDataStore = create<DataState>((set, get) => ({
           timestamp: new Date().toISOString()
       };
 
-      let targetArray;
       switch (documentType) {
-          case 'factura': targetArray = allFacturas; break;
-          case 'gasto': targetArray = allGastos; break;
-          case 'cotizacion': targetArray = allCotizaciones; break;
-          default: return;
-      }
-      
-      const docIndex = targetArray.findIndex(doc => doc.id === documentId);
-      if (docIndex > -1) {
-          targetArray[docIndex].auditLog.push(newLog);
+          case 'factura':
+              set(state => ({
+                  facturas: state.facturas.map(doc => doc.id === documentId ? { ...doc, auditLog: [...doc.auditLog, newLog] } : doc)
+              }));
+              break;
+          case 'gasto':
+              set(state => ({
+                  gastos: state.gastos.map(doc => doc.id === documentId ? { ...doc, auditLog: [...doc.auditLog, newLog] } : doc)
+              }));
+              break;
+          case 'cotizacion':
+              set(state => ({
+                  cotizaciones: state.cotizaciones.map(doc => doc.id === documentId ? { ...doc, auditLog: [...doc.auditLog, newLog] } : doc)
+              }));
+              break;
+          default:
+              return;
       }
   },
-  
+
   addComment: (documentType, documentId, text) => {
     const user = useAuthStore.getState().user;
     if (!user) return;
-    
+
     const newComment: Comment = {
       id: `${Date.now()}`,
       userId: user.id,
@@ -408,72 +432,77 @@ export const useDataStore = create<DataState>((set, get) => ({
       text,
       timestamp: new Date().toISOString()
     };
-    
-    let targetArray;
-      switch (documentType) {
-          case 'factura': targetArray = allFacturas; break;
-          case 'gasto': targetArray = allGastos; break;
-          case 'cotizacion': targetArray = allCotizaciones; break;
-          default: return;
-      }
-      
-      const docIndex = targetArray.findIndex(doc => doc.id === documentId);
-      if (docIndex > -1) {
-          targetArray[docIndex].comments.push(newComment);
-      }
-      
-      const empresaId = useTenantStore.getState().selectedTenant?.id;
-      if(empresaId) get().fetchData(empresaId);
+
+    switch (documentType) {
+        case 'factura':
+            set(state => ({
+                facturas: state.facturas.map(doc => doc.id === documentId ? { ...doc, comments: [...doc.comments, newComment] } : doc)
+            }));
+            break;
+        case 'gasto':
+            set(state => ({
+                gastos: state.gastos.map(doc => doc.id === documentId ? { ...doc, comments: [...doc.comments, newComment] } : doc)
+            }));
+            break;
+        case 'cotizacion':
+            set(state => ({
+                cotizaciones: state.cotizaciones.map(doc => doc.id === documentId ? { ...doc, comments: [...doc.comments, newComment] } : doc)
+            }));
+            break;
+        default:
+            return;
+    }
   },
 
-  addFactura: (facturaData) => {
+  addFactura: async (facturaData) => {
     const empresaId = useTenantStore.getState().selectedTenant?.id;
     if (!empresaId) return;
-    const newFactura: Factura = { ...facturaData, id: Date.now(), empresaId, conciliado: false };
-    get().addAuditLog('factura', newFactura.id, `creó la factura con NCF ${newFactura.ncf}.`);
-    allFacturas.unshift(newFactura);
-    
-    newFactura.items.forEach(itemFacturado => {
-        const itemIndex = allItems.findIndex(i => i.id === itemFacturado.itemId);
-        if (itemIndex > -1 && allItems[itemIndex].cantidadDisponible !== undefined) {
-            allItems[itemIndex].cantidadDisponible! -= itemFacturado.cantidad;
-        }
+    const newFactura = await apiFetch<Factura>(`/empresas/${empresaId}/facturas`, {
+        method: 'POST',
+        body: JSON.stringify(facturaData)
     });
-    
+    set(state => ({ facturas: [newFactura, ...state.facturas] }));
+    get().addAuditLog('factura', newFactura.id, `creó la factura con NCF ${newFactura.ncf}.`);
+
     if (newFactura.facturaRecurrenteId) {
-        const recurrenteIndex = allFacturasRecurrentes.findIndex(f => f.id === newFactura.facturaRecurrenteId);
-        if (recurrenteIndex > -1) {
-            const recurrente = allFacturasRecurrentes[recurrenteIndex];
-            recurrente.fechaProxima = calculateNextDate(recurrente.fechaProxima, recurrente.frecuencia);
-            get().addAuditLog('factura', newFactura.id, `fue generada desde la plantilla recurrente #${recurrente.id}.`);
-        }
+        set(state => ({
+            facturasRecurrentes: state.facturasRecurrentes.map(fr =>
+                fr.id === newFactura.facturaRecurrenteId
+                    ? { ...fr, fechaProxima: calculateNextDate(fr.fechaProxima, fr.frecuencia) }
+                    : fr
+            )
+        }));
+        get().addAuditLog('factura', newFactura.id, `fue generada desde la plantilla recurrente #${newFactura.facturaRecurrenteId}.`);
     }
 
-    get().fetchData(empresaId);
-    useNotificationStore.getState().fetchNotifications(empresaId); 
+    useNotificationStore.getState().fetchNotifications(empresaId);
   },
-  updateFactura: (factura) => {
+  updateFactura: async (factura) => {
     const empresaId = useTenantStore.getState().selectedTenant?.id;
     if (!empresaId) return;
-    const index = allFacturas.findIndex(f => f.id === factura.id);
-    if (index > -1) {
-        allFacturas[index] = factura;
-        get().addAuditLog('factura', factura.id, `actualizó la factura.`);
-    }
-    get().fetchData(empresaId);
+    const updated = await apiFetch<Factura>(`/empresas/${empresaId}/facturas/${factura.id}`, {
+        method: 'PUT',
+        body: JSON.stringify(factura)
+    });
+    set(state => ({
+        facturas: state.facturas.map(f => f.id === factura.id ? updated : f)
+    }));
+    get().addAuditLog('factura', factura.id, `actualizó la factura.`);
   },
-  updateFacturaStatus: (facturaId, status) => {
+  updateFacturaStatus: async (facturaId, status) => {
     const empresaId = useTenantStore.getState().selectedTenant?.id;
     if (!empresaId) return;
-    const index = allFacturas.findIndex(f => f.id === facturaId);
-    if (index > -1) {
-        allFacturas[index].estado = status;
-        get().addAuditLog('factura', facturaId, `cambió el estado a ${status}.`);
-    }
-    get().fetchData(empresaId);
+    const updated = await apiFetch<Factura>(`/empresas/${empresaId}/facturas/${facturaId}/status`, {
+        method: 'PUT',
+        body: JSON.stringify({ estado: status })
+    });
+    set(state => ({
+        facturas: state.facturas.map(f => f.id === facturaId ? updated : f)
+    }));
+    get().addAuditLog('factura', facturaId, `cambió el estado a ${status}.`);
   },
-  bulkUpdateFacturaStatus: (facturaIds, status) => {
-    facturaIds.forEach(id => get().updateFacturaStatus(id, status));
+  bulkUpdateFacturaStatus: async (facturaIds, status) => {
+    await Promise.all(facturaIds.map(id => get().updateFacturaStatus(id, status)));
   },
 
   addCliente: (clienteData) => {
@@ -631,29 +660,31 @@ export const useDataStore = create<DataState>((set, get) => ({
   updateFacturaRecurrente: (data) => {
     const empresaId = useTenantStore.getState().selectedTenant?.id;
     if (!empresaId) return;
-    const index = allFacturasRecurrentes.findIndex(f => f.id === data.id);
-    if (index > -1) {
-        allFacturasRecurrentes[index] = data;
-    }
-    get().fetchData(empresaId);
+    set(state => ({
+        facturasRecurrentes: state.facturasRecurrentes.map(f => f.id === data.id ? data : f)
+    }));
   },
   // --- Pilar 2: Conciliación Mutators ---
   setConciliadoStatus: (recordType, recordId, status) => {
      const empresaId = useTenantStore.getState().selectedTenant?.id;
     if (!empresaId) return;
 
-    let targetArray: (Factura | Gasto | Ingreso)[];
     switch (recordType) {
-        case 'factura': targetArray = allFacturas; break;
-        case 'gasto': targetArray = allGastos; break;
-        case 'ingreso': targetArray = allIngresos; break;
+        case 'factura':
+            set(state => ({
+                facturas: state.facturas.map(r => r.id === recordId ? { ...r, conciliado: status } : r)
+            }));
+            break;
+        case 'gasto':
+            set(state => ({
+                gastos: state.gastos.map(r => r.id === recordId ? { ...r, conciliado: status } : r)
+            }));
+            break;
+        case 'ingreso':
+            set(state => ({
+                ingresos: state.ingresos.map(r => r.id === recordId ? { ...r, conciliado: status } : r)
+            }));
+            break;
     }
-
-    const recordIndex = targetArray.findIndex(r => r.id === recordId);
-    if (recordIndex > -1) {
-        targetArray[recordIndex].conciliado = status;
-    }
-
-    get().fetchData(empresaId);
   },
 }));
