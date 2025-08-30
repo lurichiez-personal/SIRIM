@@ -10,6 +10,7 @@ import { useTenantStore } from '../../stores/useTenantStore';
 import ToggleSwitch from '../../components/ui/ToggleSwitch';
 import { useEnterToNavigate } from '../../hooks/useEnterToNavigate';
 import { useToastStore } from '../../stores/useToastStore';
+import { ErrorMessages, isValidRNC } from '../../utils/validationUtils';
 
 interface NuevaFacturaModalProps {
   isOpen: boolean;
@@ -274,6 +275,11 @@ const NuevaFacturaModal: React.FC<NuevaFacturaModalProps> = ({ isOpen, onClose, 
         if (isEditMode) return;
         const trimmedRNC = clienteRNC.trim();
         if (trimmedRNC === '') return;
+        if (!isValidRNC(trimmedRNC)) {
+            setErrors(prev => ({ ...prev, clienteRNC: ErrorMessages.RNC_FORMATO_INVALIDO }));
+            return;
+        }
+        setErrors(prev => ({ ...prev, clienteRNC: undefined }));
 
         const existingClient = clientes.find(c => c.rnc === trimmedRNC);
         if (existingClient) {
