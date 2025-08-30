@@ -27,6 +27,8 @@ const ITBIS_RATE = 0.18;
 const ISC_RATE = 0.16; // Tasa de referencia
 const PROPINA_RATE = 0.10; // Tasa de referencia
 
+const round2 = (n: number) => Math.round(n * 100) / 100;
+
 const NuevaFacturaModal: React.FC<NuevaFacturaModalProps> = ({ isOpen, onClose, onSave, clientes, itemsDisponibles, onCreateCliente, cotizacionParaFacturar, facturaRecurrenteParaFacturar, facturaParaEditar }) => {
     const { selectedTenant } = useTenantStore();
     const { getAvailableTypes } = useNCFStore();
@@ -101,17 +103,17 @@ const NuevaFacturaModal: React.FC<NuevaFacturaModalProps> = ({ isOpen, onClose, 
         const baseImponible = subtotal - montoDescuento;
         
         // Calcular ISC automáticamente si está aplicado
-        const currentISC = aplicaISC ? baseImponible * ISC_RATE : 0;
-        
+        const currentISC = aplicaISC ? round2(baseImponible * ISC_RATE) : 0;
+
         // Base para ITBIS incluye el ISC
         const baseParaITBIS = baseImponible + currentISC;
-        const itbis = aplicaITBIS ? baseParaITBIS * ITBIS_RATE : 0;
-        
+        const itbis = aplicaITBIS ? round2(baseParaITBIS * ITBIS_RATE) : 0;
+
         // Calcular propina automáticamente si está aplicada (sobre subtotal + ISC + ITBIS)
         const baseMasTributos = baseParaITBIS + itbis;
-        const currentPropina = aplicaPropina ? baseMasTributos * PROPINA_RATE : 0;
-        
-        const montoTotal = baseMasTributos + currentPropina;
+        const currentPropina = aplicaPropina ? round2(baseMasTributos * PROPINA_RATE) : 0;
+
+        const montoTotal = round2(baseMasTributos + currentPropina);
         
         return { subtotal, montoDescuento, baseImponible, itbis, montoTotal, currentISC, currentPropina };
     }, [lineItems, descuentoPorcentaje, aplicaITBIS, aplicaISC, aplicaPropina]);
@@ -214,17 +216,27 @@ const NuevaFacturaModal: React.FC<NuevaFacturaModalProps> = ({ isOpen, onClose, 
                 clienteNombre: clienteNombre,
                 fecha,
                 ncfTipo,
-                items: lineItems.filter(item => item.itemId).map(item => ({...item, itemId: item.itemId! , codigo: item.codigo!, descripcion: item.descripcion!, cantidad: item.cantidad!, precioUnitario: item.precioUnitario!, subtotal: item.subtotal! })),
-                subtotal: totals.subtotal,
+                items: lineItems
+                    .filter(item => item.itemId)
+                    .map(item => ({
+                        ...item,
+                        itemId: item.itemId!,
+                        codigo: item.codigo!,
+                        descripcion: item.descripcion!,
+                        cantidad: item.cantidad!,
+                        precioUnitario: item.precioUnitario!,
+                        subtotal: item.subtotal!
+                    })),
+                subtotal: round2(totals.subtotal),
                 descuentoPorcentaje,
-                montoDescuento: totals.montoDescuento,
+                montoDescuento: round2(totals.montoDescuento),
                 aplicaITBIS,
                 aplicaISC,
-                isc: totals.currentISC,
-                itbis: totals.itbis,
+                isc: round2(totals.currentISC),
+                itbis: round2(totals.itbis),
                 aplicaPropina,
-                propinaLegal: totals.currentPropina,
-                montoTotal: totals.montoTotal,
+                propinaLegal: round2(totals.currentPropina),
+                montoTotal: round2(totals.montoTotal),
                 cotizacionId: sourceCotizacionId,
                 facturaRecurrenteId: sourceFacturaRecurrenteId,
                 conciliado: false,
