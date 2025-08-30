@@ -89,7 +89,7 @@ const FacturasPage: React.FC = () => {
             const { ncfTipo, ...restOfData } = facturaData;
 
             if (facturaParaEditar) {
-                updateFactura({ ...facturaParaEditar, ...restOfData });
+                await updateFactura({ ...facturaParaEditar, ...restOfData });
                 showSuccess('Factura actualizada correctamente.');
             } else {
                 const ncf = await getNextNCF(selectedTenant.id, ncfTipo);
@@ -97,9 +97,9 @@ const FacturasPage: React.FC = () => {
                     showError('Error: No hay NCF disponibles para el tipo seleccionado.');
                     return;
                 }
-                addFactura({ ...restOfData, ncf, estado: FacturaEstado.Emitida, montoPagado: 0 });
+                await addFactura({ ...restOfData, ncf, estado: FacturaEstado.Emitida, montoPagado: 0 });
                 showSuccess(`Factura creada exitosamente con NCF: ${ncf}`);
-                
+
                 if (restOfData.cotizacionId) {
                     updateCotizacionStatus(restOfData.cotizacionId, CotizacionEstado.Facturada);
                 }
@@ -146,7 +146,7 @@ const FacturasPage: React.FC = () => {
         addNota(newNota);
 
         if (codigoModificacion === '01') {
-            updateFacturaStatus(facturaAfectada.id, FacturaEstado.Anulada);
+            await updateFacturaStatus(facturaAfectada.id, FacturaEstado.Anulada);
         }
     };
     const handleCreateCliente = (newClientData: { nombre: string; rnc?: string }): Cliente => addCliente(newClientData);

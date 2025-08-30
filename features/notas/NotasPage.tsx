@@ -87,7 +87,7 @@ const NotasPage: React.FC = () => {
         addNota(newNota);
 
         if (codigoModificacion === '01') { // 01 - Anulación de Factura
-            updateFacturaStatus(facturaAfectada.id, FacturaEstado.Anulada);
+            await updateFacturaStatus(facturaAfectada.id, FacturaEstado.Anulada);
         }
     };
     

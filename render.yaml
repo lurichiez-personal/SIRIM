@@ -1,0 +1,11 @@
+services:
+  - type: static
+    name: sirim-app
+    env: node
+    buildCommand: npm install && npm run build
+    staticPublishPath: dist
+    envVars:
+      - key: VITE_API_URL
+        value: https://your-backend-url.example.com
+      - key: VITE_DGII_API_URL
+        value: https://dgii-api.example.com

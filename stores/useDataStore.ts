@@ -4,6 +4,7 @@ import { Factura, Cliente, Item, Gasto, Ingreso, Cotizacion, NotaCreditoDebito, 
 import { useTenantStore } from './useTenantStore';
 import { useNotificationStore } from './useNotificationStore';
 import { useAuthStore } from './useAuthStore';
+import { apiFetch } from '../utils/api';
 
 // --- MOCK DATA SOURCE ---
 
@@ -60,7 +61,7 @@ interface DataState {
   // Raw data (simulating DB tables)
   clientes: Cliente[]; facturas: Factura[]; items: Item[]; cotizaciones: Cotizacion[]; notas: NotaCreditoDebito[]; gastos: Gasto[]; ingresos: Ingreso[]; facturasRecurrentes: FacturaRecurrente[];
   // Actions
-  fetchData: (empresaId: number) => void;
+  fetchData: (empresaId: number) => Promise<void>;
   clearData: () => void;
   // Paged Getters
   getPagedClientes: (options: { page: number, pageSize: number, searchTerm?: string, status?: 'todos' | 'activo' | 'inactivo' }) => PagedResult<Cliente>;
@@ -84,10 +85,10 @@ interface DataState {
   getIngresosByClientData: () => PieChartDataPoint[];
 
   // Mutators
-  addFactura: (facturaData: Omit<Factura, 'id' | 'empresaId' | 'conciliado'>) => void;
-  updateFactura: (factura: Factura) => void;
-  updateFacturaStatus: (facturaId: number, status: FacturaEstado) => void;
-  bulkUpdateFacturaStatus: (facturaIds: number[], status: FacturaEstado) => void;
+  addFactura: (facturaData: Omit<Factura, 'id' | 'empresaId' | 'conciliado'>) => Promise<void>;
+  updateFactura: (factura: Factura) => Promise<void>;
+  updateFacturaStatus: (facturaId: number, status: FacturaEstado) => Promise<void>;
+  bulkUpdateFacturaStatus: (facturaIds: number[], status: FacturaEstado) => Promise<void>;
 
   addCliente: (clienteData: Omit<Cliente, 'id'|'empresaId'|'createdAt'|'activo'>) => Cliente;
   updateCliente: (cliente: Cliente) => void;
@@ -137,18 +138,32 @@ export const useDataStore = create<DataState>((set, get) => ({
   facturasRecurrentes: [],
 
   // --- ACTIONS ---
-  fetchData: (empresaId) => {
-    // In a real app, this would be an API call. Here we filter mock data.
-    set({
-        clientes: [...allClientes.filter(c => c.empresaId === empresaId)],
-        facturas: [...allFacturas.filter(f => f.empresaId === empresaId)],
-        items: [...allItems.filter(i => i.empresaId === empresaId)],
-        cotizaciones: [...allCotizaciones.filter(c => c.empresaId === empresaId)],
-        notas: [...allNotas.filter(n => n.empresaId === empresaId)],
-        gastos: [...allGastos.filter(g => g.empresaId === empresaId)],
-        ingresos: [...allIngresos.filter(i => i.empresaId === empresaId)],
-        facturasRecurrentes: [...allFacturasRecurrentes.filter(fr => fr.empresaId === empresaId)],
-    });
+  fetchData: async (empresaId) => {
+    try {
+        const [clientes, facturas, items, cotizaciones, notas, gastos, ingresos, facturasRecurrentes] = await Promise.all([
+            apiFetch<Cliente[]>(`/empresas/${empresaId}/clientes`),
+            apiFetch<Factura[]>(`/empresas/${empresaId}/facturas`),
+            apiFetch<Item[]>(`/empresas/${empresaId}/items`),
+            apiFetch<Cotizacion[]>(`/empresas/${empresaId}/cotizaciones`),
+            apiFetch<NotaCreditoDebito[]>(`/empresas/${empresaId}/notas`),
+            apiFetch<Gasto[]>(`/empresas/${empresaId}/gastos`),
+            apiFetch<Ingreso[]>(`/empresas/${empresaId}/ingresos`),
+            apiFetch<FacturaRecurrente[]>(`/empresas/${empresaId}/facturas-recurrentes`),
+        ]);
+        set({ clientes, facturas, items, cotizaciones, notas, gastos, ingresos, facturasRecurrentes });
+    } catch (error) {
+        console.error('Error fetching data from API, using mock data', error);
+        set({
+            clientes: [...allClientes.filter(c => c.empresaId === empresaId)],
+            facturas: [...allFacturas.filter(f => f.empresaId === empresaId)],
+            items: [...allItems.filter(i => i.empresaId === empresaId)],
+            cotizaciones: [...allCotizaciones.filter(c => c.empresaId === empresaId)],
+            notas: [...allNotas.filter(n => n.empresaId === empresaId)],
+            gastos: [...allGastos.filter(g => g.empresaId === empresaId)],
+            ingresos: [...allIngresos.filter(i => i.empresaId === empresaId)],
+            facturasRecurrentes: [...allFacturasRecurrentes.filter(fr => fr.empresaId === empresaId)],
+        });
+    }
   },
   clearData: () => {
     set({ clientes: [], facturas: [], items: [], cotizaciones: [], notas: [], gastos: [], ingresos: [], facturasRecurrentes: [] });
@@ -411,54 +426,82 @@ export const useDataStore = create<DataState>((set, get) => ({
       if(empresaId) get().fetchData(empresaId);
   },
 
-  addFactura: (facturaData) => {
+  addFactura: async (facturaData) => {
     const empresaId = useTenantStore.getState().selectedTenant?.id;
     if (!empresaId) return;
-    const newFactura: Factura = { ...facturaData, id: Date.now(), empresaId, conciliado: false };
-    get().addAuditLog('factura', newFactura.id, `creó la factura con NCF ${newFactura.ncf}.`);
-    allFacturas.unshift(newFactura);
-    
-    newFactura.items.forEach(itemFacturado => {
-        const itemIndex = allItems.findIndex(i => i.id === itemFacturado.itemId);
-        if (itemIndex > -1 && allItems[itemIndex].cantidadDisponible !== undefined) {
-            allItems[itemIndex].cantidadDisponible! -= itemFacturado.cantidad;
-        }
-    });
-    
-    if (newFactura.facturaRecurrenteId) {
-        const recurrenteIndex = allFacturasRecurrentes.findIndex(f => f.id === newFactura.facturaRecurrenteId);
-        if (recurrenteIndex > -1) {
-            const recurrente = allFacturasRecurrentes[recurrenteIndex];
-            recurrente.fechaProxima = calculateNextDate(recurrente.fechaProxima, recurrente.frecuencia);
-            get().addAuditLog('factura', newFactura.id, `fue generada desde la plantilla recurrente #${recurrente.id}.`);
-        }
-    }
+    try {
+        await apiFetch<Factura>(`/empresas/${empresaId}/facturas`, {
+            method: 'POST',
+            body: JSON.stringify(facturaData)
+        });
+        await get().fetchData(empresaId);
+        useNotificationStore.getState().fetchNotifications(empresaId);
+    } catch (error) {
+        console.error('Error adding factura via API, using mock', error);
+        const newFactura: Factura = { ...facturaData, id: Date.now(), empresaId, conciliado: false };
+        get().addAuditLog('factura', newFactura.id, `creó la factura con NCF ${newFactura.ncf}.`);
+        allFacturas.unshift(newFactura);
 
-    get().fetchData(empresaId);
-    useNotificationStore.getState().fetchNotifications(empresaId); 
+        newFactura.items.forEach(itemFacturado => {
+            const itemIndex = allItems.findIndex(i => i.id === itemFacturado.itemId);
+            if (itemIndex > -1 && allItems[itemIndex].cantidadDisponible !== undefined) {
+                allItems[itemIndex].cantidadDisponible! -= itemFacturado.cantidad;
+            }
+        });
+
+        if (newFactura.facturaRecurrenteId) {
+            const recurrenteIndex = allFacturasRecurrentes.findIndex(f => f.id === newFactura.facturaRecurrenteId);
+            if (recurrenteIndex > -1) {
+                const recurrente = allFacturasRecurrentes[recurrenteIndex];
+                recurrente.fechaProxima = calculateNextDate(recurrente.fechaProxima, recurrente.frecuencia);
+                get().addAuditLog('factura', newFactura.id, `fue generada desde la plantilla recurrente #${recurrente.id}.`);
+            }
+        }
+
+        get().fetchData(empresaId);
+        useNotificationStore.getState().fetchNotifications(empresaId);
+    }
   },
-  updateFactura: (factura) => {
+  updateFactura: async (factura) => {
     const empresaId = useTenantStore.getState().selectedTenant?.id;
     if (!empresaId) return;
-    const index = allFacturas.findIndex(f => f.id === factura.id);
-    if (index > -1) {
-        allFacturas[index] = factura;
-        get().addAuditLog('factura', factura.id, `actualizó la factura.`);
+    try {
+        await apiFetch<Factura>(`/empresas/${empresaId}/facturas/${factura.id}`, {
+            method: 'PUT',
+            body: JSON.stringify(factura)
+        });
+        await get().fetchData(empresaId);
+    } catch (error) {
+        console.error('Error updating factura via API, using mock', error);
+        const index = allFacturas.findIndex(f => f.id === factura.id);
+        if (index > -1) {
+            allFacturas[index] = factura;
+            get().addAuditLog('factura', factura.id, `actualizó la factura.`);
+        }
+        get().fetchData(empresaId);
     }
-    get().fetchData(empresaId);
   },
-  updateFacturaStatus: (facturaId, status) => {
+  updateFacturaStatus: async (facturaId, status) => {
     const empresaId = useTenantStore.getState().selectedTenant?.id;
     if (!empresaId) return;
-    const index = allFacturas.findIndex(f => f.id === facturaId);
-    if (index > -1) {
-        allFacturas[index].estado = status;
-        get().addAuditLog('factura', facturaId, `cambió el estado a ${status}.`);
+    try {
+        await apiFetch<Factura>(`/empresas/${empresaId}/facturas/${facturaId}`, {
+            method: 'PATCH',
+            body: JSON.stringify({ estado: status })
+        });
+        await get().fetchData(empresaId);
+    } catch (error) {
+        console.error('Error updating factura status via API, using mock', error);
+        const index = allFacturas.findIndex(f => f.id === facturaId);
+        if (index > -1) {
+            allFacturas[index].estado = status;
+            get().addAuditLog('factura', facturaId, `cambió el estado a ${status}.`);
+        }
+        get().fetchData(empresaId);
     }
-    get().fetchData(empresaId);
   },
-  bulkUpdateFacturaStatus: (facturaIds, status) => {
-    facturaIds.forEach(id => get().updateFacturaStatus(id, status));
+  bulkUpdateFacturaStatus: async (facturaIds, status) => {
+    await Promise.all(facturaIds.map(id => get().updateFacturaStatus(id, status)));
   },
 
   addCliente: (clienteData) => {

@@ -10,6 +10,7 @@ import { useTenantStore } from '../../stores/useTenantStore';
 import ToggleSwitch from '../../components/ui/ToggleSwitch';
 import { useEnterToNavigate } from '../../hooks/useEnterToNavigate';
 import { useToastStore } from '../../stores/useToastStore';
+import { isValidRNC, ErrorMessages } from '../../utils/validationUtils';
 
 interface NuevaFacturaModalProps {
   isOpen: boolean;
@@ -26,6 +27,8 @@ interface NuevaFacturaModalProps {
 const ITBIS_RATE = 0.18;
 const ISC_RATE = 0.16; // Tasa de referencia
 const PROPINA_RATE = 0.10; // Tasa de referencia
+
+const round2 = (n: number) => Math.round(n * 100) / 100;
 
 const NuevaFacturaModal: React.FC<NuevaFacturaModalProps> = ({ isOpen, onClose, onSave, clientes, itemsDisponibles, onCreateCliente, cotizacionParaFacturar, facturaRecurrenteParaFacturar, facturaParaEditar }) => {
     const { selectedTenant } = useTenantStore();
@@ -96,23 +99,23 @@ const NuevaFacturaModal: React.FC<NuevaFacturaModalProps> = ({ isOpen, onClose, 
     }, [isOpen, facturaParaEditar, cotizacionParaFacturar, facturaRecurrenteParaFacturar, clientes, itemsDisponibles]);
 
     const totals = useMemo(() => {
-        const subtotal = lineItems.reduce((acc, item) => acc + (item.subtotal || 0), 0);
-        const montoDescuento = subtotal * ((descuentoPorcentaje || 0) / 100);
-        const baseImponible = subtotal - montoDescuento;
-        
+        const subtotal = round2(lineItems.reduce((acc, item) => acc + (item.subtotal || 0), 0));
+        const montoDescuento = round2(subtotal * ((descuentoPorcentaje || 0) / 100));
+        const baseImponible = round2(subtotal - montoDescuento);
+
         // Calcular ISC automáticamente si está aplicado
-        const currentISC = aplicaISC ? baseImponible * ISC_RATE : 0;
-        
+        const currentISC = aplicaISC ? round2(baseImponible * ISC_RATE) : 0;
+
         // Base para ITBIS incluye el ISC
-        const baseParaITBIS = baseImponible + currentISC;
-        const itbis = aplicaITBIS ? baseParaITBIS * ITBIS_RATE : 0;
-        
+        const baseParaITBIS = round2(baseImponible + currentISC);
+        const itbis = aplicaITBIS ? round2(baseParaITBIS * ITBIS_RATE) : 0;
+
         // Calcular propina automáticamente si está aplicada (sobre subtotal + ISC + ITBIS)
-        const baseMasTributos = baseParaITBIS + itbis;
-        const currentPropina = aplicaPropina ? baseMasTributos * PROPINA_RATE : 0;
-        
-        const montoTotal = baseMasTributos + currentPropina;
-        
+        const baseMasTributos = round2(baseParaITBIS + itbis);
+        const currentPropina = aplicaPropina ? round2(baseMasTributos * PROPINA_RATE) : 0;
+
+        const montoTotal = round2(baseMasTributos + currentPropina);
+
         return { subtotal, montoDescuento, baseImponible, itbis, montoTotal, currentISC, currentPropina };
     }, [lineItems, descuentoPorcentaje, aplicaITBIS, aplicaISC, aplicaPropina]);
 
@@ -275,6 +278,11 @@ const NuevaFacturaModal: React.FC<NuevaFacturaModalProps> = ({ isOpen, onClose, 
         const trimmedRNC = clienteRNC.trim();
         if (trimmedRNC === '') return;
 
+        if (!isValidRNC(trimmedRNC)) {
+            setErrors(prev => ({ ...prev, clienteRNC: ErrorMessages.RNC_FORMATO_INVALIDO }));
+            return;
+        }
+
         const existingClient = clientes.find(c => c.rnc === trimmedRNC);
         if (existingClient) {
             setClienteId(existingClient.id);
@@ -287,11 +295,12 @@ const NuevaFacturaModal: React.FC<NuevaFacturaModalProps> = ({ isOpen, onClose, 
             if (result) {
                 setClienteNombre(result.nombre);
                 setClienteId(null); // Es un cliente nuevo
+                setErrors(prev => ({ ...prev, clienteRNC: undefined }));
             } else {
-                setErrors(prev => ({ ...prev, clienteRNC: 'No se encontró el RNC en DGII.' }));
+                setErrors(prev => ({ ...prev, clienteRNC: ErrorMessages.RNC_NO_ENCONTRADO }));
             }
         } catch (error: any) {
-            setErrors(prev => ({ ...prev, clienteRNC: error?.message || 'Error al buscar el RNC. Intente nuevamente.' }));
+            setErrors(prev => ({ ...prev, clienteRNC: error?.message || ErrorMessages.RNC_ERROR_BUSQUEDA }));
         }
     };
 
@@ -315,7 +324,7 @@ const NuevaFacturaModal: React.FC<NuevaFacturaModalProps> = ({ isOpen, onClose, 
                     }
 
                     if (updatedItem.cantidad != null && updatedItem.precioUnitario != null) {
-                        updatedItem.subtotal = updatedItem.cantidad * updatedItem.precioUnitario;
+                        updatedItem.subtotal = round2(updatedItem.cantidad * updatedItem.precioUnitario);
                     }
                     
                     return updatedItem;
@@ -340,6 +349,7 @@ const NuevaFacturaModal: React.FC<NuevaFacturaModalProps> = ({ isOpen, onClose, 
             isOpen={isOpen}
             onClose={onClose}
             title={isEditMode ? `Editar Factura ${ncfNumero}` : "Crear Nueva Factura"}
+            maxWidth="max-w-4xl"
         >
             <form ref={formRef} onSubmit={handleSubmit} noValidate>
             <div className="p-6 space-y-4 max-h-[75vh] overflow-y-auto pr-3">
@@ -434,7 +444,11 @@ const NuevaFacturaModal: React.FC<NuevaFacturaModalProps> = ({ isOpen, onClose, 
                                 type="number"
                                 id="descuento"
                                 value={descuentoPorcentaje}
-                                onChange={e => setDescuentoPorcentaje(parseFloat(e.target.value) || 0)}
+                                onChange={e => {
+                                    const val = parseFloat(e.target.value);
+                                    const clamped = Math.min(Math.max(0, isNaN(val) ? 0 : val), 100);
+                                    setDescuentoPorcentaje(clamped);
+                                }}
                                 className="w-20 px-2 py-1 border border-secondary-300 rounded-md shadow-sm sm:text-sm text-right"
                             />
                         </div>

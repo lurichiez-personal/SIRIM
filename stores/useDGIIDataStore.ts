@@ -2,7 +2,7 @@ import { create } from 'zustand';
 
 interface DGIIState {
   loading: boolean;
-  lookupRNC: (rnc: string) => Promise<{ nombre: string } | null>;
+  lookupRNC: (rnc: string) => Promise<{ nombre: string; estadoDGII?: string } | null>;
 }
 
 // Data extracted from the user's provided image and existing mocks.
@@ -26,26 +26,34 @@ const mockRNCDatabase: Record<string, string> = {
   '130111222': 'Alquileres de Espacios Corp.',
 };
 
+const DGII_API_URL = import.meta.env.VITE_DGII_API_URL ?? '';
+
 export const useDGIIDataStore = create<DGIIState>((set) => ({
   loading: false,
   lookupRNC: async (rnc: string) => {
-    // Sanitize input to only contain numbers
     const cleanRNC = rnc.replace(/[^0-9]/g, '');
     if (!cleanRNC) return null;
 
     set({ loading: true });
-    
-    // Simulate async network/DB lookup
-    await new Promise(resolve => setTimeout(resolve, 750));
-    
-    const nombre = mockRNCDatabase[cleanRNC];
-    
-    set({ loading: false });
-    
-    if (nombre) {
-      return { nombre };
+
+    try {
+      if (DGII_API_URL) {
+        const response = await fetch(`${DGII_API_URL}?rnc=${cleanRNC}`);
+        if (response.ok) {
+          const data = await response.json();
+          set({ loading: false });
+          if (data?.nombre) {
+            return { nombre: data.nombre, estadoDGII: data.estadoDGII };
+          }
+          return null;
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching DGII data', error);
     }
-    
-    return null;
+
+    const nombre = mockRNCDatabase[cleanRNC];
+    set({ loading: false });
+    return nombre ? { nombre } : null;
   },
 }));
