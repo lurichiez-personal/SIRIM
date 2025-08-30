@@ -1,4 +1,3 @@
-
 import { create } from 'zustand';
 import JSZip from 'jszip';
 import { findRNC, clearRNCData, appendRNCData, getDBInfo } from '../utils/rnc-database';
@@ -14,7 +13,7 @@ interface DGIIDataState {
   progress: number;
   init: () => void;
   triggerUpdate: () => Promise<void>;
-  lookupRNC: (rnc: string) => Promise<{ nombre: string } | null>;
+  lookupRNC: (rnc: string) => Promise<{ nombre: string, status: string } | null>;
 }
 
 const DGII_RNC_URL = 'https://dgii.gov.do/app/WebApps/Consultas/RNC/DGII_RNC.zip';
@@ -64,12 +63,13 @@ export const useDGIIDataStore = create<DGIIDataState>((set, get) => ({
 
       // 3. Parse the content
       const lines = txtContent.split('\n');
-      const dataToStore: { rnc: string, name: string }[] = [];
+      const dataToStore: { rnc: string, name: string, status: string }[] = [];
       lines.forEach(line => {
         const parts = line.split('|');
+        // RNC|RAZON SOCIAL|NOMBRE COMERCIAL|CATEGORIA|REGIMEN DE PAGOS|ESTATUS
         const rnc = parts[0]?.trim();
-        if (parts.length >= 2 && rnc && (rnc.length === 9 || rnc.length === 11) && /^\d+$/.test(rnc)) {
-          dataToStore.push({ rnc, name: parts[1].trim() });
+        if (parts.length >= 6 && rnc && (rnc.length === 9 || rnc.length === 11) && /^\d+$/.test(rnc)) {
+          dataToStore.push({ rnc, name: parts[1].trim(), status: parts[5].trim() });
         }
       });
       
@@ -116,7 +116,7 @@ export const useDGIIDataStore = create<DGIIDataState>((set, get) => ({
     
     try {
       const result = await findRNC(cleanRNC);
-      return result ? { nombre: result.name } : null;
+      return result ? { nombre: result.name, status: result.status } : null;
     } catch (error) {
       console.error("Error buscando RNC en IndexedDB:", error);
       return null;

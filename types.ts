@@ -1,4 +1,5 @@
 
+
 export enum Role {
   Admin = 'Admin',
   Operaciones = 'Operaciones',
@@ -165,14 +166,30 @@ export interface Cotizacion {
 }
 
 export enum NCFType {
+    // Comprobantes Fiscales (Serie B)
     B01 = 'B01 - Crédito Fiscal',
     B02 = 'B02 - Consumidor Final',
+    B03 = 'B03 - Nota de Débito',
     B04 = 'B04 - Nota de Crédito',
     B11 = 'B11 - Régimen Especial de Tributación',
     B12 = 'B12 - Gubernamental',
+    B13 = 'B13 - Comprobantes para Zonas Francas',
     B14 = 'B14 - Comprobante para Exportaciones',
     B15 = 'B15 - Pagos al Exterior',
     B16 = 'B16 - Gastos Menores',
+    B17 = 'B17 - Comprobante para Regímenes Especiales (Ley 253-12)',
+
+    // Comprobantes Fiscales Electrónicos (Serie E)
+    E31 = 'E31 - e-CF de Crédito Fiscal',
+    E32 = 'E32 - e-CF de Consumidor Final',
+    E33 = 'E33 - e-CF de Nota de Débito',
+    E34 = 'E34 - e-CF de Nota de Crédito',
+    E41 = 'E41 - e-CF de Compras',
+    E43 = 'E43 - e-CF para Regímenes Especiales',
+    E44 = 'E44 - e-CF Gubernamental',
+    E45 = 'E45 - e-CF para Pagos al Exterior',
+    E46 = 'E46 - e-CF para Gastos Menores',
+    E47 = 'E47 - e-CF para Exportación',
 }
 
 export interface NCFSequence {

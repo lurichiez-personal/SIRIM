@@ -124,7 +124,7 @@ const FacturasPage: React.FC = () => {
             updateFacturaStatus(facturaAfectada.id, FacturaEstado.Anulada);
         }
     };
-    const handleCreateCliente = (newClientData: { nombre: string; rnc?: string }): Cliente => addCliente(newClientData);
+    const handleCreateCliente = (newClientData: { nombre: string; rnc?: string, estadoDGII?: string }): Cliente => addCliente(newClientData);
 
     const formatCurrency = (value: number) => new Intl.NumberFormat('es-DO', { style: 'currency', currency: 'DOP' }).format(value);
 

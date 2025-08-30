@@ -1,4 +1,3 @@
-
 import { create } from 'zustand';
 import { Factura, Cliente, Item, Gasto, Ingreso, Cotizacion, NotaCreditoDebito, FacturaEstado, CotizacionEstado, MetodoPago, NotaType, FacturaRecurrente, PagedResult, CodigoModificacionNCF, KpiData, ChartDataPoint, PieChartDataPoint, Comment, AuditLogEntry } from '../types';
 import { useTenantStore } from './useTenantStore';
@@ -465,12 +464,12 @@ export const useDataStore = create<DataState>((set, get) => ({
     const empresaId = useTenantStore.getState().selectedTenant?.id;
     if (!empresaId) throw new Error("No tenant selected");
     const newCliente: Cliente = {
-        ...clienteData,
         id: Date.now(),
         empresaId,
         createdAt: new Date().toISOString(),
         activo: true,
-        estadoDGII: 'ACTIVO', // Mock value
+        estadoDGII: 'NO VERIFICADO', // Default value
+        ...clienteData,
     };
     allClientes.unshift(newCliente);
     get().fetchData(empresaId);

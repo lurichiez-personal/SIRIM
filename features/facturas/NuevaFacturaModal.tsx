@@ -16,7 +16,7 @@ interface NuevaFacturaModalProps {
   onSave: (facturaData: Omit<Factura, 'id' | 'empresaId' | 'estado' | 'ncf' | 'montoPagado'> & { ncfTipo: NCFType }) => void;
   clientes: Cliente[];
   itemsDisponibles: Item[];
-  onCreateCliente: (newClientData: { nombre: string; rnc?: string }) => Cliente;
+  onCreateCliente: (newClientData: { nombre: string; rnc?: string, estadoDGII?: string }) => Cliente;
   cotizacionParaFacturar?: Cotizacion | null;
   facturaRecurrenteParaFacturar?: FacturaRecurrente | null;
   facturaParaEditar?: Factura | null;
@@ -24,7 +24,6 @@ interface NuevaFacturaModalProps {
 
 const NuevaFacturaModal: React.FC<NuevaFacturaModalProps> = ({ isOpen, onClose, onSave, clientes, itemsDisponibles, onCreateCliente, cotizacionParaFacturar, facturaRecurrenteParaFacturar, facturaParaEditar }) => {
     const { selectedTenant } = useTenantStore();
-    const { getAvailableTypes } = useNCFStore();
     const { getRatesForTenant } = useRatesStore();
     const formRef = useRef<HTMLFormElement>(null);
     useEnterToNavigate(formRef);
@@ -32,6 +31,7 @@ const NuevaFacturaModal: React.FC<NuevaFacturaModalProps> = ({ isOpen, onClose, 
     const [clienteId, setClienteId] = useState<number | null>(null);
     const [clienteRNC, setClienteRNC] = useState('');
     const [clienteNombre, setClienteNombre] = useState('');
+    const [clienteEstadoDGII, setClienteEstadoDGII] = useState<string | null>(null);
     const [fecha, setFecha] = useState(new Date().toISOString().split('T')[0]);
     const [ncfTipo, setNcfTipo] = useState<NCFType>(NCFType.B02);
     const [ncfNumero, setNcfNumero] = useState('');
@@ -48,8 +48,17 @@ const NuevaFacturaModal: React.FC<NuevaFacturaModalProps> = ({ isOpen, onClose, 
 
     const { lookupRNC, loading: isLookingUpRNC } = useDGIIDataStore();
     const isEditMode = !!facturaParaEditar;
-    const availableNCFTypes = useMemo(() => selectedTenant ? getAvailableTypes(selectedTenant.id) : [], [selectedTenant, getAvailableTypes]);
     const rates = useMemo(() => selectedTenant ? getRatesForTenant(selectedTenant.id) : { itbis: 0.18, isc: 0.16, propina: 0.10 }, [selectedTenant, getRatesForTenant]);
+
+    const nombreInputClass = useMemo(() => {
+        if (errors.cliente) return 'border-red-500'; // Error takes precedence
+        if (!clienteEstadoDGII) return 'border-secondary-300'; // Default
+        
+        if (clienteEstadoDGII.toUpperCase() === 'ACTIVO') {
+            return 'bg-green-100 border-green-500 text-green-800 focus:ring-green-500 focus:border-green-500';
+        }
+        return 'bg-red-100 border-red-500 text-red-800 focus:ring-red-500 focus:border-red-500';
+    }, [clienteEstadoDGII, errors.cliente]);
 
 
     useEffect(() => {
@@ -65,6 +74,7 @@ const NuevaFacturaModal: React.FC<NuevaFacturaModalProps> = ({ isOpen, onClose, 
             setClienteId(dataToLoad.clienteId);
             setClienteNombre(dataToLoad.clienteNombre);
             setClienteRNC(clienteAsociado?.rnc || (dataToLoad as Cotizacion).clienteRNC || '');
+            setClienteEstadoDGII(clienteAsociado?.estadoDGII || null);
             setFecha(new Date().toISOString().split('T')[0]); // Default to today for new invoices from templates
             if(facturaParaEditar) {
                 setFecha(facturaParaEditar.fecha);
@@ -127,7 +137,7 @@ const NuevaFacturaModal: React.FC<NuevaFacturaModalProps> = ({ isOpen, onClose, 
         let finalClientId = clienteId;
         
         if (!isEditMode && finalClientId === null && clienteNombre) {
-            const newClient = onCreateCliente({ nombre: clienteNombre, rnc: clienteRNC });
+            const newClient = onCreateCliente({ nombre: clienteNombre, rnc: clienteRNC, estadoDGII: clienteEstadoDGII || undefined });
             finalClientId = newClient.id;
         }
 
@@ -166,6 +176,7 @@ const NuevaFacturaModal: React.FC<NuevaFacturaModalProps> = ({ isOpen, onClose, 
         setClienteId(null);
         setClienteRNC('');
         setClienteNombre('');
+        setClienteEstadoDGII(null);
         setFecha(new Date().toISOString().split('T')[0]);
         setNcfTipo(NCFType.B02);
         setNcfNumero('');
@@ -182,19 +193,34 @@ const NuevaFacturaModal: React.FC<NuevaFacturaModalProps> = ({ isOpen, onClose, 
     const handleRNCBlur = async () => {
         if (isEditMode) return;
         const trimmedRNC = clienteRNC.trim();
-        if (trimmedRNC === '') return;
+        if (trimmedRNC === '') {
+            setClienteEstadoDGII(null);
+            return;
+        }
 
         const existingClient = clientes.find(c => c.rnc === trimmedRNC);
         if (existingClient) {
             setClienteId(existingClient.id);
             setClienteNombre(existingClient.nombre);
+            setClienteEstadoDGII(existingClient.estadoDGII || null);
             return;
         }
 
         const result = await lookupRNC(trimmedRNC);
         if (result) {
             setClienteNombre(result.nombre);
+            setClienteEstadoDGII(result.status);
             setClienteId(null); // Es un cliente nuevo
+        } else {
+            setClienteEstadoDGII(null);
+        }
+    };
+
+    const handleRNCKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            handleRNCBlur();
+            formRef.current?.querySelector<HTMLInputElement>('#clienteNombre')?.focus();
         }
     };
 
@@ -264,6 +290,7 @@ const NuevaFacturaModal: React.FC<NuevaFacturaModalProps> = ({ isOpen, onClose, 
                                 id="clienteRNC"
                                 value={clienteRNC}
                                 onChange={(e) => setClienteRNC(e.target.value)}
+                                onKeyDown={handleRNCKeyDown}
                                 onBlur={handleRNCBlur}
                                 className="block w-full px-3 py-2 border border-secondary-300 rounded-md shadow-sm disabled:bg-secondary-100"
                                 placeholder="Buscar o introducir RNC"
@@ -282,8 +309,8 @@ const NuevaFacturaModal: React.FC<NuevaFacturaModalProps> = ({ isOpen, onClose, 
                             type="text"
                             id="clienteNombre"
                             value={clienteNombre}
-                            onChange={(e) => { setClienteNombre(e.target.value); if (clienteId) setClienteId(null); }}
-                            className={`mt-1 block w-full px-3 py-2 border ${errors.cliente ? 'border-red-500' : 'border-secondary-300'} rounded-md shadow-sm disabled:bg-secondary-100`}
+                            onChange={(e) => setClienteNombre(e.target.value)}
+                            className={`mt-1 block w-full px-3 py-2 border rounded-md shadow-sm disabled:bg-secondary-100 ${nombreInputClass}`}
                             disabled={isEditMode || !!cotizacionParaFacturar || !!facturaRecurrenteParaFacturar}
                         />
                          {errors.cliente && <p className="mt-1 text-sm text-red-600">{errors.cliente}</p>}
@@ -297,7 +324,7 @@ const NuevaFacturaModal: React.FC<NuevaFacturaModalProps> = ({ isOpen, onClose, 
                         <div>
                             <label htmlFor="ncfTipo" className="block text-sm font-medium text-secondary-700">Tipo de NCF *</label>
                             <select id="ncfTipo" value={ncfTipo} onChange={e => setNcfTipo(e.target.value as NCFType)} className="mt-1 block w-full px-3 py-2 border border-secondary-300 rounded-md shadow-sm">
-                                {availableNCFTypes.map(type => <option key={type} value={type}>{type}</option>)}
+                                {Object.values(NCFType).map(type => <option key={type} value={type}>{type}</option>)}
                             </select>
                         </div>
                     )}

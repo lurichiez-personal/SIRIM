@@ -19,6 +19,7 @@ const NuevoClienteModal: React.FC<NuevoClienteModalProps> = ({ isOpen, onClose, 
     const [telefono, setTelefono] = useState('');
     const [condicionesPago, setCondicionesPago] = useState('');
     const [activo, setActivo] = useState(true);
+    const [estadoDGII, setEstadoDGII] = useState<string | undefined>(undefined);
     const [errors, setErrors] = useState<{ nombre?: string }>({});
     
     const { lookupRNC, loading: isLookingUpRNC } = useDGIIDataStore();
@@ -34,6 +35,7 @@ const NuevoClienteModal: React.FC<NuevoClienteModalProps> = ({ isOpen, onClose, 
             setTelefono(clienteParaEditar.telefono || '');
             setCondicionesPago(clienteParaEditar.condicionesPago || '');
             setActivo(clienteParaEditar.activo);
+            setEstadoDGII(clienteParaEditar.estadoDGII);
         } else {
             resetForm();
         }
@@ -61,6 +63,7 @@ const NuevoClienteModal: React.FC<NuevoClienteModalProps> = ({ isOpen, onClose, 
             telefono,
             activo,
             condicionesPago,
+            estadoDGII
         });
         resetForm();
         onClose();
@@ -73,6 +76,7 @@ const NuevoClienteModal: React.FC<NuevoClienteModalProps> = ({ isOpen, onClose, 
         setTelefono('');
         setCondicionesPago('');
         setActivo(true);
+        setEstadoDGII(undefined);
         setErrors({});
     }
 
@@ -86,6 +90,9 @@ const NuevoClienteModal: React.FC<NuevoClienteModalProps> = ({ isOpen, onClose, 
             const result = await lookupRNC(rnc);
             if (result) {
                 setNombre(result.nombre);
+                setEstadoDGII(result.status);
+            } else {
+                setEstadoDGII(undefined);
             }
         }
     };
@@ -115,6 +122,15 @@ const NuevoClienteModal: React.FC<NuevoClienteModalProps> = ({ isOpen, onClose, 
             {error && <p className="mt-1 text-sm text-red-600">{error}</p>}
         </div>
     );
+    
+    const getEstadoDGIIBadge = (estado: string | undefined) => {
+        if (!estado) return null;
+        switch (estado.toUpperCase()) {
+            case 'ACTIVO': return 'bg-blue-100 text-blue-800';
+            case 'SUSPENDIDO': return 'bg-red-100 text-red-800';
+            default: return 'bg-secondary-100 text-secondary-800';
+        }
+    };
 
     return (
         <Modal
@@ -125,7 +141,17 @@ const NuevoClienteModal: React.FC<NuevoClienteModalProps> = ({ isOpen, onClose, 
           <form ref={formRef} onSubmit={handleSubmit} noValidate>
             <div className="p-6 space-y-4">
                 {renderInput('Nombre / Razón Social *', 'nombre', nombre, setNombre, errors.nombre, 'Ej: Mi Empresa S.R.L.')}
-                {renderInput('RNC', 'rnc', rnc, setRnc, undefined, 'Ej: 130123456', handleRNCBlur)}
+                <div>
+                    {renderInput('RNC', 'rnc', rnc, setRnc, undefined, 'Ej: 130123456', handleRNCBlur)}
+                    {estadoDGII && (
+                        <div className="mt-2">
+                            <span className="text-xs text-secondary-600">Estado DGII: </span>
+                            <span className={`px-2 py-0.5 inline-flex text-xs leading-5 font-semibold rounded-full ${getEstadoDGIIBadge(estadoDGII)}`}>
+                                {estadoDGII}
+                            </span>
+                        </div>
+                    )}
+                </div>
                 {renderInput('Email', 'email', email, setEmail, undefined, 'Ej: contacto@empresa.com')}
                 {renderInput('Teléfono', 'telefono', telefono, setTelefono, undefined, 'Ej: 809-555-1234')}
                 {renderInput('Condiciones de Pago', 'condiciones', condicionesPago, setCondicionesPago, undefined, 'Ej: Neto 30 días')}

@@ -1,4 +1,3 @@
-
 const DB_NAME = 'SIRIM_RNC_DB';
 const STORE_NAME = 'rnc_store';
 const DB_VERSION = 1;
@@ -42,7 +41,7 @@ export async function clearRNCData(): Promise<void> {
     });
 }
 
-export async function appendRNCData(data: { rnc: string, name: string }[]): Promise<void> {
+export async function appendRNCData(data: { rnc: string, name: string, status: string }[]): Promise<void> {
     if (data.length === 0) return Promise.resolve();
     const db = await openDB();
     const transaction = db.transaction(STORE_NAME, 'readwrite');
@@ -56,7 +55,7 @@ export async function appendRNCData(data: { rnc: string, name: string }[]): Prom
     });
 }
 
-export async function findRNC(rnc: string): Promise<{ rnc: string, name: string } | null> {
+export async function findRNC(rnc: string): Promise<{ rnc: string, name: string, status: string } | null> {
     const db = await openDB();
     const transaction = db.transaction(STORE_NAME, 'readonly');
     const store = transaction.objectStore(STORE_NAME);
