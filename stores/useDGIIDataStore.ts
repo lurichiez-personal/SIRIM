@@ -24,7 +24,7 @@ export const useDGIIDataStore = create<DGIIState>((set) => ({
 
     try {
       const res = await fetch(
-        `https://www.dgii.gov.do/app/WebApps/ConsultasWeb2/ConsultasWeb/consultas/rnc.aspx?rnc=${cleanRNC}`
+        `https://www.dgii.gov.do/app/WebApps/Consultas/RNC/DGII_RNC.asmx/ConsultaRNC?RNC=${cleanRNC}`
       );
 
       if (!res.ok) {
@@ -42,28 +42,11 @@ export const useDGIIDataStore = create<DGIIState>((set) => ({
           data?.RGE_NOMBRE_COMERCIAL;
       } catch {
         const parser = new DOMParser();
-        let doc = parser.parseFromString(text, 'text/html');
+        const doc = parser.parseFromString(text, 'text/xml');
         nombre =
-          doc.querySelector('#lblNombreComercial')?.textContent?.trim() ||
-          doc.querySelector('#lblRazonSocial')?.textContent?.trim() ||
-          (() => {
-            const label = Array.from(
-              doc.querySelectorAll('td,span,label')
-            ).find((el) =>
-              /raz[oó]n social|nombre comercial|nombre/i.test(
-                el.textContent || ''
-              )
-            );
-            return label?.nextElementSibling?.textContent?.trim() || undefined;
-          })();
-
-        if (!nombre) {
-          doc = parser.parseFromString(text, 'text/xml');
-          nombre =
-            doc.querySelector('RGE_RAZON_SOCIAL')?.textContent?.trim() ||
-            doc.querySelector('RGE_NOMBRE_COMERCIAL')?.textContent?.trim() ||
-            undefined;
-        }
+          doc.querySelector('RGE_RAZON_SOCIAL')?.textContent?.trim() ||
+          doc.querySelector('RGE_NOMBRE_COMERCIAL')?.textContent?.trim() ||
+          undefined;
       }
 
       if (nombre) {
