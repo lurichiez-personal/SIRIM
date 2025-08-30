@@ -3,6 +3,7 @@ import { create } from 'zustand';
 import { User, Role } from '../types';
 import { useTenantStore } from './useTenantStore';
 import { useDataStore } from './useDataStore';
+import { apiFetch, API_BASE_URL } from '../utils/api';
 
 interface AuthState {
   isAuthenticated: boolean;
@@ -42,25 +43,40 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     useDataStore.getState().clearData();
   },
   triggerMicrosoftLogin: () => {
+    if (API_BASE_URL) {
+        window.location.href = `${API_BASE_URL}/auth/microsoft`;
+        return true;
+    }
     console.log("Simulando login con Microsoft...");
-    // Simula encontrar el usuario Contador de Microsoft y loguearlo
     const microsoftUser = get().users.find(u => u.authMethod === 'microsoft' && u.roles.includes(Role.Contador));
     if (microsoftUser && microsoftUser.activo) {
         get().login(microsoftUser);
         return true;
     }
-    // Fallback por si el contador no está o no es de MS, para que el botón siga funcionando.
     const fallbackUser = get().users.find(u => u.authMethod === 'microsoft');
-     if (fallbackUser && fallbackUser.activo) {
+    if (fallbackUser && fallbackUser.activo) {
         get().login(fallbackUser);
         return true;
     }
     return false;
   },
   loginWithPassword: async (email, password) => {
-    await new Promise(resolve => setTimeout(resolve, 500)); // Simular latencia
+    if (API_BASE_URL) {
+        try {
+            const result = await apiFetch<{ user: User }>(`/auth/login`, {
+                method: 'POST',
+                body: JSON.stringify({ email, password })
+            });
+            if (result.user) {
+                get().login(result.user);
+                return true;
+            }
+        } catch (error) {
+            console.error('Login via API failed', error);
+        }
+    }
+    await new Promise(resolve => setTimeout(resolve, 500));
     const foundUser = get().users.find(u => u.email.toLowerCase() === email.toLowerCase() && u.authMethod === 'local');
-    
     if (foundUser && foundUser.password === password) {
         if (!foundUser.activo) {
             console.error("Login fallido: Usuario inactivo.");

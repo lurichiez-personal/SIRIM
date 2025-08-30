@@ -3,4 +3,7 @@ services:
     name: sirim-app
     env: node
     buildCommand: npm install && npm run build
-    publishDir: dist
+    staticPublishPath: dist
+    envVars:
+      - key: VITE_API_URL
+        value: https://your-backend-url.example.com
