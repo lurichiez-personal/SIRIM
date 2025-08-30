@@ -4,6 +4,7 @@ import { Factura, Cliente, Item, Gasto, Ingreso, Cotizacion, NotaCreditoDebito, 
 import { useTenantStore } from './useTenantStore';
 import { useNotificationStore } from './useNotificationStore';
 import { useAuthStore } from './useAuthStore';
+import { apiFetch } from '../utils/api';
 
 // --- MOCK DATA SOURCE ---
 
@@ -60,7 +61,7 @@ interface DataState {
   // Raw data (simulating DB tables)
   clientes: Cliente[]; facturas: Factura[]; items: Item[]; cotizaciones: Cotizacion[]; notas: NotaCreditoDebito[]; gastos: Gasto[]; ingresos: Ingreso[]; facturasRecurrentes: FacturaRecurrente[];
   // Actions
-  fetchData: (empresaId: number) => void;
+  fetchData: (empresaId: number) => Promise<void>;
   clearData: () => void;
   // Paged Getters
   getPagedClientes: (options: { page: number, pageSize: number, searchTerm?: string, status?: 'todos' | 'activo' | 'inactivo' }) => PagedResult<Cliente>;
@@ -137,18 +138,32 @@ export const useDataStore = create<DataState>((set, get) => ({
   facturasRecurrentes: [],
 
   // --- ACTIONS ---
-  fetchData: (empresaId) => {
-    // In a real app, this would be an API call. Here we filter mock data.
-    set({
-        clientes: [...allClientes.filter(c => c.empresaId === empresaId)],
-        facturas: [...allFacturas.filter(f => f.empresaId === empresaId)],
-        items: [...allItems.filter(i => i.empresaId === empresaId)],
-        cotizaciones: [...allCotizaciones.filter(c => c.empresaId === empresaId)],
-        notas: [...allNotas.filter(n => n.empresaId === empresaId)],
-        gastos: [...allGastos.filter(g => g.empresaId === empresaId)],
-        ingresos: [...allIngresos.filter(i => i.empresaId === empresaId)],
-        facturasRecurrentes: [...allFacturasRecurrentes.filter(fr => fr.empresaId === empresaId)],
-    });
+  fetchData: async (empresaId) => {
+    try {
+        const [clientes, facturas, items, cotizaciones, notas, gastos, ingresos, facturasRecurrentes] = await Promise.all([
+            apiFetch<Cliente[]>(`/empresas/${empresaId}/clientes`),
+            apiFetch<Factura[]>(`/empresas/${empresaId}/facturas`),
+            apiFetch<Item[]>(`/empresas/${empresaId}/items`),
+            apiFetch<Cotizacion[]>(`/empresas/${empresaId}/cotizaciones`),
+            apiFetch<NotaCreditoDebito[]>(`/empresas/${empresaId}/notas`),
+            apiFetch<Gasto[]>(`/empresas/${empresaId}/gastos`),
+            apiFetch<Ingreso[]>(`/empresas/${empresaId}/ingresos`),
+            apiFetch<FacturaRecurrente[]>(`/empresas/${empresaId}/facturas-recurrentes`),
+        ]);
+        set({ clientes, facturas, items, cotizaciones, notas, gastos, ingresos, facturasRecurrentes });
+    } catch (error) {
+        console.error('Error fetching data from API, using mock data', error);
+        set({
+            clientes: [...allClientes.filter(c => c.empresaId === empresaId)],
+            facturas: [...allFacturas.filter(f => f.empresaId === empresaId)],
+            items: [...allItems.filter(i => i.empresaId === empresaId)],
+            cotizaciones: [...allCotizaciones.filter(c => c.empresaId === empresaId)],
+            notas: [...allNotas.filter(n => n.empresaId === empresaId)],
+            gastos: [...allGastos.filter(g => g.empresaId === empresaId)],
+            ingresos: [...allIngresos.filter(i => i.empresaId === empresaId)],
+            facturasRecurrentes: [...allFacturasRecurrentes.filter(fr => fr.empresaId === empresaId)],
+        });
+    }
   },
   clearData: () => {
     set({ clientes: [], facturas: [], items: [], cotizaciones: [], notas: [], gastos: [], ingresos: [], facturasRecurrentes: [] });

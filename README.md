@@ -15,6 +15,21 @@ View your app in AI Studio: https://ai.studio/apps/drive/17sCHUjMls3bjgXkCSIdpvj
 
 1. Install dependencies:
    `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
+2. Create a `.env.local` file and set your keys:
+   - `GEMINI_API_KEY` for Gemini services
+   - `VITE_API_URL` pointing to your backend (e.g., `https://your-backend-url.example.com`)
+3. Type-check the project:
+   `npm test`
+4. Run the app:
    `npm run dev`
+
+## Deploy to Render
+
+This project includes a `render.yaml` for easy static-site deployment.
+
+1. Push your code to Git.
+2. In Render, create a **Static Site** and point it at this repository.
+3. Render runs `npm install && npm run build` and serves the `dist` directory.
+4. Set the `VITE_API_URL` environment variable in Render to your backend URL.
+
+After the build finishes, your site will be available at the URL provided by Render.
