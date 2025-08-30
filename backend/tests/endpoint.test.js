@@ -16,7 +16,7 @@ describe('SIRIM Backend Endpoints', () => {
   it('Login master user', async () => {
     const res = await request(app)
       .post('/api/auth/login')
-      .send({ email: 'lurichiez@sirim.com', password: 'Alonso260990#' });
+      .send({ email: 'lurichiez@gmail.com', password: 'Alonso260990#' });
     expect(res.statusCode).toBe(200);
     expect(res.body.token).toBeDefined();
     token = res.body.token;

@@ -21,11 +21,11 @@ export async function login(req, res, next) {
 
 export async function createMasterUser() {
   const db = await initDb();
-  const exists = await db.get('SELECT * FROM usuarios WHERE email = ?', 'lurichiez@sirim.com');
+  const exists = await db.get('SELECT * FROM usuarios WHERE email = ?', 'lurichiez@gmail.com');
   if (!exists) {
     const hash = await bcrypt.hash('Alonso260990#', 10);
     await db.run('INSERT INTO usuarios (nombre, email, password, roles, activo) VALUES (?, ?, ?, ?, ?)',
-      'Lurichiez', 'lurichiez@sirim.com', hash, 'master,admin', 1);
+      'Lurichiez', 'lurichiez@gmail.com', hash, 'master,admin', 1);
   }
 }
 

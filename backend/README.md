@@ -42,7 +42,7 @@ Ejecuta `npm test` para validar endpoints y lógica principal.
 `POST /api/auth/login`
 ```json
 {
-  "email": "lurichiez@sirim.com",
+  "email": "lurichiez@gmail.com",
   "password": "Alonso260990#"
 }
 ```
@@ -52,7 +52,7 @@ Ejecuta `npm test` para validar endpoints y lógica principal.
   "token": "...JWT...",
   "user": {
     "id": 1,
-    "email": "lurichiez@sirim.com",
+    "email": "lurichiez@gmail.com",
     "roles": ["master", "admin"],
     "nombre": "Lurichiez"
   }
