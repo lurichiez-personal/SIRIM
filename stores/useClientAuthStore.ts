@@ -24,8 +24,8 @@ export const useClientAuthStore = create<ClientAuthState>((set) => ({
     await new Promise(resolve => setTimeout(resolve, 500));
     const cleanEmail = email.trim().toLowerCase();
     const cleanPassword = password.trim();
-    const foundUser = mockClientUsers.find(u => u.email.toLowerCase() === cleanEmail);
-    if (foundUser && foundUser.password === cleanPassword) {
+    const foundUser = mockClientUsers.find(u => u.email.trim().toLowerCase() === cleanEmail);
+    if (foundUser && foundUser.password?.trim() === cleanPassword) {
         set({ isClientAuthenticated: true, clientUser: foundUser });
         return true;
     }

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { User, Role } from '../../types';
 import Modal from '../../components/ui/Modal';
@@ -64,19 +63,23 @@ const NuevoUsuarioModal: React.FC<NuevoUsuarioModalProps> = ({ isOpen, onClose, 
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        // Basic validation
-        if (!nombre.trim() || !email.trim() || roles.size === 0) {
+        
+        const finalNombre = nombre.trim();
+        const finalEmail = email.trim();
+        const finalPassword = password.trim();
+
+        if (!finalNombre || !finalEmail || roles.size === 0) {
             alert('Por favor, complete todos los campos obligatorios.');
             return;
         }
-        if (!isEditMode && !password.trim()) {
+        if (!isEditMode && !finalPassword) {
             alert('La contraseña es obligatoria para nuevos usuarios.');
             return;
         }
 
         const baseData = {
-            nombre,
-            email,
+            nombre: finalNombre,
+            email: finalEmail,
             roles: Array.from(roles),
             activo,
         };
@@ -85,14 +88,14 @@ const NuevoUsuarioModal: React.FC<NuevoUsuarioModalProps> = ({ isOpen, onClose, 
             const updatedUser: User = {
                 ...userToEdit,
                 ...baseData,
-                ...(password.trim() && userToEdit.authMethod === 'local' && { password: password.trim() })
+                ...(finalPassword && userToEdit.authMethod === 'local' && { password: finalPassword })
             };
             onSave(updatedUser);
         } else {
             const newUser: Omit<User, 'id'> = {
                 ...baseData,
                 authMethod: 'local',
-                password: password.trim()
+                password: finalPassword
             };
             onSave(newUser);
         }
