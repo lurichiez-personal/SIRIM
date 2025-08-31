@@ -215,11 +215,11 @@ const NuevoGastoModal: React.FC<NuevoGastoModalProps> = ({ isOpen, onClose, onSa
             <form ref={formRef} onSubmit={handleSubmit} noValidate>
                 <div className="p-6 space-y-4">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {renderInput('RNC / Cédula', 'rncProveedor', 'text', rncProveedor, setRncProveedor, undefined, 'Ej: 130123456', false, () => handleRNCProveedorBlur())}
                         <div>
-                           {renderInput('Proveedor', 'proveedor', 'text', proveedorNombre, setProveedorNombre, undefined, 'Nombre del proveedor')}
+                           {renderInput('Nombre / Razón Social', 'proveedor', 'text', proveedorNombre, setProveedorNombre, undefined, 'Nombre del proveedor')}
                            {promptForProvider && <p className="text-sm text-yellow-700 mt-1">No se encontró este proveedor. Por favor, ingrese el nombre manualmente.</p>}
                         </div>
-                        {renderInput('RNC Proveedor', 'rncProveedor', 'text', rncProveedor, setRncProveedor, undefined, 'Ej: 130123456', false, () => handleRNCProveedorBlur())}
                         {renderInput('NCF', 'ncfGasto', 'text', ncf, setNcf, undefined, 'Ej: B0100000001')}
                         {renderInput('Fecha *', 'fechaGasto', 'date', fecha, setFecha, errors.fecha)}
                     </div>
