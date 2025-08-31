@@ -1,15 +1,25 @@
 
-import React from 'react';
-import { NavLink } from 'react-router-dom';
+
+import React, { useState } from 'react';
+import { NavLink, useLocation } from 'react-router-dom';
 import { Permission } from '../types';
 import Can from './Can';
 import { 
     DashboardIcon, ClientesIcon, FacturasIcon, GastosIcon, 
     IngresosIcon, ReportesIcon, ConfiguracionIcon, LogoIcon,
-    InventarioIcon, CotizacionesIcon, DocumentDuplicateIcon, ScaleIcon
+    InventarioIcon, CotizacionesIcon, DocumentDuplicateIcon, ScaleIcon,
+    UsersGroupIcon, BookOpenIcon, ChevronDownIcon, ChartPieIcon
 } from './icons/Icons';
 
-const navItems = [
+interface NavItem {
+    to: string;
+    label: string;
+    icon: React.ElementType;
+    permission: Permission;
+    children?: Omit<NavItem, 'permission' | 'children'>[];
+}
+
+const navItems: NavItem[] = [
   { to: '/', label: 'Dashboard', icon: DashboardIcon, permission: Permission.VER_DASHBOARD },
   { to: '/clientes', label: 'Clientes', icon: ClientesIcon, permission: Permission.GESTIONAR_CLIENTES },
   { to: '/facturas', label: 'Facturación', icon: FacturasIcon, permission: Permission.GESTIONAR_FACTURAS },
@@ -18,15 +28,50 @@ const navItems = [
   { to: '/gastos', label: 'Gastos', icon: GastosIcon, permission: Permission.GESTIONAR_GASTOS },
   { to: '/ingresos', label: 'Pagos y Cobros', icon: IngresosIcon, permission: Permission.GESTIONAR_PAGOS },
   { to: '/inventario', label: 'Inventario', icon: InventarioIcon, permission: Permission.GESTIONAR_INVENTARIO },
+  { to: '/nomina', label: 'Nómina', icon: UsersGroupIcon, permission: Permission.GESTIONAR_NOMINA },
+  { 
+    to: '/contabilidad', 
+    label: 'Contabilidad', 
+    icon: BookOpenIcon, 
+    permission: Permission.GESTIONAR_CONTABILIDAD,
+    children: [
+        { to: '/contabilidad/libro-diario', label: 'Libro Diario', icon: BookOpenIcon },
+        { to: '/contabilidad/catalogo-cuentas', label: 'Catálogo de Cuentas', icon: ReportesIcon },
+        { to: '/contabilidad/reportes', label: 'Reportes Financieros', icon: ChartPieIcon },
+    ]
+  },
   { to: '/conciliacion', label: 'Conciliación', icon: ScaleIcon, permission: Permission.GESTIONAR_CONCILIACION },
-  { to: '/reportes', label: 'Reportes', icon: ReportesIcon, permission: Permission.VER_REPORTES_DGII },
+  { to: '/reportes', label: 'Reportes DGII', icon: ReportesIcon, permission: Permission.VER_REPORTES_DGII },
   { to: '/configuracion', label: 'Configuración', icon: ConfiguracionIcon, permission: Permission.GESTIONAR_CONFIGURACION_EMPRESA },
 ];
 
-const Sidebar: React.FC = () => {
-  const navLinkClasses = 'flex items-center px-4 py-3 text-secondary-100 hover:bg-primary-700 rounded-lg transition-colors duration-200';
-  const activeNavLinkClasses = 'bg-primary-900 font-semibold';
+const NavItemLink: React.FC<{ item: Omit<NavItem, 'permission'>, isSubmenu?: boolean }> = ({ item, isSubmenu = false }) => {
+    const navLinkClasses = `flex items-center w-full px-4 py-3 text-secondary-100 hover:bg-primary-700 rounded-lg transition-colors duration-200 ${isSubmenu ? 'pl-11' : ''}`;
+    const activeNavLinkClasses = 'bg-primary-900 font-semibold';
+    
+    return (
+         <NavLink
+            to={item.to}
+            end={item.to === '/'}
+            className={({ isActive }) => `${navLinkClasses} ${isActive ? activeNavLinkClasses : ''}`}
+        >
+            <item.icon className="h-5 w-5 mr-3" />
+            <span>{item.label}</span>
+        </NavLink>
+    );
+};
 
+const Sidebar: React.FC = () => {
+  const location = useLocation();
+  const [openSubmenus, setOpenSubmenus] = useState<{[key: string]: boolean}>(() => {
+      const activeMenu = navItems.find(item => item.children?.some(child => location.pathname.startsWith(child.to)));
+      return activeMenu ? { [activeMenu.to]: true } : {};
+  });
+
+  const toggleSubmenu = (to: string) => {
+      setOpenSubmenus(prev => ({...prev, [to]: !prev[to]}));
+  }
+  
   return (
     <aside className="w-64 bg-primary flex flex-col p-4 text-white">
       <div className="flex items-center justify-center py-4 mb-6">
@@ -36,14 +81,24 @@ const Sidebar: React.FC = () => {
       <nav className="flex-1 flex flex-col space-y-2">
         {navItems.map(item => (
           <Can key={item.to} I={item.permission}>
-            <NavLink
-              to={item.to}
-              end={item.to === '/'}
-              className={({ isActive }) => `${navLinkClasses} ${isActive ? activeNavLinkClasses : ''}`}
-            >
-              <item.icon className="h-5 w-5 mr-3" />
-              <span>{item.label}</span>
-            </NavLink>
+            {item.children ? (
+                <div>
+                    <button onClick={() => toggleSubmenu(item.to)} className="flex items-center justify-between w-full px-4 py-3 text-secondary-100 hover:bg-primary-700 rounded-lg transition-colors duration-200">
+                        <div className="flex items-center">
+                            <item.icon className="h-5 w-5 mr-3" />
+                            <span>{item.label}</span>
+                        </div>
+                        <ChevronDownIcon className={`h-5 w-5 transition-transform ${openSubmenus[item.to] ? 'rotate-180' : ''}`} />
+                    </button>
+                    {openSubmenus[item.to] && (
+                        <div className="mt-1 space-y-1">
+                            {item.children.map(child => <NavItemLink key={child.to} item={child} isSubmenu />)}
+                        </div>
+                    )}
+                </div>
+            ) : (
+                <NavItemLink item={item} />
+            )}
           </Can>
         ))}
       </nav>

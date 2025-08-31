@@ -1,8 +1,9 @@
 import { create } from 'zustand';
-import { Factura, Cliente, Item, Gasto, Ingreso, Cotizacion, NotaCreditoDebito, FacturaEstado, CotizacionEstado, MetodoPago, NotaType, FacturaRecurrente, PagedResult, CodigoModificacionNCF, KpiData, ChartDataPoint, PieChartDataPoint, Comment, AuditLogEntry } from '../types';
+import { Factura, Cliente, Item, Gasto, Ingreso, Cotizacion, NotaCreditoDebito, FacturaEstado, CotizacionEstado, MetodoPago, NotaType, FacturaRecurrente, PagedResult, CodigoModificacionNCF, KpiData, ChartDataPoint, PieChartDataPoint, Comment, AuditLogEntry, Empleado, Nomina, Desvinculacion, AsientoContable } from '../types';
 import { useTenantStore } from './useTenantStore';
 import { useNotificationStore } from './useNotificationStore';
 import { useAuthStore } from './useAuthStore';
+import { generarAsientoNomina, generarAsientoFacturaVenta, generarAsientoGasto, generarAsientoIngreso, generarAsientoNotaCredito, generarAsientoDesvinculacion } from '../utils/accountingUtils';
 
 // --- MOCK DATA SOURCE ---
 
@@ -20,10 +21,10 @@ let allFacturas: Factura[] = [
     { id: 103, empresaId: 1, clienteId: 4, clienteNombre: 'Comercial C & D', fecha: '2024-04-10', items: [], subtotal: 25000.00, aplicaITBIS: true, itbis: 4500, montoTotal: 29500.00, montoPagado: 0, ncf: 'B0100000103', estado: FacturaEstado.Vencida, conciliado: false, comments: [], auditLog: [] },
 ];
 let allItems: Item[] = [
-    { id: 1001, empresaId: 1, codigo: 'SERV-CONS', nombre: 'Servicio de Consultoría', precio: 5000.00, cantidadDisponible: undefined },
-    { id: 1002, empresaId: 1, codigo: 'SERV-WEB', nombre: 'Desarrollo Web', precio: 8000.00, cantidadDisponible: undefined },
-    { id: 1003, empresaId: 1, codigo: 'PROD-A', nombre: 'Producto A', precio: 750.00, cantidadDisponible: 100 },
-    { id: 1004, empresaId: 1, codigo: 'PROD-B', nombre: 'Producto B', precio: 1200.00, cantidadDisponible: 4 },
+    { id: 1001, empresaId: 1, codigo: 'SERV-CONS', nombre: 'Servicio de Consultoría', precio: 5000.00, costo: 2000, cantidadDisponible: undefined },
+    { id: 1002, empresaId: 1, codigo: 'SERV-WEB', nombre: 'Desarrollo Web', precio: 8000.00, costo: 3000, cantidadDisponible: undefined },
+    { id: 1003, empresaId: 1, codigo: 'PROD-A', nombre: 'Producto A', precio: 750.00, costo: 400, cantidadDisponible: 100 },
+    { id: 1004, empresaId: 1, codigo: 'PROD-B', nombre: 'Producto B', precio: 1200.00, costo: 700, cantidadDisponible: 4 },
 ];
 
 let allCotizaciones: Cotizacion[] = [
@@ -42,6 +43,14 @@ let allIngresos: Ingreso[] = [
 
 let allNotas: NotaCreditoDebito[] = [];
 let allFacturasRecurrentes: FacturaRecurrente[] = [];
+let allEmpleados: Empleado[] = [
+    { id: 1, empresaId: 1, nombre: 'Juan Perez', cedula: '001-1234567-8', puesto: 'Gerente General', salarioBrutoMensual: 150000, fechaIngreso: '2020-01-15', activo: true },
+    { id: 2, empresaId: 1, nombre: 'Maria Rodriguez', cedula: '001-8765432-1', puesto: 'Analista Contable', salarioBrutoMensual: 75000, fechaIngreso: '2021-06-01', activo: true },
+];
+let allNominas: Nomina[] = [];
+let allDesvinculaciones: Desvinculacion[] = [];
+let allAsientosContables: AsientoContable[] = [];
+
 
 const calculateNextDate = (currentDate: string, frequency: 'diaria' | 'semanal' | 'mensual' | 'anual'): string => {
     const date = new Date(currentDate + 'T00:00:00'); // Ensure correct date parsing
@@ -58,6 +67,7 @@ const calculateNextDate = (currentDate: string, frequency: 'diaria' | 'semanal' 
 interface DataState {
   // Raw data (simulating DB tables)
   clientes: Cliente[]; facturas: Factura[]; items: Item[]; cotizaciones: Cotizacion[]; notas: NotaCreditoDebito[]; gastos: Gasto[]; ingresos: Ingreso[]; facturasRecurrentes: FacturaRecurrente[];
+  empleados: Empleado[]; nominas: Nomina[]; desvinculaciones: Desvinculacion[]; asientosContables: AsientoContable[];
   // Actions
   fetchData: (empresaId: number) => void;
   clearData: () => void;
@@ -75,6 +85,7 @@ interface DataState {
   getGastosFor606: (startDate: string, endDate: string) => Gasto[];
   getVentasFor607: (startDate: string, endDate: string) => { facturas: Factura[], notas: NotaCreditoDebito[] };
   getAnuladosFor608: (startDate: string, endDate: string) => { ncf: string, fecha: string }[];
+  getNominaForPeriodo: (periodo: string) => Nomina | undefined;
 
   // --- Pilar 1: Dashboard Getters ---
   getKpis: () => KpiData;
@@ -112,10 +123,17 @@ interface DataState {
   updateFacturaRecurrente: (data: FacturaRecurrente) => void;
   
   addComment: (documentType: 'factura' | 'gasto' | 'cotizacion', documentId: number, text: string) => void;
-  addAuditLog: (documentType: 'factura' | 'gasto' | 'cotizacion', documentId: number, action: string) => void;
+  addAuditLog: (documentType: 'factura' | 'gasto' | 'cotizacion' | 'nomina', documentId: number | string, action: string) => void;
 
   // --- Pilar 2: Conciliación Mutators ---
   setConciliadoStatus: (recordType: 'factura' | 'gasto' | 'ingreso', recordId: number, status: boolean) => void;
+
+  // --- Nómina Mutators ---
+  addEmpleado: (empleadoData: Omit<Empleado, 'id' | 'empresaId'>) => void;
+  updateEmpleado: (empleado: Empleado) => void;
+  addNomina: (nomina: Omit<Nomina, 'empresaId'>) => void;
+  addDesvinculacion: (desvinculacion: Omit<Desvinculacion, 'id' | 'empresaId'>) => void;
+  findDesvinculacionByCedula: (cedula: string) => Desvinculacion | undefined;
 }
 
 const applyPagination = <T,>(items: T[], page: number, pageSize: number): PagedResult<T> => {
@@ -126,14 +144,8 @@ const applyPagination = <T,>(items: T[], page: number, pageSize: number): PagedR
 
 export const useDataStore = create<DataState>((set, get) => ({
   // --- STATE ---
-  clientes: [],
-  facturas: [],
-  items: [],
-  cotizaciones: [],
-  notas: [],
-  gastos: [],
-  ingresos: [],
-  facturasRecurrentes: [],
+  clientes: [], facturas: [], items: [], cotizaciones: [], notas: [], gastos: [], ingresos: [], facturasRecurrentes: [],
+  empleados: [], nominas: [], desvinculaciones: [], asientosContables: [],
 
   // --- ACTIONS ---
   fetchData: (empresaId) => {
@@ -147,10 +159,14 @@ export const useDataStore = create<DataState>((set, get) => ({
         gastos: [...allGastos.filter(g => g.empresaId === empresaId)],
         ingresos: [...allIngresos.filter(i => i.empresaId === empresaId)],
         facturasRecurrentes: [...allFacturasRecurrentes.filter(fr => fr.empresaId === empresaId)],
+        empleados: [...allEmpleados.filter(e => e.empresaId === empresaId)],
+        nominas: [...allNominas.filter(n => n.empresaId === empresaId)],
+        desvinculaciones: [...allDesvinculaciones.filter(d => d.empresaId === empresaId)],
+        asientosContables: [...allAsientosContables.filter(a => a.empresaId === empresaId)],
     });
   },
   clearData: () => {
-    set({ clientes: [], facturas: [], items: [], cotizaciones: [], notas: [], gastos: [], ingresos: [], facturasRecurrentes: [] });
+    set({ clientes: [], facturas: [], items: [], cotizaciones: [], notas: [], gastos: [], ingresos: [], facturasRecurrentes: [], empleados: [], nominas: [], desvinculaciones: [], asientosContables: [] });
   },
     
   // --- PAGED GETTERS ---
@@ -312,6 +328,11 @@ export const useDataStore = create<DataState>((set, get) => ({
 
       return anulados;
   },
+  getNominaForPeriodo: (periodo: string) => {
+    const empresaId = useTenantStore.getState().selectedTenant?.id;
+    if (!empresaId) return undefined;
+    return get().nominas.find(n => n.periodo === periodo && n.empresaId === empresaId);
+  },
   
   // --- Pilar 1: Dashboard Getters ---
   getKpis: () => {
@@ -326,28 +347,42 @@ export const useDataStore = create<DataState>((set, get) => ({
     const totalFacturado = facturasMes.reduce((acc, f) => acc + f.montoTotal, 0);
     const totalCobrado = ingresosMes.reduce((acc, i) => acc + i.monto, 0);
     const totalGastos = gastosMes.reduce((acc, g) => acc + g.monto, 0);
+    const beneficioPerdida = totalCobrado - totalGastos;
     
     const facturasPendientes = get().facturas.filter(f => f.estado === FacturaEstado.Emitida || f.estado === FacturaEstado.PagadaParcialmente || f.estado === FacturaEstado.Vencida).length;
     
     const totalFacturadoHistorico = get().facturas.filter(f => f.estado !== FacturaEstado.Anulada).reduce((acc, f) => acc + f.montoTotal, 0);
     const totalCobradoHistorico = get().ingresos.reduce((acc, i) => acc + i.monto, 0);
+    const cuentasPorCobrar = totalFacturadoHistorico - totalCobradoHistorico;
 
     // ITBIS Calculation (simplified from Anexo A)
     const itbisVentas = facturasMes.reduce((acc, f) => acc + f.itbis, 0);
     const itbisCompras = gastosMes.reduce((acc, g) => acc + g.itbis, 0);
+    
+    // Financial Statement Simplified
+    const valorInventario = get().items.reduce((acc, item) => acc + ((item.cantidadDisponible || 0) * (item.costo || item.precio)), 0);
+    const activos = cuentasPorCobrar + valorInventario; // Simplified
+    const totalGastadoHistorico = allGastos.filter(g => g.empresaId === useTenantStore.getState().selectedTenant?.id).reduce((acc, g) => acc + g.monto, 0);
+    const patrimonio = totalCobradoHistorico - totalGastadoHistorico; // Simplified Equity
+
+    const ISR_RATE = 0.27; // 27%
+    const isrProyectado = beneficioPerdida > 0 ? beneficioPerdida * ISR_RATE : 0;
 
     return {
         totalFacturado,
         totalCobrado,
         gastosMes: totalGastos,
         facturasPendientes,
-        beneficioPerdida: totalCobrado - totalGastos,
-        cuentasPorCobrar: totalFacturadoHistorico - totalCobradoHistorico,
+        beneficioPerdida,
+        cuentasPorCobrar,
         itbisAPagar: {
             total: itbisVentas - itbisCompras,
             itbisVentas,
             itbisCompras,
-        }
+        },
+        activos,
+        patrimonio,
+        isrProyectado,
     };
   },
   getSalesVsExpensesData: (period) => { return []; },
@@ -372,6 +407,7 @@ export const useDataStore = create<DataState>((set, get) => ({
           case 'factura': targetArray = allFacturas; break;
           case 'gasto': targetArray = allGastos; break;
           case 'cotizacion': targetArray = allCotizaciones; break;
+          // Nomina uses string ID, so we handle it separately if needed, though this structure is simple
           default: return;
       }
       
@@ -413,8 +449,15 @@ export const useDataStore = create<DataState>((set, get) => ({
   addFactura: (facturaData) => {
     const empresaId = useTenantStore.getState().selectedTenant?.id;
     if (!empresaId) return;
+
     const newFactura: Factura = { ...facturaData, id: Date.now(), empresaId, conciliado: false };
-    get().addAuditLog('factura', newFactura.id, `creó la factura con NCF ${newFactura.ncf}.`);
+    
+    // Automatic Accounting Entry
+    const asiento = generarAsientoFacturaVenta(newFactura, get().items);
+    newFactura.asientoId = asiento.id;
+    allAsientosContables.unshift(asiento);
+
+    get().addAuditLog('factura', newFactura.id, `creó y contabilizó la factura con NCF ${newFactura.ncf}.`);
     allFacturas.unshift(newFactura);
     
     newFactura.items.forEach(itemFacturado => {
@@ -499,6 +542,11 @@ export const useDataStore = create<DataState>((set, get) => ({
     if (!empresaId) return;
 
     const newIngreso: Ingreso = { ...ingresoData, id: Date.now(), empresaId, conciliado: false };
+    
+    const asiento = generarAsientoIngreso(newIngreso);
+    newIngreso.asientoId = asiento.id;
+    allAsientosContables.unshift(asiento);
+
     allIngresos.unshift(newIngreso);
     
     // Update invoice status
@@ -509,9 +557,9 @@ export const useDataStore = create<DataState>((set, get) => ({
         const newStatus = factura.montoPagado >= factura.montoTotal ? FacturaEstado.Pagada : FacturaEstado.PagadaParcialmente;
         if(factura.estado !== newStatus) {
             factura.estado = newStatus;
-            get().addAuditLog('factura', factura.id, `registró un pago de ${ingresoData.monto} y cambió el estado a ${newStatus}.`);
+            get().addAuditLog('factura', factura.id, `registró y contabilizó un pago de ${ingresoData.monto} y cambió el estado a ${newStatus}.`);
         } else {
-            get().addAuditLog('factura', factura.id, `registró un pago de ${ingresoData.monto}.`);
+            get().addAuditLog('factura', factura.id, `registró y contabilizó un pago de ${ingresoData.monto}.`);
         }
     }
     get().fetchData(empresaId);
@@ -542,7 +590,12 @@ export const useDataStore = create<DataState>((set, get) => ({
     const empresaId = useTenantStore.getState().selectedTenant?.id;
     if (!empresaId) return;
     const newGasto: Gasto = { ...gastoData, id: Date.now(), empresaId, conciliado: false, comments: [], auditLog: [] };
-    get().addAuditLog('gasto', newGasto.id, `registró el gasto.`);
+
+    const asiento = generarAsientoGasto(newGasto);
+    newGasto.asientoId = asiento.id;
+    allAsientosContables.unshift(asiento);
+
+    get().addAuditLog('gasto', newGasto.id, `registró y contabilizó el gasto.`);
     allGastos.unshift(newGasto);
     get().fetchData(empresaId);
   },
@@ -594,7 +647,13 @@ export const useDataStore = create<DataState>((set, get) => ({
   addNota: (notaData) => {
     const empresaId = useTenantStore.getState().selectedTenant?.id;
     if (!empresaId) return;
+
     const newNota: NotaCreditoDebito = { ...notaData, id: Date.now(), empresaId };
+    
+    const asiento = generarAsientoNotaCredito(newNota);
+    newNota.asientoId = asiento.id;
+    allAsientosContables.unshift(asiento);
+    
     allNotas.unshift(newNota);
     get().fetchData(empresaId);
   },
@@ -639,5 +698,63 @@ export const useDataStore = create<DataState>((set, get) => ({
     }
 
     get().fetchData(empresaId);
+  },
+  // --- Nómina Mutators ---
+  addEmpleado: (empleadoData) => {
+    const empresaId = useTenantStore.getState().selectedTenant?.id;
+    if (!empresaId) return;
+    const newEmpleado: Empleado = { ...empleadoData, id: Date.now(), empresaId };
+    allEmpleados.unshift(newEmpleado);
+    get().fetchData(empresaId);
+  },
+  updateEmpleado: (empleado) => {
+    const empresaId = useTenantStore.getState().selectedTenant?.id;
+    if (!empresaId) return;
+    const index = allEmpleados.findIndex(e => e.id === empleado.id);
+    if (index > -1) {
+        allEmpleados[index] = empleado;
+    }
+    get().fetchData(empresaId);
+  },
+  addNomina: (nominaData) => {
+    const empresaId = useTenantStore.getState().selectedTenant?.id;
+    if (!empresaId) return;
+    const newNomina: Nomina = { ...nominaData, empresaId };
+    
+    // Automatic Accounting Entry
+    const asiento = generarAsientoNomina(newNomina, empresaId);
+    newNomina.asientoId = asiento.id;
+    allAsientosContables.unshift(asiento);
+
+    allNominas.unshift(newNomina);
+    get().addAuditLog('nomina', newNomina.id, 'procesó y contabilizó la nómina.');
+    get().fetchData(empresaId);
+  },
+  addDesvinculacion: (desvinculacionData) => {
+      const empresaId = useTenantStore.getState().selectedTenant?.id;
+      if (!empresaId) return;
+      const newDesvinculacion: Desvinculacion = { ...desvinculacionData, id: Date.now(), empresaId };
+
+      const asiento = generarAsientoDesvinculacion(newDesvinculacion);
+      newDesvinculacion.asientoId = asiento.id;
+      allAsientosContables.unshift(asiento);
+
+      allDesvinculaciones.unshift(newDesvinculacion);
+
+      // Make employee inactive
+      const empIndex = allEmpleados.findIndex(e => e.id === desvinculacionData.empleadoId);
+      if (empIndex > -1) {
+          allEmpleados[empIndex].activo = false;
+      }
+      
+      get().fetchData(empresaId);
+  },
+  findDesvinculacionByCedula: (cedula: string) => {
+      const empresaId = useTenantStore.getState().selectedTenant?.id;
+      if (!empresaId) return undefined;
+      // Find the most recent desvinculacion for that cedula
+      return [...allDesvinculaciones]
+          .filter(d => d.empresaId === empresaId && d.empleadoCedula === cedula)
+          .sort((a, b) => new Date(b.fechaSalida).getTime() - new Date(a.fechaSalida).getTime())[0];
   },
 }));

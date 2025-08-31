@@ -1,4 +1,5 @@
 
+
 import React, { useMemo } from 'react';
 import { Card, CardHeader, CardContent, CardTitle } from '../../components/ui/Card';
 import { useTenantStore } from '../../stores/useTenantStore';
@@ -38,22 +39,13 @@ const DashboardPage: React.FC = () => {
       { name: 'Arrendamientos', value: 300 },
       { name: 'Personal', value: 200 },
   ];
-  const topClientsData = [
-      { name: 'Cliente A', value: 2400 },
-      { name: 'Cliente B', value: 1398 },
-      { name: 'Cliente C', value: 9800 },
-  ].sort((a, b) => b.value - a.value);
-
+  
   return (
     <div>
       <h1 className="text-3xl font-bold text-secondary-800 mb-6">Dashboard de {selectedTenant?.nombre}</h1>
       
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {/* KPI Cards */}
-        <Card>
-          <CardHeader><CardTitle>Total Facturado (mes)</CardTitle></CardHeader>
-          <CardContent><p className="text-3xl font-bold" style={{color: tenantSettings?.accentColor}}>{formatCurrency(kpis.totalFacturado)}</p></CardContent>
-        </Card>
         <Card>
           <CardHeader><CardTitle>Total Cobrado (mes)</CardTitle></CardHeader>
           <CardContent><p className="text-3xl font-bold text-green-600">{formatCurrency(kpis.totalCobrado)}</p></CardContent>
@@ -63,36 +55,54 @@ const DashboardPage: React.FC = () => {
           <CardContent><p className="text-3xl font-bold text-red-600">{formatCurrency(kpis.gastosMes)}</p></CardContent>
         </Card>
         <Card>
-          <CardHeader><CardTitle>Facturas Pendientes</CardTitle></CardHeader>
-          <CardContent><p className="text-3xl font-bold text-yellow-600">{kpis.facturasPendientes}</p></CardContent>
-        </Card>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6">
-         {/* Financial Health Cards */}
-         <Card>
             <CardHeader><CardTitle>Beneficio/Pérdida (Mes)</CardTitle></CardHeader>
             <CardContent>
-                <p className={`text-2xl font-bold ${kpis.beneficioPerdida >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                <p className={`text-3xl font-bold ${kpis.beneficioPerdida >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                     {formatCurrency(kpis.beneficioPerdida)}
                 </p>
-                <p className="text-xs text-secondary-500 mt-1">Total Cobrado - Total Gastos</p>
+                <p className="text-xs text-secondary-500 mt-1">Cobros - Gastos</p>
             </CardContent>
          </Card>
          <Card>
             <CardHeader><CardTitle>Cuentas por Cobrar</CardTitle></CardHeader>
             <CardContent>
                 <p className="text-2xl font-bold text-yellow-600">{formatCurrency(kpis.cuentasPorCobrar)}</p>
-                <p className="text-xs text-secondary-500 mt-1">Total Facturado - Total Cobrado (histórico)</p>
+                <p className="text-xs text-secondary-500 mt-1">Total pendiente de clientes</p>
+            </CardContent>
+         </Card>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6">
+         {/* Financial Health Cards */}
+         <Card>
+            <CardHeader><CardTitle>Activos (Estimado)</CardTitle></CardHeader>
+            <CardContent>
+                <p className="text-2xl font-bold text-blue-600">{formatCurrency(kpis.activos)}</p>
+                <p className="text-xs text-secondary-500 mt-1">Cuentas por Cobrar + Inventario</p>
             </CardContent>
          </Card>
          <Card>
-            <CardHeader><CardTitle>ITBIS a Pagar (Estimado Mes)</CardTitle></CardHeader>
+            <CardHeader><CardTitle>Patrimonio (Estimado)</CardTitle></CardHeader>
             <CardContent>
-                <p className={`text-2xl font-bold ${kpis.itbisAPagar.total >= 0 ? 'text-red-600' : 'text-green-600'}`}>
-                    {formatCurrency(kpis.itbisAPagar.total)}
-                </p>
-                <p className="text-xs text-secondary-500 mt-1">ITBIS Ventas ({formatCurrency(kpis.itbisAPagar.itbisVentas)}) - ITBIS Compras ({formatCurrency(kpis.itbisAPagar.itbisCompras)})</p>
+                <p className="text-2xl font-bold text-purple-600">{formatCurrency(kpis.patrimonio)}</p>
+                <p className="text-xs text-secondary-500 mt-1">Total Cobrado - Total Gastado (Histórico)</p>
+            </CardContent>
+         </Card>
+         <Card>
+            <CardHeader><CardTitle>Proyección Impuestos (Mes)</CardTitle></CardHeader>
+            <CardContent>
+                <div className="space-y-2">
+                    <div>
+                        <p className="text-xs text-secondary-500">ITBIS a Pagar</p>
+                        <p className={`text-lg font-bold ${kpis.itbisAPagar.total >= 0 ? 'text-red-600' : 'text-green-600'}`}>
+                            {formatCurrency(kpis.itbisAPagar.total)}
+                        </p>
+                    </div>
+                    <div>
+                        <p className="text-xs text-secondary-500">ISR Proyectado (27%)</p>
+                        <p className="text-lg font-bold text-red-600">{formatCurrency(kpis.isrProyectado)}</p>
+                    </div>
+                </div>
             </CardContent>
          </Card>
       </div>

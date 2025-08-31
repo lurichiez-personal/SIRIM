@@ -1,11 +1,10 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
-import { DownloadIcon } from '../../components/icons/Icons';
+import { DownloadIcon, UserTaxIcon } from '../../components/icons/Icons';
 import { useDataStore } from '../../stores/useDataStore';
 import { useTenantStore } from '../../stores/useTenantStore';
-import { generate606, generate607, generate608, calculateAnexoA } from '../../utils/dgiiReportUtils';
+import { generate606, generate607, generate608, calculateAnexoA, generateIR3 } from '../../utils/dgiiReportUtils';
 import AnexoAModal from './AnexoAModal';
 import { useAlertStore } from '../../stores/useAlertStore';
 
@@ -46,7 +45,7 @@ const ReporteCard: React.FC<{ title: string, description: string, onGenerate: ()
 
 const ReportesPage: React.FC = () => {
     const { selectedTenant } = useTenantStore();
-    const { getGastosFor606, getVentasFor607, getAnuladosFor608 } = useDataStore();
+    const { getGastosFor606, getVentasFor607, getAnuladosFor608, getNominaForPeriodo } = useDataStore();
     const { showAlert } = useAlertStore();
 
     const [dates, setDates] = useState<Record<string, ReportDates>>({
@@ -54,6 +53,7 @@ const ReportesPage: React.FC = () => {
         '607': { start: '', end: '' },
         '608': { start: '', end: '' },
         'AnexoA': { start: '', end: '' },
+        'IR3': { start: '', end: '' },
     });
     const [isAnexoAModalOpen, setIsAnexoAModalOpen] = useState(false);
     const [anexoAData, setAnexoAData] = useState<any>(null);
@@ -72,7 +72,7 @@ const ReportesPage: React.FC = () => {
         return `${year}${month}`;
     };
 
-    const handleGenerate = (reporte: '606' | '607' | '608' | 'AnexoA') => {
+    const handleGenerate = (reporte: '606' | '607' | '608' | 'AnexoA' | 'IR3') => {
         if (!selectedTenant) {
             showAlert('Información', 'Por favor, seleccione una empresa.');
             return;
@@ -126,6 +126,16 @@ const ReportesPage: React.FC = () => {
                 setIsAnexoAModalOpen(true);
                 break;
             }
+            case 'IR3': {
+                const nominaPeriod = `${start.substring(0, 4)}-${start.substring(5, 7)}`;
+                const nomina = getNominaForPeriodo(nominaPeriod);
+                if (!nomina) {
+                    showAlert('Sin Datos', `No se encontró una nómina procesada para el período ${nominaPeriod}.`);
+                    return;
+                }
+                generateIR3(nomina, rnc, period);
+                break;
+            }
         }
     };
 
@@ -155,6 +165,14 @@ const ReportesPage: React.FC = () => {
                     onGenerate={() => handleGenerate('608')}
                     dates={dates['608']}
                     onDateChange={(f, v) => handleDateChange('608', f, v)}
+                    isTxt
+                />
+                <ReporteCard 
+                    title="Retenciones Asalariados (IR-3)"
+                    description="Genere el archivo para el Formato IR-3 con el detalle de las retenciones de ISR aplicadas en la nómina del mes."
+                    onGenerate={() => handleGenerate('IR3')}
+                    dates={dates['IR3']}
+                    onDateChange={(f, v) => handleDateChange('IR3', f, v)}
                     isTxt
                 />
                  <Card>

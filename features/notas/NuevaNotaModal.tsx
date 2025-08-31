@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Factura, CodigoModificacionNCF } from '../../types';
 import Modal from '../../components/ui/Modal';
@@ -24,6 +25,8 @@ interface NuevaNotaModalProps {
     aplicaITBIS: boolean;
     aplicaISC: boolean;
     aplicaPropina: boolean;
+    descuentoPorcentaje?: number;
+    montoDescuento?: number;
   }) => void;
   facturasDisponibles: Factura[];
   facturaAfectadaInicial?: Factura | null;
@@ -45,6 +48,7 @@ const NuevaNotaModal: React.FC<NuevaNotaModalProps> = ({ isOpen, onClose, onSave
     const [aplicaITBIS, setAplicaITBIS] = useState(true);
     const [aplicaISC, setAplicaISC] = useState(false);
     const [aplicaPropina, setAplicaPropina] = useState(false);
+    const [descuentoPorcentaje, setDescuentoPorcentaje] = useState(0);
     
     const [errors, setErrors] = useState<{ factura?: string; fecha?: string; descripcion?: string }>({});
 
@@ -57,7 +61,6 @@ const NuevaNotaModal: React.FC<NuevaNotaModalProps> = ({ isOpen, onClose, onSave
         setFacturaAfectada(factura);
         setSearchTerm('');
         
-        // Populate amounts from selected invoice
         setSubtotal(factura.subtotal - (factura.montoDescuento || 0));
         setAplicaITBIS(factura.aplicaITBIS);
         setAplicaISC(factura.aplicaISC || false);
@@ -80,14 +83,27 @@ const NuevaNotaModal: React.FC<NuevaNotaModalProps> = ({ isOpen, onClose, onSave
 
 
     useEffect(() => {
-        if (facturaAfectada && !isEditable) {
-            // If it's an annulment, lock values to the original invoice
+        if (facturaAfectada && codigoModificacion === '03') {
+            const originalSubtotal = facturaAfectada.subtotal - (facturaAfectada.montoDescuento || 0);
+            const newSubtotalForNota = originalSubtotal * (descuentoPorcentaje / 100);
+            setSubtotal(newSubtotalForNota);
+        } else {
+            setDescuentoPorcentaje(0);
+            if(facturaAfectada && codigoModificacion !== '01') {
+                setSubtotal(facturaAfectada.subtotal - (facturaAfectada.montoDescuento || 0));
+            }
+        }
+    }, [facturaAfectada, codigoModificacion, descuentoPorcentaje]);
+
+    useEffect(() => {
+        if (facturaAfectada && codigoModificacion === '01') { // Is anullment
             setSubtotal(facturaAfectada.subtotal - (facturaAfectada.montoDescuento || 0));
             setAplicaITBIS(facturaAfectada.aplicaITBIS);
             setAplicaISC(facturaAfectada.aplicaISC || false);
             setAplicaPropina(facturaAfectada.aplicaPropina || false);
         }
-    }, [facturaAfectada, isEditable]);
+    }, [facturaAfectada, codigoModificacion]);
+
 
     const totals = useMemo(() => {
         const itbis = aplicaITBIS ? subtotal * rates.itbis : 0;
@@ -131,6 +147,8 @@ const NuevaNotaModal: React.FC<NuevaNotaModalProps> = ({ isOpen, onClose, onSave
             aplicaITBIS,
             aplicaISC,
             aplicaPropina,
+            descuentoPorcentaje: codigoModificacion === '03' ? descuentoPorcentaje : undefined,
+            montoDescuento: codigoModificacion === '03' ? (facturaAfectada!.subtotal * (descuentoPorcentaje / 100)) : undefined,
         });
         onClose();
     };
@@ -145,6 +163,7 @@ const NuevaNotaModal: React.FC<NuevaNotaModalProps> = ({ isOpen, onClose, onSave
         setAplicaITBIS(true);
         setAplicaISC(false);
         setAplicaPropina(false);
+        setDescuentoPorcentaje(0);
         setErrors({});
     };
     
@@ -225,6 +244,23 @@ const NuevaNotaModal: React.FC<NuevaNotaModalProps> = ({ isOpen, onClose, onSave
                     </div>
                 </div>
                 
+                {codigoModificacion === '03' && facturaAfectada && (
+                    <div>
+                        <label htmlFor="descuentoPorcentaje" className="block text-sm font-medium text-secondary-700">Porcentaje de Descuento (%)</label>
+                        <input
+                            type="number"
+                            id="descuentoPorcentaje"
+                            value={descuentoPorcentaje}
+                            onChange={e => setDescuentoPorcentaje(parseFloat(e.target.value) || 0)}
+                            className="mt-1 block w-full px-3 py-2 border border-secondary-300 rounded-md shadow-sm"
+                            step="0.01"
+                            min="0"
+                            max="100"
+                            placeholder="Ej: 10"
+                        />
+                    </div>
+                )}
+                
                 <div>
                     <label htmlFor="descripcion" className="block text-sm font-medium text-secondary-700">Descripción *</label>
                     <textarea 
@@ -248,7 +284,7 @@ const NuevaNotaModal: React.FC<NuevaNotaModalProps> = ({ isOpen, onClose, onSave
                     <div className="w-full max-w-sm space-y-2">
                         <div className="flex justify-between items-center text-sm">
                             <label htmlFor="subtotal-nota" className="font-medium text-secondary-600">Subtotal:</label>
-                             <input type="number" id="subtotal-nota" value={subtotal} onChange={e => setSubtotal(parseFloat(e.target.value) || 0)} className="w-28 px-2 py-1 border border-secondary-300 rounded-md shadow-sm sm:text-sm text-right disabled:bg-secondary-100" disabled={!isEditable}/>
+                             <input type="number" id="subtotal-nota" value={subtotal} onChange={e => setSubtotal(parseFloat(e.target.value) || 0)} className="w-28 px-2 py-1 border border-secondary-300 rounded-md shadow-sm sm:text-sm text-right disabled:bg-secondary-100" disabled={!isEditable || codigoModificacion === '03'}/>
                         </div>
                         {aplicaISC && (
                             <div className="flex justify-between items-center text-sm">

@@ -6,6 +6,7 @@ import { TaskStatusContainer } from './ui/TaskStatus';
 import CommandPalette from './ui/CommandPalette';
 import { useCommandPaletteStore } from '../stores/useCommandPaletteStore';
 import AlertModal from './ui/AlertModal';
+import ConfirmationModal from './ui/ConfirmationModal';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -39,6 +40,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       <TaskStatusContainer />
       <CommandPalette />
       <AlertModal />
+      <ConfirmationModal />
     </div>
   );
 };

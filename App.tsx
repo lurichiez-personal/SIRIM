@@ -1,4 +1,5 @@
 
+
 import React from 'react';
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useAuthStore } from './stores/useAuthStore';
@@ -26,6 +27,12 @@ import RolesPage from './features/configuracion/RolesPage';
 import GestionUsuariosPage from './features/configuracion/GestionUsuariosPage';
 import TasasPage from './features/configuracion/TasasPage';
 import GestionEmpresasPage from './features/configuracion/GestionEmpresasPage';
+import NominaPage from './features/nomina/NominaPage';
+import ContabilidadPage from './features/contabilidad/ContabilidadPage';
+import LibroDiarioPage from './features/contabilidad/LibroDiarioPage';
+import CatalogoCuentasPage from './features/contabilidad/CatalogoCuentasPage';
+import ReportesContablesPage from './features/contabilidad/ReportesContablesPage';
+
 
 // Client Portal
 import ClientPortalLayout from './features/portal/ClientPortalLayout';
@@ -76,6 +83,11 @@ function App(): React.ReactNode {
                   <Route path="/inventario" element={<InventarioPage />} />
                   <Route path="/reportes" element={<ReportesPage />} />
                   <Route path="/conciliacion" element={<ConciliacionPage />} />
+                  <Route path="/nomina" element={<NominaPage />} />
+                  <Route path="/contabilidad" element={<ContabilidadPage />} />
+                  <Route path="/contabilidad/libro-diario" element={<LibroDiarioPage />} />
+                  <Route path="/contabilidad/catalogo-cuentas" element={<CatalogoCuentasPage />} />
+                  <Route path="/contabilidad/reportes" element={<ReportesContablesPage />} />
                   <Route path="/configuracion" element={<ConfiguracionPage />} />
                   <Route path="/configuracion/ncf" element={<NCFPage />} />
                   <Route path="/configuracion/personalizacion" element={<PersonalizacionPage />} />

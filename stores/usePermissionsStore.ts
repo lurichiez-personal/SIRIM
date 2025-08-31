@@ -1,4 +1,5 @@
 
+
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { Role, Permission, RolePermissions } from '../types';
@@ -14,7 +15,9 @@ const defaultPermissions: RolePermissions = {
         Permission.VER_DASHBOARD, Permission.GESTIONAR_CLIENTES, Permission.GESTIONAR_FACTURAS,
         Permission.GESTIONAR_COTIZACIONES, Permission.GESTIONAR_NOTAS, Permission.GESTIONAR_GASTOS,
         Permission.GESTIONAR_PAGOS, Permission.GESTIONAR_INVENTARIO, Permission.GESTIONAR_CONCILIACION,
-        Permission.VER_REPORTES_DGII, Permission.GESTIONAR_CONFIGURACION_EMPRESA, Permission.GESTIONAR_USUARIOS
+        Permission.VER_REPORTES_DGII, Permission.GESTIONAR_CONFIGURACION_EMPRESA, Permission.GESTIONAR_USUARIOS,
+        Permission.GESTIONAR_NOMINA, Permission.GESTIONAR_DESVINCULACIONES, Permission.VER_HISTORIAL_DESVINCULACIONES, 
+        Permission.GESTIONAR_CONTABILIDAD, Permission.GESTIONAR_CATALOGO_CUENTAS, Permission.VER_REPORTES_FINANCIEROS,
     ],
     [Role.Contador]: Object.values(Permission), // Contador (Master User) can do everything
     [Role.Operaciones]: [

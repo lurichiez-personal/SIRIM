@@ -1,4 +1,4 @@
-import { Gasto, Factura, NotaCreditoDebito, MetodoPago, Cliente, FacturaEstado, NotaType } from '../types';
+import { Gasto, Factura, NotaCreditoDebito, MetodoPago, Cliente, FacturaEstado, NotaType, Nomina } from '../types';
 import { useDataStore } from '../stores/useDataStore';
 
 const formatDGIIString = (str: string | undefined | null, length: number): string => {
@@ -181,4 +181,36 @@ export const calculateAnexoA = (
         itbisCompras,
         itbisAPagar,
     };
+};
+
+// --- Reporte IR-3 ---
+export const generateIR3 = (nomina: Nomina, rnc: string, period: string) => {
+    const { empleados: allEmpleados } = useDataStore.getState();
+    
+    const header = `IR3|${rnc}|${period}\n`;
+
+    const details = nomina.empleados.map(empNomina => {
+        const empleado = allEmpleados.find(e => e.id === empNomina.empleadoId);
+        if (!empleado || empNomina.isr <= 0) {
+            return null; // No retención, no se reporta.
+        }
+        
+        const cedula = empleado.cedula.replace(/-/g, '');
+        const salarioSujetoISR = (empNomina.salarioBruto - empNomina.sfs - empNomina.afp);
+
+        return [
+            cedula,
+            formatDGIINumber(salarioSujetoISR),
+            formatDGIINumber(empNomina.isr),
+        ].join('|');
+    }).filter(Boolean).join('\n');
+
+    if (!details) {
+        alert('No hay empleados con retención de ISR en esta nómina para generar el reporte IR-3.');
+        return;
+    }
+    
+    const content = header + details;
+    const filename = `IR3_${rnc}_${period}.txt`;
+    downloadTxtFile(content, filename);
 };

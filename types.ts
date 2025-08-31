@@ -80,6 +80,7 @@ export interface Factura {
   conciliado: boolean;
   comments: Comment[];
   auditLog: AuditLogEntry[];
+  asientoId?: string;
 }
 
 export interface Gasto {
@@ -101,6 +102,7 @@ export interface Gasto {
     metodoPago?: string;
     comments: Comment[];
     auditLog: AuditLogEntry[];
+    asientoId?: string;
 }
 
 export enum MetodoPago {
@@ -125,6 +127,7 @@ export interface Ingreso {
     metodoPago: MetodoPago;
     notas?: string;
     conciliado: boolean;
+    asientoId?: string;
 }
 
 export interface Item {
@@ -134,6 +137,7 @@ export interface Item {
     nombre: string;
     descripcion?: string;
     precio: number;
+    costo?: number;
     cantidadDisponible?: number; 
 }
 
@@ -233,6 +237,8 @@ export interface NotaCreditoDebito {
     clienteId: number;
     clienteNombre: string;
     subtotal: number;
+    descuentoPorcentaje?: number;
+    montoDescuento?: number;
     aplicaITBIS: boolean;
     aplicaISC: boolean;
     isc: number;
@@ -242,6 +248,7 @@ export interface NotaCreditoDebito {
     montoTotal: number;
     codigoModificacion: keyof typeof CodigoModificacionNCF;
     descripcion: string;
+    asientoId?: string;
 }
 
 export interface PagedResult<T> {
@@ -313,6 +320,9 @@ export interface KpiData {
         itbisVentas: number;
         itbisCompras: number;
     };
+    activos: number;
+    patrimonio: number;
+    isrProyectado: number;
 }
 
 export interface ChartDataPoint {
@@ -387,6 +397,12 @@ export enum Permission {
     GESTIONAR_ROLES = 'gestionar_roles',
     GESTIONAR_USUARIOS = 'gestionar_usuarios',
     GESTIONAR_EMPRESAS = 'gestionar_empresas',
+    GESTIONAR_NOMINA = 'gestionar_nomina',
+    GESTIONAR_DESVINCULACIONES = 'gestionar_desvinculaciones',
+    VER_HISTORIAL_DESVINCULACIONES = 'ver_historial_desvinculaciones',
+    GESTIONAR_CONTABILIDAD = 'gestionar_contabilidad',
+    GESTIONAR_CATALOGO_CUENTAS = 'gestionar_catalogo_cuentas',
+    VER_REPORTES_FINANCIEROS = 'ver_reportes_financieros',
 }
 
 export type RolePermissions = {
@@ -398,4 +414,92 @@ export interface OfflineAction {
     type: string;
     payload: any;
     timestamp: number;
+}
+
+// --- Nómina ---
+export interface Empleado {
+  id: number;
+  empresaId: number;
+  nombre: string;
+  cedula: string;
+  puesto: string;
+  salarioBrutoMensual: number;
+  fechaIngreso: string;
+  activo: boolean;
+}
+
+export interface NominaEmpleado {
+  empleadoId: number;
+  nombre: string;
+  salarioBruto: number;
+  // Deducciones Empleado
+  afp: number;
+  sfs: number;
+  isr: number;
+  totalDeduccionesEmpleado: number;
+  // Aportes Empleador
+  sfsEmpleador: number;
+  srlEmpleador: number;
+  afpEmpleador: number;
+  infotep: number;
+  totalAportesEmpleador: number;
+  // Totales
+  salarioNeto: number;
+}
+
+export interface Nomina {
+  id: string; // YYYY-MM
+  empresaId: number;
+  fecha: string;
+  periodo: string; // 'YYYY-MM'
+  empleados: NominaEmpleado[];
+  totalPagado: number;
+  totalCostoEmpresa: number;
+  asientoId?: string;
+}
+
+export enum CausaDesvinculacion {
+    Desahucio = 'desahucio',
+    Despido = 'despido',
+    Dimision = 'dimision',
+    Contrato = 'terminacion_contrato'
+}
+
+export interface Desvinculacion {
+    id: number;
+    empresaId: number;
+    empleadoId: number;
+    empleadoNombre: string;
+    empleadoCedula: string;
+    fechaSalida: string;
+    causa: CausaDesvinculacion;
+    prestaciones: {
+        preaviso: number;
+        cesantia: number;
+        vacaciones: number;
+        salarioNavidad: number;
+        total: number;
+    };
+    asientoId?: string;
+}
+
+// Contabilidad
+export interface AsientoContable {
+    id: string;
+    empresaId: number;
+    fecha: string;
+    descripcion: string;
+    transaccionId: string; 
+    transaccionTipo: string; 
+    entradas: { cuentaId: string, descripcion: string, debito: number, credito: number }[];
+}
+
+export type AccountType = 'Activo' | 'Pasivo' | 'Capital' | 'Ingreso' | 'Costo' | 'Gasto';
+
+export interface CuentaContable {
+  id: string; // e.g., '1101-01'
+  nombre: string;
+  tipo: AccountType;
+  permiteMovimientos: boolean;
+  padreId?: string | null;
 }
