@@ -193,3 +193,15 @@ export const UserTaxIcon: React.FC<IconProps> = (props) => (
         <path strokeLinecap="round" strokeLinejoin="round" d="M15 9h3.75M15 12h3.75M15 15h3.75M4.5 19.5h15a2.25 2.25 0 002.25-2.25V6.75A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25v10.5A2.25 2.25 0 004.5 19.5zm6-10.125a1.875 1.875 0 11-3.75 0 1.875 1.875 0 013.75 0zm1.294 6.336a6.721 6.721 0 01-3.17.789 6.721 6.721 0 01-3.168-.789 3.376 3.376 0 016.338 0z" />
     </svg>
 );
+
+export const ClipboardDocumentCheckIcon: React.FC<IconProps> = (props) => (
+    <svg {...props} fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M10.125 2.25h-4.5c-1.125 0-2.25.9-2.25 2.25v13.5c0 1.125.9 2.25 2.25 2.25h9c1.125 0 2.25-.9 2.25-2.25v-9.75M10.125 2.25c.45 0 .864.126 1.227.351m0 0a2.25 2.25 0 003.322 0l4.038-3.364m-4.038 3.364a2.25 2.25 0 01-3.322 0M6.75 12.375h4.5m-4.5 3h4.5m-4.5 3h4.5m4.5-9.75v1.5a2.25 2.25 0 01-2.25 2.25h-1.5a2.25 2.25 0 01-2.25-2.25v-1.5m13.5 6.375l-3.375-3.375-1.48 1.48-3.375-3.375-1.48 1.48L7.875 9.375" />
+    </svg>
+);
+
+export const ClockIcon: React.FC<IconProps> = (props) => (
+    <svg {...props} fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+    </svg>
+);

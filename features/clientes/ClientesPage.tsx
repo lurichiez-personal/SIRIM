@@ -1,8 +1,6 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { Cliente } from '../../types';
 import { useTenantStore } from '../../stores/useTenantStore';
-import { useTaskStore } from '../../stores/useTaskStore';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import { PlusIcon, DownloadIcon, InformationCircleIcon } from '../../components/icons/Icons';
@@ -158,13 +156,13 @@ const ClientesPage: React.FC = () => {
 
     return (
         <div>
-            <div className="flex justify-between items-center mb-6">
+            <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
                 <h1 className="text-3xl font-bold text-secondary-800">Clientes</h1>
-                <div className="flex space-x-2">
-                    <Button variant="secondary" leftIcon={<DownloadIcon/>} onClick={handleExport}>
-                        Exportar a CSV
+                <div className="flex space-x-2 w-full md:w-auto">
+                    <Button variant="secondary" leftIcon={<DownloadIcon/>} onClick={handleExport} className="flex-1 md:flex-none">
+                        Exportar
                     </Button>
-                    <Button leftIcon={<PlusIcon/>} onClick={handleOpenModalParaCrear}>
+                    <Button leftIcon={<PlusIcon/>} onClick={handleOpenModalParaCrear} className="flex-1 md:flex-none">
                         Nuevo Cliente
                     </Button>
                 </div>
@@ -172,12 +170,13 @@ const ClientesPage: React.FC = () => {
 
             <Card className="mb-6">
                 <CardHeader>
-                    <div className="flex justify-between items-center">
+                    <div className="flex flex-col md:flex-row justify-between items-center">
                         <CardTitle>Base de Datos de RNC (DGII)</CardTitle>
                         <Button 
                             variant="secondary" 
                             onClick={triggerRNCUpdate}
                             disabled={rncStatus === 'downloading' || rncStatus === 'processing'}
+                            className="mt-2 md:mt-0"
                         >
                             {rncStatus === 'downloading' || rncStatus === 'processing' ? 'Actualizando...' : 'Actualizar Ahora'}
                         </Button>
@@ -192,7 +191,7 @@ const ClientesPage: React.FC = () => {
             <Card>
                 <CardHeader>
                     <CardTitle>Listado de Clientes</CardTitle>
-                    <div className="mt-4 flex space-x-4">
+                    <div className="mt-4 flex flex-col md:flex-row space-y-2 md:space-y-0 md:space-x-4">
                         <input
                             type="text"
                             placeholder="Buscar por nombre o RNC..."
@@ -201,7 +200,7 @@ const ClientesPage: React.FC = () => {
                             onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
                         />
                         <select
-                            className="px-3 py-2 border border-secondary-300 rounded-md shadow-sm"
+                            className="w-full md:w-auto px-3 py-2 border border-secondary-300 rounded-md shadow-sm"
                             value={statusFilter}
                             onChange={(e) => { setStatusFilter(e.target.value as any); setCurrentPage(1); }}
                         >
@@ -213,13 +212,17 @@ const ClientesPage: React.FC = () => {
                 </CardHeader>
                 <CardContent>
                     {selectedIds.size > 0 && (
-                        <div className="bg-primary-50 p-3 rounded-md mb-4 flex items-center space-x-4">
+                        <div className="bg-primary-50 p-3 rounded-md mb-4 flex flex-col md:flex-row items-center space-y-2 md:space-y-0 md:space-x-4">
                             <p className="text-sm font-semibold">{selectedIds.size} seleccionado(s)</p>
-                            <Button size="sm" onClick={() => handleBulkAction(true)}>Marcar como Activo</Button>
-                            <Button size="sm" variant="secondary" onClick={() => handleBulkAction(false)}>Marcar como Inactivo</Button>
+                            <div className="flex space-x-2">
+                                <Button size="sm" onClick={() => handleBulkAction(true)}>Marcar como Activo</Button>
+                                <Button size="sm" variant="secondary" onClick={() => handleBulkAction(false)}>Marcar como Inactivo</Button>
+                            </div>
                         </div>
                     )}
-                    <div className="overflow-x-auto">
+                    
+                    {/* Desktop Table View */}
+                    <div className="overflow-x-auto hidden md:block">
                         <table className="min-w-full divide-y divide-secondary-200">
                             <thead className="bg-secondary-50">
                                 <tr>
@@ -265,6 +268,49 @@ const ClientesPage: React.FC = () => {
                             </tbody>
                         </table>
                     </div>
+
+                    {/* Mobile Card View */}
+                    <div className="md:hidden space-y-4">
+                         {loading ? (
+                            <p className="text-center py-4">Cargando...</p>
+                        ) : pagedData.items.length === 0 ? (
+                            <p className="text-center py-4 text-secondary-500">No se encontraron clientes.</p>
+                        ) : (
+                            pagedData.items.map(cliente => (
+                                <Card key={cliente.id} className={`p-4 ${selectedIds.has(cliente.id) ? 'bg-primary-50 border-primary' : ''}`}>
+                                    <div className="flex justify-between items-start">
+                                        <div>
+                                            <h3 className="font-bold text-secondary-800">{cliente.nombre}</h3>
+                                            <p className="text-sm text-secondary-600">{cliente.rnc}</p>
+                                        </div>
+                                        <Checkbox checked={selectedIds.has(cliente.id)} onChange={(checked) => handleSelectOne(cliente.id, checked)} />
+                                    </div>
+                                    <div className="mt-4 space-y-2 text-sm">
+                                        <div className="flex justify-between">
+                                            <span className="font-medium text-secondary-500">Estado DGII:</span>
+                                             {cliente.estadoDGII && (
+                                                <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getEstadoDGIIBadge(cliente.estadoDGII)}`}>
+                                                    {cliente.estadoDGII}
+                                                </span>
+                                            )}
+                                        </div>
+                                        <div className="flex justify-between">
+                                            <span className="font-medium text-secondary-500">Estado Interno:</span>
+                                            <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${cliente.activo ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                                                {cliente.activo ? 'Activo' : 'Inactivo'}
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <div className="mt-4 text-right">
+                                         <button onClick={() => handleOpenModalParaEditar(cliente)} className="text-primary hover:text-primary-700 text-sm font-semibold">
+                                            Editar
+                                        </button>
+                                    </div>
+                                </Card>
+                            ))
+                        )}
+                    </div>
+
                     <Pagination 
                         currentPage={currentPage}
                         totalCount={pagedData.totalCount}

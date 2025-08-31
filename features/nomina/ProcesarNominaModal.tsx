@@ -3,25 +3,37 @@ import { Empleado, Nomina, NominaEmpleado } from '../../types';
 import Modal from '../../components/ui/Modal';
 import Button from '../../components/ui/Button';
 import { procesarNominaEmpleado } from '../../utils/payrollUtils';
+import { useDataStore } from '../../stores/useDataStore';
+import { useAlertStore } from '../../stores/useAlertStore';
 
 interface ProcesarNominaModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (nomina: Omit<Nomina, 'empresaId'>) => void;
+  onSave: (nomina: Omit<Nomina, 'empresaId' | 'status' | 'generadoPor' | 'fechaGeneracion'>) => void;
   empleados: Empleado[];
 }
 
 const ProcesarNominaModal: React.FC<ProcesarNominaModalProps> = ({ isOpen, onClose, onSave, empleados }) => {
+    const { getNominaForPeriodo } = useDataStore();
+    const { showAlert } = useAlertStore();
     const [periodo, setPeriodo] = useState('');
+    const [periodoExistente, setPeriodoExistente] = useState(false);
 
     useEffect(() => {
         if (isOpen) {
             const now = new Date();
             const year = now.getFullYear();
             const month = String(now.getMonth() + 1).padStart(2, '0');
-            setPeriodo(`${year}-${month}`);
+            const currentPeriod = `${year}-${month}`;
+            setPeriodo(currentPeriod);
+            
+            const existingNomina = getNominaForPeriodo(currentPeriod);
+            setPeriodoExistente(!!existingNomina);
+            if (existingNomina) {
+                 showAlert('Período Existente', `Ya existe una nómina para el período ${currentPeriod}. No se puede generar una nueva.`);
+            }
         }
-    }, [isOpen]);
+    }, [isOpen, getNominaForPeriodo, showAlert]);
 
     const nominaCalculada = useMemo(() => {
         if (!isOpen) return [];
@@ -36,9 +48,12 @@ const ProcesarNominaModal: React.FC<ProcesarNominaModalProps> = ({ isOpen, onClo
     }, [nominaCalculada]);
 
     const handleSubmit = () => {
-        const nominaData: Omit<Nomina, 'empresaId'> = {
+        if (periodoExistente) {
+             showAlert('Acción Bloqueada', `Ya existe una nómina para el período ${periodo}.`);
+             return;
+        }
+        const nominaData = {
             id: periodo,
-            fecha: new Date().toISOString().split('T')[0],
             periodo,
             empleados: nominaCalculada,
             totalPagado: totals.salarioNeto,
@@ -59,7 +74,7 @@ const ProcesarNominaModal: React.FC<ProcesarNominaModalProps> = ({ isOpen, onClo
             footer={
                 <>
                     <Button variant="secondary" onClick={onClose}>Cancelar</Button>
-                    <Button onClick={handleSubmit}>Guardar y Contabilizar Nómina</Button>
+                    <Button onClick={handleSubmit} disabled={periodoExistente}>Generar y Enviar a Auditoría</Button>
                 </>
             }
         >

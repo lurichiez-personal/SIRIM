@@ -1,11 +1,12 @@
 
-
 export enum Role {
   Admin = 'Admin',
   Operaciones = 'Operaciones',
   Aprobador = 'Aprobador',
   Contador = 'Contador',
-  Usuario = 'Usuario'
+  Usuario = 'Usuario',
+  GerenteRRHH = 'Gerente RRHH',
+  AuditorNomina = 'Auditor de Nómina',
 }
 
 export interface User {
@@ -287,7 +288,8 @@ export enum NotificationType {
     STOCK_BAJO = 'STOCK_BAJO',
     RECURRENTE_LISTA = 'RECURRENTE_LISTA',
     COTIZACION_APROBADA = 'COTIZACION_APROBADA',
-    COTIZACION_RECHAZADA = 'COTIZACION_RECHAZADA'
+    COTIZACION_RECHAZADA = 'COTIZACION_RECHAZADA',
+    NOMINA_PARA_AUDITORIA = 'NOMINA_PARA_AUDITORIA'
 }
 
 export interface Notificacion {
@@ -398,6 +400,8 @@ export enum Permission {
     GESTIONAR_USUARIOS = 'gestionar_usuarios',
     GESTIONAR_EMPRESAS = 'gestionar_empresas',
     GESTIONAR_NOMINA = 'gestionar_nomina',
+    AUDITAR_NOMINA = 'auditar_nomina',
+    CONTABILIZAR_NOMINA = 'contabilizar_nomina',
     GESTIONAR_DESVINCULACIONES = 'gestionar_desvinculaciones',
     VER_HISTORIAL_DESVINCULACIONES = 'ver_historial_desvinculaciones',
     GESTIONAR_CONTABILIDAD = 'gestionar_contabilidad',
@@ -447,15 +451,28 @@ export interface NominaEmpleado {
   salarioNeto: number;
 }
 
+export enum NominaStatus {
+    PendienteAuditoria = 'Pendiente de Auditoría',
+    Auditada = 'Auditada',
+    Contabilizada = 'Contabilizada',
+}
+
 export interface Nomina {
   id: string; // YYYY-MM
   empresaId: number;
-  fecha: string;
   periodo: string; // 'YYYY-MM'
   empleados: NominaEmpleado[];
   totalPagado: number;
   totalCostoEmpresa: number;
+  status: NominaStatus;
   asientoId?: string;
+  // Audit Trail
+  generadoPor: { userId: string, userName: string };
+  fechaGeneracion: string;
+  auditadoPor?: { userId: string, userName: string };
+  fechaAuditoria?: string;
+  contabilizadoPor?: { userId: string, userName: string };
+  fechaContabilizacion?: string;
 }
 
 export enum CausaDesvinculacion {

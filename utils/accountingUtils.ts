@@ -15,10 +15,15 @@ export const generarAsientoNomina = (nomina: Nomina, empresaId: number): Asiento
     const totalAportesEmpleador = nomina.empleados.reduce((sum, e) => sum + e.totalAportesEmpleador, 0);
     const totalInfotep = nomina.empleados.reduce((s,e)=>s+e.infotep,0);
 
+    // FIX: The Nomina type does not have a 'fecha' property. The accounting date
+    // should be the last day of the payroll period.
+    const [year, month] = nomina.periodo.split('-').map(Number);
+    const fechaAsiento = new Date(year, month, 0).toISOString().split('T')[0];
+
     return {
         id: `AS-NOM-${nomina.id}`,
         empresaId,
-        fecha: nomina.fecha,
+        fecha: fechaAsiento,
         descripcion: `Registro de nómina para el período ${nomina.periodo}`,
         transaccionId: nomina.id,
         transaccionTipo: 'nomina',

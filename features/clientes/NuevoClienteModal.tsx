@@ -97,12 +97,12 @@ const NuevoClienteModal: React.FC<NuevoClienteModalProps> = ({ isOpen, onClose, 
         }
     };
 
-    const renderInput = (label: string, id: string, value: string, onChange: (value: string) => void, error?: string, placeholder?: string, onBlur?: () => void) => (
+    const renderInput = (label: string, id: string, value: string, onChange: (value: string) => void, error?: string, placeholder?: string, onBlur?: () => void, type: string = 'text') => (
         <div>
             <label htmlFor={id} className="block text-sm font-medium text-secondary-700">{label}</label>
             <div className="relative mt-1">
                 <input
-                    type="text"
+                    type={type}
                     id={id}
                     value={value}
                     onChange={(e) => onChange(e.target.value)}
@@ -140,21 +140,25 @@ const NuevoClienteModal: React.FC<NuevoClienteModalProps> = ({ isOpen, onClose, 
         >
           <form ref={formRef} onSubmit={handleSubmit} noValidate>
             <div className="p-6 space-y-4">
-                {renderInput('Nombre / Razón Social *', 'nombre', nombre, setNombre, errors.nombre, 'Ej: Mi Empresa S.R.L.')}
-                <div>
-                    {renderInput('RNC', 'rnc', rnc, setRnc, undefined, 'Ej: 130123456', handleRNCBlur)}
-                    {estadoDGII && (
-                        <div className="mt-2">
-                            <span className="text-xs text-secondary-600">Estado DGII: </span>
-                            <span className={`px-2 py-0.5 inline-flex text-xs leading-5 font-semibold rounded-full ${getEstadoDGIIBadge(estadoDGII)}`}>
-                                {estadoDGII}
-                            </span>
-                        </div>
-                    )}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {renderInput('Nombre / Razón Social *', 'nombre', nombre, setNombre, errors.nombre, 'Ej: Mi Empresa S.R.L.')}
+                    <div>
+                        {renderInput('RNC / Cédula', 'rnc', rnc, setRnc, undefined, 'Ej: 130123456', handleRNCBlur)}
+                        {estadoDGII && (
+                            <div className="mt-2">
+                                <span className="text-xs text-secondary-600">Estado DGII: </span>
+                                <span className={`px-2 py-0.5 inline-flex text-xs leading-5 font-semibold rounded-full ${getEstadoDGIIBadge(estadoDGII)}`}>
+                                    {estadoDGII}
+                                </span>
+                            </div>
+                        )}
+                    </div>
                 </div>
-                {renderInput('Email', 'email', email, setEmail, undefined, 'Ej: contacto@empresa.com')}
-                {renderInput('Teléfono', 'telefono', telefono, setTelefono, undefined, 'Ej: 809-555-1234')}
-                {renderInput('Condiciones de Pago', 'condiciones', condicionesPago, setCondicionesPago, undefined, 'Ej: Neto 30 días')}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {renderInput('Email', 'email', email, setEmail, undefined, 'Ej: contacto@empresa.com', undefined, 'email')}
+                    {renderInput('Teléfono', 'telefono', telefono, setTelefono, undefined, 'Ej: 809-555-1234', undefined, 'tel')}
+                </div>
+                 {renderInput('Condiciones de Pago', 'condiciones', condicionesPago, setCondicionesPago, undefined, 'Ej: Neto 30 días')}
                 {isEditMode && (
                     <div>
                         <label className="block text-sm font-medium text-secondary-700">Estado</label>

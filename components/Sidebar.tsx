@@ -1,5 +1,3 @@
-
-
 import React, { useState } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { Permission } from '../types';
@@ -8,8 +6,10 @@ import {
     DashboardIcon, ClientesIcon, FacturasIcon, GastosIcon, 
     IngresosIcon, ReportesIcon, ConfiguracionIcon, LogoIcon,
     InventarioIcon, CotizacionesIcon, DocumentDuplicateIcon, ScaleIcon,
-    UsersGroupIcon, BookOpenIcon, ChevronDownIcon, ChartPieIcon
+    UsersGroupIcon, BookOpenIcon, ChevronDownIcon, ChartPieIcon, ClockIcon
 } from './icons/Icons';
+import { useUIStore } from '../stores/useUIStore';
+import { useMediaQuery } from '../hooks/useMediaQuery';
 
 interface NavItem {
     to: string;
@@ -28,7 +28,16 @@ const navItems: NavItem[] = [
   { to: '/gastos', label: 'Gastos', icon: GastosIcon, permission: Permission.GESTIONAR_GASTOS },
   { to: '/ingresos', label: 'Pagos y Cobros', icon: IngresosIcon, permission: Permission.GESTIONAR_PAGOS },
   { to: '/inventario', label: 'Inventario', icon: InventarioIcon, permission: Permission.GESTIONAR_INVENTARIO },
-  { to: '/nomina', label: 'Nómina', icon: UsersGroupIcon, permission: Permission.GESTIONAR_NOMINA },
+  { 
+    to: '/nomina', 
+    label: 'Nómina', 
+    icon: UsersGroupIcon, 
+    permission: Permission.GESTIONAR_NOMINA,
+    children: [
+        { to: '/nomina', label: 'Empleados', icon: UsersGroupIcon },
+        { to: '/nomina/historial', label: 'Historial de Nóminas', icon: ClockIcon },
+    ]
+  },
   { 
     to: '/contabilidad', 
     label: 'Contabilidad', 
@@ -46,14 +55,24 @@ const navItems: NavItem[] = [
 ];
 
 const NavItemLink: React.FC<{ item: Omit<NavItem, 'permission'>, isSubmenu?: boolean }> = ({ item, isSubmenu = false }) => {
+    const { closeSidebar } = useUIStore();
+    const isMobile = useMediaQuery('(max-width: 768px)');
+    
     const navLinkClasses = `flex items-center w-full px-4 py-3 text-secondary-100 hover:bg-primary-700 rounded-lg transition-colors duration-200 ${isSubmenu ? 'pl-11' : ''}`;
     const activeNavLinkClasses = 'bg-primary-900 font-semibold';
+    
+    const handleClick = () => {
+        if (isMobile) {
+            closeSidebar();
+        }
+    };
     
     return (
          <NavLink
             to={item.to}
             end={item.to === '/'}
             className={({ isActive }) => `${navLinkClasses} ${isActive ? activeNavLinkClasses : ''}`}
+            onClick={handleClick}
         >
             <item.icon className="h-5 w-5 mr-3" />
             <span>{item.label}</span>
@@ -62,6 +81,7 @@ const NavItemLink: React.FC<{ item: Omit<NavItem, 'permission'>, isSubmenu?: boo
 };
 
 const Sidebar: React.FC = () => {
+  const { isSidebarOpen } = useUIStore();
   const location = useLocation();
   const [openSubmenus, setOpenSubmenus] = useState<{[key: string]: boolean}>(() => {
       const activeMenu = navItems.find(item => item.children?.some(child => location.pathname.startsWith(child.to)));
@@ -73,7 +93,7 @@ const Sidebar: React.FC = () => {
   }
   
   return (
-    <aside className="w-64 bg-primary flex flex-col p-4 text-white">
+    <aside className={`absolute md:relative inset-y-0 left-0 w-64 bg-primary flex flex-col p-4 text-white transform ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0 transition-transform duration-300 ease-in-out z-40`}>
       <div className="flex items-center justify-center py-4 mb-6">
         <LogoIcon className="h-8 w-8 mr-2 text-white" />
         <span className="text-2xl font-bold tracking-wider">SIRIM</span>

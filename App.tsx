@@ -32,6 +32,8 @@ import ContabilidadPage from './features/contabilidad/ContabilidadPage';
 import LibroDiarioPage from './features/contabilidad/LibroDiarioPage';
 import CatalogoCuentasPage from './features/contabilidad/CatalogoCuentasPage';
 import ReportesContablesPage from './features/contabilidad/ReportesContablesPage';
+import HistorialNominaPage from './features/nomina/HistorialNominaPage';
+import AuditarNominaPage from './features/nomina/AuditarNominaPage';
 
 
 // Client Portal
@@ -84,6 +86,8 @@ function App(): React.ReactNode {
                   <Route path="/reportes" element={<ReportesPage />} />
                   <Route path="/conciliacion" element={<ConciliacionPage />} />
                   <Route path="/nomina" element={<NominaPage />} />
+                  <Route path="/nomina/historial" element={<HistorialNominaPage />} />
+                  <Route path="/nomina/auditar/:nominaId" element={<AuditarNominaPage />} />
                   <Route path="/contabilidad" element={<ContabilidadPage />} />
                   <Route path="/contabilidad/libro-diario" element={<LibroDiarioPage />} />
                   <Route path="/contabilidad/catalogo-cuentas" element={<CatalogoCuentasPage />} />

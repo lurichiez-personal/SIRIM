@@ -10,18 +10,16 @@ import ProcesarNominaModal from './ProcesarNominaModal';
 import { generateSirlaReport } from '../../utils/sirlaUtils';
 import { useAlertStore } from '../../stores/useAlertStore';
 import DesvinculacionModal from './DesvinculacionModal';
-import HistorialNominaModal from './HistorialNominaModal';
 import HistorialDesvinculacionesModal from './HistorialDesvinculacionesModal';
 
 const NominaPage: React.FC = () => {
     const { selectedTenant } = useTenantStore();
-    const { empleados, nominas, desvinculaciones, addEmpleado, updateEmpleado, addNomina, addDesvinculacion } = useDataStore();
+    const { empleados, addEmpleado, updateEmpleado, addNomina, addDesvinculacion, desvinculaciones } = useDataStore();
     const { showAlert } = useAlertStore();
 
     const [isEmpleadoModalOpen, setIsEmpleadoModalOpen] = useState(false);
     const [isNominaModalOpen, setIsNominaModalOpen] = useState(false);
     const [isDesvinculacionModalOpen, setIsDesvinculacionModalOpen] = useState(false);
-    const [isHistorialModalOpen, setIsHistorialModalOpen] = useState(false);
     const [isHistorialDesvinculacionesOpen, setIsHistorialDesvinculacionesOpen] = useState(false);
     const [empleadoParaEditar, setEmpleadoParaEditar] = useState<Empleado | null>(null);
 
@@ -96,7 +94,7 @@ const NominaPage: React.FC = () => {
     return (
         <div>
             <div className="flex justify-between items-center mb-6">
-                <h1 className="text-3xl font-bold text-secondary-800">Nómina y Empleados</h1>
+                <h1 className="text-3xl font-bold text-secondary-800">Gestión de Empleados</h1>
                 <div className="flex space-x-2">
                     <Button leftIcon={<PlusIcon />} onClick={handleOpenModalParaCrear}>Nuevo Empleado</Button>
                 </div>
@@ -106,8 +104,7 @@ const NominaPage: React.FC = () => {
                  <Card>
                     <CardHeader><CardTitle>Nómina</CardTitle></CardHeader>
                     <CardContent className="space-y-2">
-                        <Button className="w-full" onClick={handleProcesarNomina}>Procesar Nómina del Mes</Button>
-                        <Button className="w-full" variant="secondary" onClick={() => setIsHistorialModalOpen(true)}>Ver Historial de Nóminas</Button>
+                        <Button className="w-full" onClick={handleProcesarNomina}>Generar Nómina del Mes</Button>
                     </CardContent>
                 </Card>
                  <Card>
@@ -191,11 +188,6 @@ const NominaPage: React.FC = () => {
                 onClose={() => setIsDesvinculacionModalOpen(false)}
                 onSave={addDesvinculacion}
                 empleados={empleados.filter(e => e.activo)}
-            />
-            <HistorialNominaModal
-                isOpen={isHistorialModalOpen}
-                onClose={() => setIsHistorialModalOpen(false)}
-                nominas={nominas}
             />
             <HistorialDesvinculacionesModal
                 isOpen={isHistorialDesvinculacionesOpen}

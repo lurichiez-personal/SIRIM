@@ -1,5 +1,6 @@
+
 import { create } from 'zustand';
-import { Factura, Cliente, Item, Gasto, Ingreso, Cotizacion, NotaCreditoDebito, FacturaEstado, CotizacionEstado, MetodoPago, NotaType, FacturaRecurrente, PagedResult, CodigoModificacionNCF, KpiData, ChartDataPoint, PieChartDataPoint, Comment, AuditLogEntry, Empleado, Nomina, Desvinculacion, AsientoContable } from '../types';
+import { Factura, Cliente, Item, Gasto, Ingreso, Cotizacion, NotaCreditoDebito, FacturaEstado, CotizacionEstado, MetodoPago, NotaType, FacturaRecurrente, PagedResult, CodigoModificacionNCF, KpiData, ChartDataPoint, PieChartDataPoint, Comment, AuditLogEntry, Empleado, Nomina, Desvinculacion, AsientoContable, NominaStatus, NotificationType } from '../types';
 import { useTenantStore } from './useTenantStore';
 import { useNotificationStore } from './useNotificationStore';
 import { useAuthStore } from './useAuthStore';
@@ -86,6 +87,7 @@ interface DataState {
   getVentasFor607: (startDate: string, endDate: string) => { facturas: Factura[], notas: NotaCreditoDebito[] };
   getAnuladosFor608: (startDate: string, endDate: string) => { ncf: string, fecha: string }[];
   getNominaForPeriodo: (periodo: string) => Nomina | undefined;
+  getNominaById: (nominaId: string) => Nomina | undefined;
 
   // --- Pilar 1: Dashboard Getters ---
   getKpis: () => KpiData;
@@ -131,7 +133,9 @@ interface DataState {
   // --- Nómina Mutators ---
   addEmpleado: (empleadoData: Omit<Empleado, 'id' | 'empresaId'>) => void;
   updateEmpleado: (empleado: Empleado) => void;
-  addNomina: (nomina: Omit<Nomina, 'empresaId'>) => void;
+  addNomina: (nominaData: Omit<Nomina, 'empresaId' | 'status' | 'generadoPor' | 'fechaGeneracion'>) => void;
+  auditarNomina: (nominaId: string) => void;
+  contabilizarNomina: (nominaId: string) => void;
   addDesvinculacion: (desvinculacion: Omit<Desvinculacion, 'id' | 'empresaId'>) => void;
   findDesvinculacionByCedula: (cedula: string) => Desvinculacion | undefined;
 }
@@ -333,6 +337,11 @@ export const useDataStore = create<DataState>((set, get) => ({
     if (!empresaId) return undefined;
     return get().nominas.find(n => n.periodo === periodo && n.empresaId === empresaId);
   },
+  getNominaById: (nominaId: string) => {
+    const empresaId = useTenantStore.getState().selectedTenant?.id;
+    if (!empresaId) return undefined;
+    return get().nominas.find(n => n.id === nominaId && n.empresaId === empresaId);
+  },
   
   // --- Pilar 1: Dashboard Getters ---
   getKpis: () => {
@@ -477,7 +486,7 @@ export const useDataStore = create<DataState>((set, get) => ({
     }
 
     get().fetchData(empresaId);
-    useNotificationStore.getState().fetchNotifications(empresaId); 
+    useNotificationStore.getState().checkSystemAlerts(empresaId); 
   },
   updateFactura: (factura) => {
     const empresaId = useTenantStore.getState().selectedTenant?.id;
@@ -583,7 +592,7 @@ export const useDataStore = create<DataState>((set, get) => ({
         allItems[index] = item;
     }
     get().fetchData(empresaId);
-    useNotificationStore.getState().fetchNotifications(empresaId);
+    useNotificationStore.getState().checkSystemAlerts(empresaId);
   },
 
   addGasto: (gastoData) => {
@@ -718,17 +727,64 @@ export const useDataStore = create<DataState>((set, get) => ({
   },
   addNomina: (nominaData) => {
     const empresaId = useTenantStore.getState().selectedTenant?.id;
-    if (!empresaId) return;
-    const newNomina: Nomina = { ...nominaData, empresaId };
+    const user = useAuthStore.getState().user;
+    if (!empresaId || !user) return;
     
-    // Automatic Accounting Entry
-    const asiento = generarAsientoNomina(newNomina, empresaId);
-    newNomina.asientoId = asiento.id;
-    allAsientosContables.unshift(asiento);
-
+    const newNomina: Nomina = {
+      ...nominaData,
+      empresaId,
+      status: NominaStatus.PendienteAuditoria,
+      generadoPor: { userId: user.id, userName: user.nombre },
+      fechaGeneracion: new Date().toISOString(),
+    };
+    
     allNominas.unshift(newNomina);
-    get().addAuditLog('nomina', newNomina.id, 'procesó y contabilizó la nómina.');
+    get().addAuditLog('nomina', newNomina.id, `generó la nómina para el período ${newNomina.periodo}.`);
+    
+    // Send notification to auditors
+    useNotificationStore.getState().addNotification({
+        empresaId,
+        type: NotificationType.NOMINA_PARA_AUDITORIA,
+        title: 'Nómina Pendiente de Auditoría',
+        message: `La nómina para el período ${newNomina.periodo} está lista para ser auditada.`,
+        link: `/nomina/historial`,
+    });
+    
     get().fetchData(empresaId);
+  },
+  auditarNomina: (nominaId: string) => {
+    const empresaId = useTenantStore.getState().selectedTenant?.id;
+    const user = useAuthStore.getState().user;
+    if (!empresaId || !user) return;
+
+    const nominaIndex = allNominas.findIndex(n => n.id === nominaId && n.empresaId === empresaId);
+    if (nominaIndex > -1) {
+      allNominas[nominaIndex].status = NominaStatus.Auditada;
+      allNominas[nominaIndex].auditadoPor = { userId: user.id, userName: user.nombre };
+      allNominas[nominaIndex].fechaAuditoria = new Date().toISOString();
+      get().addAuditLog('nomina', nominaId, `auditó y aprobó la nómina.`);
+      get().fetchData(empresaId);
+    }
+  },
+  contabilizarNomina: (nominaId: string) => {
+    const empresaId = useTenantStore.getState().selectedTenant?.id;
+    const user = useAuthStore.getState().user;
+    if (!empresaId || !user) return;
+
+    const nominaIndex = allNominas.findIndex(n => n.id === nominaId && n.empresaId === empresaId);
+    if (nominaIndex > -1) {
+      const nomina = allNominas[nominaIndex];
+      nomina.status = NominaStatus.Contabilizada;
+      nomina.contabilizadoPor = { userId: user.id, userName: user.nombre };
+      nomina.fechaContabilizacion = new Date().toISOString();
+      
+      const asiento = generarAsientoNomina(nomina, empresaId);
+      nomina.asientoId = asiento.id;
+      allAsientosContables.unshift(asiento);
+      
+      get().addAuditLog('nomina', nominaId, `ejecutó y contabilizó la nómina.`);
+      get().fetchData(empresaId);
+    }
   },
   addDesvinculacion: (desvinculacionData) => {
       const empresaId = useTenantStore.getState().selectedTenant?.id;

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { User, Role } from '../../types';
 import Modal from '../../components/ui/Modal';
@@ -33,7 +34,7 @@ const NuevoUsuarioModal: React.FC<NuevoUsuarioModalProps> = ({ isOpen, onClose, 
         }
         if (currentUser?.roles.includes(Role.Admin)) {
             // Admin can only assign lower-level roles
-            return [Role.Operaciones, Role.Aprobador, Role.Usuario];
+            return [Role.Operaciones, Role.Aprobador, Role.Usuario, Role.GerenteRRHH, Role.AuditorNomina];
         }
         return [];
     }, [currentUser]);
@@ -126,7 +127,7 @@ const NuevoUsuarioModal: React.FC<NuevoUsuarioModalProps> = ({ isOpen, onClose, 
                     </div>
                     <div>
                         <p className="block text-sm font-medium">Roles *</p>
-                        <div className="mt-2 grid grid-cols-2 gap-2">
+                        <div className="mt-2 grid grid-cols-2 lg:grid-cols-3 gap-2">
                             {availableRoles.map(role => (
                                 <Checkbox key={role} label={role} checked={roles.has(role)} onChange={(checked) => handleRoleChange(role, checked)} />
                             ))}

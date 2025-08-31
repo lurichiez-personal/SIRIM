@@ -1,4 +1,3 @@
-
 import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuthStore } from '../stores/useAuthStore';
@@ -6,14 +5,16 @@ import { useTenantStore } from '../stores/useTenantStore';
 import { useNotificationStore } from '../stores/useNotificationStore';
 import { Role, Notificacion, NotificationType } from '../types';
 import TenantSelector from './TenantSelector';
-import { LogOutIcon, UserCircleIcon, BellIcon, FacturasIcon, InventarioIcon, ConfiguracionIcon } from './icons/Icons';
+import { LogOutIcon, UserCircleIcon, BellIcon, FacturasIcon, InventarioIcon, ConfiguracionIcon, ClipboardDocumentCheckIcon } from './icons/Icons';
 import OfflineIndicator from './ui/OfflineIndicator';
+import { useUIStore } from '../stores/useUIStore';
 
 const NotificationIcon: React.FC<{ type: NotificationType }> = ({ type }) => {
     switch (type) {
         case NotificationType.FACTURA_VENCIDA: return <FacturasIcon className="h-5 w-5 text-red-500" />;
         case NotificationType.STOCK_BAJO: return <InventarioIcon className="h-5 w-5 text-yellow-600" />;
         case NotificationType.NCF_BAJO: return <ConfiguracionIcon className="h-5 w-5 text-red-600" />;
+        case NotificationType.NOMINA_PARA_AUDITORIA: return <ClipboardDocumentCheckIcon className="h-5 w-5 text-blue-500" />;
         default: return <BellIcon className="h-5 w-5 text-secondary-500" />;
     }
 }
@@ -21,7 +22,8 @@ const NotificationIcon: React.FC<{ type: NotificationType }> = ({ type }) => {
 const Header: React.FC = () => {
   const { user, logout } = useAuthStore();
   const { selectedTenant } = useTenantStore();
-  const { notifications, fetchNotifications, markAsRead } = useNotificationStore();
+  const { notifications, checkSystemAlerts, markAsRead } = useNotificationStore();
+  const { toggleSidebar } = useUIStore();
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const notificationsRef = useRef<HTMLDivElement>(null);
 
@@ -34,9 +36,9 @@ const Header: React.FC = () => {
 
   useEffect(() => {
     if (selectedTenant) {
-      fetchNotifications(selectedTenant.id);
+      checkSystemAlerts(selectedTenant.id);
     }
-  }, [selectedTenant, fetchNotifications]);
+  }, [selectedTenant, checkSystemAlerts]);
 
 
   useEffect(() => {
@@ -57,17 +59,20 @@ const Header: React.FC = () => {
   }
 
   return (
-    <header className="flex items-center justify-between px-6 py-3 bg-white border-b border-secondary-200">
+    <header className="flex-shrink-0 flex items-center justify-between px-4 py-3 bg-white border-b border-secondary-200">
       <div className="flex items-center">
+        <button onClick={toggleSidebar} className="md:hidden p-2 mr-2 rounded-md text-secondary-600 hover:bg-secondary-100">
+          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
+        </button>
         {isContador && (
             <TenantSelector />
         )}
         {!isContador && selectedTenant && (
-            <h1 className="text-lg font-semibold text-secondary-700">{selectedTenant.nombre}</h1>
+            <h1 className="text-md md:text-lg font-semibold text-secondary-700 truncate">{selectedTenant.nombre}</h1>
         )}
       </div>
-      <div className="flex items-center space-x-4">
-        <OfflineIndicator />
+      <div className="flex items-center space-x-2 md:space-x-4">
+        <div className="hidden sm:block"><OfflineIndicator /></div>
         <div className="relative" ref={notificationsRef}>
           <button
             onClick={() => setIsNotificationsOpen(!isNotificationsOpen)}
@@ -106,7 +111,7 @@ const Header: React.FC = () => {
             </div>
           )}
         </div>
-        <div className="flex items-center space-x-2">
+        <div className="hidden md:flex items-center space-x-2">
             <UserCircleIcon className="h-8 w-8 text-secondary-500" />
             <div className="text-right">
                 <div className="text-sm font-medium text-secondary-800">{user?.nombre}</div>
