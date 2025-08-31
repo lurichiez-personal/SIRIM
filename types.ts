@@ -91,11 +91,14 @@ export interface Gasto {
     fecha: string;
     subtotal: number;
     itbis: number;
+    isc?: number;
+    propinaLegal?: number;
     monto: number; 
     ncf?: string;
     descripcion: string;
     conciliado: boolean;
     aplicaITBIS: boolean;
+    metodoPago?: string;
     comments: Comment[];
     auditLog: AuditLogEntry[];
 }

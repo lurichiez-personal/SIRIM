@@ -63,16 +63,24 @@ const EscanearGastoModal: React.FC<EscanearGastoModalProps> = ({ isOpen, onClose
                 - ncf: El Número de Comprobante Fiscal (un string que empieza con B o E y tiene 11 caracteres en total, como B0100000123).
                 - subtotal: El monto antes de impuestos. A menudo etiquetado como "Sub-Total" o "Monto Facturado".
                 - itbis: El monto del ITBIS o impuesto. A menudo etiquetado como "ITBIS", "ITEBIS" o "18%".
+                - isc: El monto del Impuesto Selectivo al Consumo. A menudo etiquetado como "ISC".
+                - propinaLegal: El monto de la propina de ley. A menudo etiquetado como "% Ley", "Propina" o "Servicio".
                 - monto: El monto total a pagar. A menudo etiquetado como "Total a Pagar" o "TOTAL".
+                - descripcion: Una descripción general o concepto de la compra. Busca un texto descriptivo, no los items individuales.
+                - metodoPago: El método de pago. Busca palabras como "Efectivo", "Tarjeta", "Transferencia", "Crédito".
                 
-                Prioriza encontrar el RNC y el NCF primero en cualquier parte del documento. Para los montos numéricos (subtotal, itbis, monto), búscalos en la parte final del documento, que es donde suelen estar los totales. Devuelve solo el objeto JSON sin formato adicional.
+                Prioriza encontrar el RNC y el NCF primero en cualquier parte del documento. Para los montos numéricos (subtotal, itbis, isc, propinaLegal, monto), búscalos en la parte final del documento, que es donde suelen estar los totales. Devuelve solo el objeto JSON sin formato adicional.
                 Ejemplo de respuesta:
                 {
                   "rncProveedor": "130999888",
                   "ncf": "B0100003456",
                   "subtotal": 15000.00,
                   "itbis": 2700.00,
-                  "monto": 17700.00
+                  "isc": 500.00,
+                  "propinaLegal": 1500.00,
+                  "monto": 19700.00,
+                  "descripcion": "Compra de papelería",
+                  "metodoPago": "Efectivo"
                 }`
             };
 
@@ -91,7 +99,11 @@ const EscanearGastoModal: React.FC<EscanearGastoModalProps> = ({ isOpen, onClose
             if (parsedJson.ncf) parsedData.ncf = parsedJson.ncf;
             if (typeof parsedJson.subtotal === 'number') parsedData.subtotal = parsedJson.subtotal;
             if (typeof parsedJson.itbis === 'number') parsedData.itbis = parsedJson.itbis;
+            if (typeof parsedJson.isc === 'number') parsedData.isc = parsedJson.isc;
+            if (typeof parsedJson.propinaLegal === 'number') parsedData.propinaLegal = parsedJson.propinaLegal;
             if (typeof parsedJson.monto === 'number') parsedData.monto = parsedJson.monto;
+            if (parsedJson.descripcion) parsedData.descripcion = parsedJson.descripcion;
+            if (parsedJson.metodoPago) parsedData.metodoPago = parsedJson.metodoPago;
 
             if (parsedData.rncProveedor) {
                 setStatusText('Verificando RNC en base de datos...');

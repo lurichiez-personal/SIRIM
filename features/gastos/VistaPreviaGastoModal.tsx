@@ -69,8 +69,11 @@ const VistaPreviaGastoModal: React.FC<VistaPreviaGastoModalProps> = ({ isOpen, o
                             <DetailRow label="Fecha" value={new Date(gasto.fecha + 'T00:00:00').toLocaleDateString('es-DO')} />
                             <DetailRow label="Categoría (606)" value={gasto.categoriaGasto} />
                             <DetailRow label="Descripción" value={<p className="whitespace-pre-wrap">{gasto.descripcion}</p>} />
+                            <DetailRow label="Método de Pago" value={gasto.metodoPago || 'No especificado'} />
                             <DetailRow label="Subtotal" value={formatCurrency(gasto.subtotal)} />
+                            {gasto.isc && gasto.isc > 0 && <DetailRow label="ISC" value={formatCurrency(gasto.isc)} />}
                             <DetailRow label="ITBIS" value={formatCurrency(gasto.itbis)} />
+                            {gasto.propinaLegal && gasto.propinaLegal > 0 && <DetailRow label="Propina Legal" value={formatCurrency(gasto.propinaLegal)} />}
                             <DetailRow label="Monto Total" value={<span className="font-bold text-lg text-primary">{formatCurrency(gasto.monto)}</span>} />
                         </dl>
                     </div>
