@@ -37,7 +37,8 @@ const NuevaFacturaModal: React.FC<NuevaFacturaModalProps> = ({ isOpen, onClose, 
     const [ncfNumero, setNcfNumero] = useState('');
     const [lineItems, setLineItems] = useState<Partial<FacturaItem & { key: number, stock?: number }>[]>([{ key: Date.now() }]);
     const [descuentoPorcentaje, setDescuentoPorcentaje] = useState(0);
-    
+    const [descuentoError, setDescuentoError] = useState('');
+
     const [aplicaITBIS, setAplicaITBIS] = useState(true);
     const [aplicaISC, setAplicaISC] = useState(false);
     const [aplicaPropina, setAplicaPropina] = useState(false);
@@ -394,10 +395,22 @@ const NuevaFacturaModal: React.FC<NuevaFacturaModalProps> = ({ isOpen, onClose, 
                                 type="number"
                                 id="descuento"
                                 value={descuentoPorcentaje}
-                                onChange={e => setDescuentoPorcentaje(parseFloat(e.target.value) || 0)}
+                                onChange={e => {
+                                    const parsed = parseFloat(e.target.value);
+                                    const clamped = Math.min(Math.max(0, parsed), 100);
+                                    if (!isNaN(parsed) && parsed !== clamped) {
+                                        setDescuentoError('El descuento debe estar entre 0 y 100');
+                                    } else {
+                                        setDescuentoError('');
+                                    }
+                                    setDescuentoPorcentaje(isNaN(parsed) ? 0 : clamped);
+                                }}
                                 className="w-20 px-2 py-1 border border-secondary-300 rounded-md shadow-sm sm:text-sm text-right"
                             />
                         </div>
+                        {descuentoError && (
+                            <p className="mt-1 text-sm text-red-600 text-right">{descuentoError}</p>
+                        )}
                         {totals.montoDescuento > 0 && (
                             <div className="flex justify-between text-sm">
                                 <span className="font-medium text-secondary-600">Monto Descuento:</span>
