@@ -1,5 +1,6 @@
 
 import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useAuthStore } from '../../stores/useAuthStore';
 import { LogoIcon } from '../../components/icons/Icons';
 import Button from '../../components/ui/Button';
@@ -85,6 +86,12 @@ const LoginPage: React.FC = () => {
                 <Button type="submit" className="w-full" disabled={loading}>
                     {loading ? 'Iniciando sesión...' : 'Iniciar Sesión'}
                 </Button>
+                 <p className="mt-4 text-center text-sm text-secondary-600">
+                    ¿No tienes una cuenta?{' '}
+                    <Link to="/registro" className="font-medium text-primary hover:text-primary-700">
+                        Prueba gratis por 30 días
+                    </Link>
+                </p>
             </form>
         </div>
       </div>

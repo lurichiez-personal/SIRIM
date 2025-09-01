@@ -24,6 +24,7 @@ export interface Empresa {
   id: number;
   nombre: string;
   rnc: string;
+  trialEndsAt?: string;
 }
 
 export interface Cliente {

@@ -11,7 +11,7 @@ interface TenantState {
   fetchAvailableTenants: () => void;
   getTenantById: (tenantId: number) => Empresa | undefined;
   clearTenants: () => void;
-  addEmpresa: (empresaData: Omit<Empresa, 'id'>) => void;
+  addEmpresa: (empresaData: Omit<Empresa, 'id' | 'trialEndsAt'>) => Empresa;
 }
 
 const mockEmpresas: Empresa[] = [
@@ -73,12 +73,17 @@ export const useTenantStore = create<TenantState>((set, get) => ({
     set({ selectedTenant: null });
   },
   addEmpresa: (empresaData) => {
+    const trialEndDate = new Date();
+    trialEndDate.setDate(trialEndDate.getDate() + 30);
+    
     const newEmpresa: Empresa = {
         ...empresaData,
         id: Date.now(),
+        trialEndsAt: trialEndDate.toISOString(),
     };
     set(state => ({
         availableTenants: [...state.availableTenants, newEmpresa]
     }));
+    return newEmpresa;
   }
 }));

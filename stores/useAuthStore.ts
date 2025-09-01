@@ -1,3 +1,4 @@
+
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { User, Role } from '../types';
@@ -13,6 +14,7 @@ interface AuthState {
   logout: () => void;
   triggerMicrosoftLogin: () => boolean;
   loginWithPassword: (email: string, password: string) => Promise<boolean>;
+  register: (data: { nombreEmpresa: string, rnc: string, nombreUsuario: string, email: string, password: string }) => Promise<boolean>;
   getUsersForTenant: (empresaId: number) => User[];
   addUser: (userData: Omit<User, 'id'>) => void;
   updateUser: (userData: User) => void;
@@ -75,6 +77,34 @@ export const useAuthStore = create<AuthState>()(
         }
         console.error("Login fallido: Credenciales incorrectas.");
         return false;
+      },
+      register: async (data) => {
+        const { nombreEmpresa, rnc, nombreUsuario, email, password } = data;
+        
+        const existingUser = get().users.find(u => u.email.toLowerCase() === email.toLowerCase());
+        if (existingUser) {
+            useAlertStore.getState().showAlert('Error de Registro', 'El correo electrónico ya está en uso.');
+            return false;
+        }
+
+        const newEmpresa = useTenantStore.getState().addEmpresa({ nombre: nombreEmpresa, rnc });
+
+        const newUser: User = {
+            id: `user-reg-${Date.now()}`,
+            nombre: nombreUsuario,
+            email: email,
+            password: password,
+            roles: [Role.Admin],
+            empresaId: newEmpresa.id,
+            authMethod: 'local',
+            activo: true,
+        };
+        
+        set(state => ({ users: [...state.users, newUser] }));
+        
+        get().login(newUser);
+
+        return true;
       },
       getUsersForTenant: (empresaId: number) => {
         return get().users.filter(u => u.empresaId === empresaId);

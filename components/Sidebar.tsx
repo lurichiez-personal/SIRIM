@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { Permission } from '../types';
@@ -20,38 +21,38 @@ interface NavItem {
 }
 
 const navItems: NavItem[] = [
-  { to: '/', label: 'Dashboard', icon: DashboardIcon, permission: Permission.VER_DASHBOARD },
-  { to: '/clientes', label: 'Clientes', icon: ClientesIcon, permission: Permission.GESTIONAR_CLIENTES },
-  { to: '/facturas', label: 'Facturación', icon: FacturasIcon, permission: Permission.GESTIONAR_FACTURAS },
-  { to: '/cotizaciones', label: 'Cotizaciones', icon: CotizacionesIcon, permission: Permission.GESTIONAR_COTIZACIONES },
-  { to: '/notas', label: 'Notas de Crédito', icon: DocumentDuplicateIcon, permission: Permission.GESTIONAR_NOTAS },
-  { to: '/gastos', label: 'Gastos', icon: GastosIcon, permission: Permission.GESTIONAR_GASTOS },
-  { to: '/ingresos', label: 'Pagos y Cobros', icon: IngresosIcon, permission: Permission.GESTIONAR_PAGOS },
-  { to: '/inventario', label: 'Inventario', icon: InventarioIcon, permission: Permission.GESTIONAR_INVENTARIO },
+  { to: '/dashboard', label: 'Dashboard', icon: DashboardIcon, permission: Permission.VER_DASHBOARD },
+  { to: '/dashboard/clientes', label: 'Clientes', icon: ClientesIcon, permission: Permission.GESTIONAR_CLIENTES },
+  { to: '/dashboard/facturas', label: 'Facturación', icon: FacturasIcon, permission: Permission.GESTIONAR_FACTURAS },
+  { to: '/dashboard/cotizaciones', label: 'Cotizaciones', icon: CotizacionesIcon, permission: Permission.GESTIONAR_COTIZACIONES },
+  { to: '/dashboard/notas', label: 'Notas de Crédito', icon: DocumentDuplicateIcon, permission: Permission.GESTIONAR_NOTAS },
+  { to: '/dashboard/gastos', label: 'Gastos', icon: GastosIcon, permission: Permission.GESTIONAR_GASTOS },
+  { to: '/dashboard/ingresos', label: 'Pagos y Cobros', icon: IngresosIcon, permission: Permission.GESTIONAR_PAGOS },
+  { to: '/dashboard/inventario', label: 'Inventario', icon: InventarioIcon, permission: Permission.GESTIONAR_INVENTARIO },
   { 
-    to: '/nomina', 
+    to: '/dashboard/nomina', 
     label: 'Nómina', 
     icon: UsersGroupIcon, 
     permission: Permission.GESTIONAR_NOMINA,
     children: [
-        { to: '/nomina', label: 'Empleados', icon: UsersGroupIcon },
-        { to: '/nomina/historial', label: 'Historial de Nóminas', icon: ClockIcon },
+        { to: '/dashboard/nomina', label: 'Empleados', icon: UsersGroupIcon },
+        { to: '/dashboard/nomina/historial', label: 'Historial de Nóminas', icon: ClockIcon },
     ]
   },
   { 
-    to: '/contabilidad', 
+    to: '/dashboard/contabilidad', 
     label: 'Contabilidad', 
     icon: BookOpenIcon, 
     permission: Permission.GESTIONAR_CONTABILIDAD,
     children: [
-        { to: '/contabilidad/libro-diario', label: 'Libro Diario', icon: BookOpenIcon },
-        { to: '/contabilidad/catalogo-cuentas', label: 'Catálogo de Cuentas', icon: ReportesIcon },
-        { to: '/contabilidad/reportes', label: 'Reportes Financieros', icon: ChartPieIcon },
+        { to: '/dashboard/contabilidad/libro-diario', label: 'Libro Diario', icon: BookOpenIcon },
+        { to: '/dashboard/contabilidad/catalogo-cuentas', label: 'Catálogo de Cuentas', icon: ReportesIcon },
+        { to: '/dashboard/contabilidad/reportes', label: 'Reportes Financieros', icon: ChartPieIcon },
     ]
   },
-  { to: '/conciliacion', label: 'Conciliación', icon: ScaleIcon, permission: Permission.GESTIONAR_CONCILIACION },
-  { to: '/reportes', label: 'Reportes DGII', icon: ReportesIcon, permission: Permission.VER_REPORTES_DGII },
-  { to: '/configuracion', label: 'Configuración', icon: ConfiguracionIcon, permission: Permission.GESTIONAR_CONFIGURACION_EMPRESA },
+  { to: '/dashboard/conciliacion', label: 'Conciliación', icon: ScaleIcon, permission: Permission.GESTIONAR_CONCILIACION },
+  { to: '/dashboard/reportes', label: 'Reportes DGII', icon: ReportesIcon, permission: Permission.VER_REPORTES_DGII },
+  { to: '/dashboard/configuracion', label: 'Configuración', icon: ConfiguracionIcon, permission: Permission.GESTIONAR_CONFIGURACION_EMPRESA },
 ];
 
 const NavItemLink: React.FC<{ item: Omit<NavItem, 'permission'>, isSubmenu?: boolean }> = ({ item, isSubmenu = false }) => {
@@ -70,7 +71,7 @@ const NavItemLink: React.FC<{ item: Omit<NavItem, 'permission'>, isSubmenu?: boo
     return (
          <NavLink
             to={item.to}
-            end={item.to === '/'}
+            end={item.to === '/dashboard'}
             className={({ isActive }) => `${navLinkClasses} ${isActive ? activeNavLinkClasses : ''}`}
             onClick={handleClick}
         >

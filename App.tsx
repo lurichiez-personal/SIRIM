@@ -1,13 +1,12 @@
 
-
 import React from 'react';
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useAuthStore } from './stores/useAuthStore';
 import { useClientAuthStore } from './stores/useClientAuthStore';
 
+// Main App
 import Layout from './components/Layout';
 import ProtectedRoute from './components/ProtectedRoute';
-
 import LoginPage from './features/auth/LoginPage';
 import DashboardPage from './features/dashboard/DashboardPage';
 import ClientesPage from './features/clientes/ClientesPage';
@@ -35,13 +34,18 @@ import ReportesContablesPage from './features/contabilidad/ReportesContablesPage
 import HistorialNominaPage from './features/nomina/HistorialNominaPage';
 import AuditarNominaPage from './features/nomina/AuditarNominaPage';
 
-
 // Client Portal
 import ClientPortalLayout from './features/portal/ClientPortalLayout';
 import ClientPortalLoginPage from './features/portal/ClientPortalLoginPage';
 import PortalDashboardPage from './features/portal/PortalDashboardPage';
 import PortalFacturasPage from './features/portal/PortalFacturasPage';
 import PortalCotizacionesPage from './features/portal/PortalCotizacionesPage';
+
+// Public Landing
+import LandingLayout from './features/landing/LandingLayout';
+import HomePage from './features/landing/HomePage';
+import PreciosPage from './features/landing/PreciosPage';
+import RegistroPage from './features/auth/RegistroPage';
 
 function App(): React.ReactNode {
   const { isAuthenticated } = useAuthStore();
@@ -50,7 +54,15 @@ function App(): React.ReactNode {
   return (
     <HashRouter>
       <Routes>
-        <Route path="/login" element={isAuthenticated ? <Navigate to="/" /> : <LoginPage />} />
+        {/* Public Routes */}
+        <Route element={<LandingLayout />}>
+          <Route path="/" element={<HomePage />} />
+          <Route path="/precios" element={<PreciosPage />} />
+          <Route path="/registro" element={<RegistroPage />} />
+        </Route>
+        
+        {/* Auth Routes */}
+        <Route path="/login" element={isAuthenticated ? <Navigate to="/dashboard" /> : <LoginPage />} />
         
         {/* Client Portal Routes */}
         <Route path="/portal/login" element={isClientAuthenticated ? <Navigate to="/portal" /> : <ClientPortalLoginPage />} />
@@ -58,8 +70,8 @@ function App(): React.ReactNode {
             <ClientPortalLayout>
               <Routes>
                 <Route path="/" element={<PortalDashboardPage />} />
-                <Route path="/facturas" element={<PortalFacturasPage />} />
-                <Route path="/cotizaciones" element={<PortalCotizacionesPage />} />
+                <Route path="facturas" element={<PortalFacturasPage />} />
+                <Route path="cotizaciones" element={<PortalCotizacionesPage />} />
                 <Route path="*" element={<Navigate to="/portal" />} />
               </Routes>
             </ClientPortalLayout>
@@ -70,37 +82,37 @@ function App(): React.ReactNode {
 
         {/* Main App Routes */}
         <Route 
-          path="/*"
+          path="/dashboard/*"
           element={
             <ProtectedRoute>
               <Layout>
                 <Routes>
                   <Route path="/" element={<DashboardPage />} />
-                  <Route path="/clientes" element={<ClientesPage />} />
-                  <Route path="/facturas" element={<FacturasPage />} />
-                  <Route path="/cotizaciones" element={<CotizacionesPage />} />
-                  <Route path="/notas" element={<NotasPage />} />
-                  <Route path="/gastos" element={<GastosPage />} />
-                  <Route path="/ingresos" element={<IngresosPage />} />
-                  <Route path="/inventario" element={<InventarioPage />} />
-                  <Route path="/reportes" element={<ReportesPage />} />
-                  <Route path="/conciliacion" element={<ConciliacionPage />} />
-                  <Route path="/nomina" element={<NominaPage />} />
-                  <Route path="/nomina/historial" element={<HistorialNominaPage />} />
-                  <Route path="/nomina/auditar/:nominaId" element={<AuditarNominaPage />} />
-                  <Route path="/contabilidad" element={<ContabilidadPage />} />
-                  <Route path="/contabilidad/libro-diario" element={<LibroDiarioPage />} />
-                  <Route path="/contabilidad/catalogo-cuentas" element={<CatalogoCuentasPage />} />
-                  <Route path="/contabilidad/reportes" element={<ReportesContablesPage />} />
-                  <Route path="/configuracion" element={<ConfiguracionPage />} />
-                  <Route path="/configuracion/ncf" element={<NCFPage />} />
-                  <Route path="/configuracion/personalizacion" element={<PersonalizacionPage />} />
-                  <Route path="/configuracion/facturacion-recurrente" element={<FacturacionRecurrentePage />} />
-                  <Route path="/configuracion/roles" element={<RolesPage />} />
-                  <Route path="/configuracion/usuarios" element={<GestionUsuariosPage />} />
-                  <Route path="/configuracion/tasas" element={<TasasPage />} />
-                  <Route path="/configuracion/empresas" element={<GestionEmpresasPage />} />
-                  <Route path="*" element={<Navigate to="/" />} />
+                  <Route path="clientes" element={<ClientesPage />} />
+                  <Route path="facturas" element={<FacturasPage />} />
+                  <Route path="cotizaciones" element={<CotizacionesPage />} />
+                  <Route path="notas" element={<NotasPage />} />
+                  <Route path="gastos" element={<GastosPage />} />
+                  <Route path="ingresos" element={<IngresosPage />} />
+                  <Route path="inventario" element={<InventarioPage />} />
+                  <Route path="reportes" element={<ReportesPage />} />
+                  <Route path="conciliacion" element={<ConciliacionPage />} />
+                  <Route path="nomina" element={<NominaPage />} />
+                  <Route path="nomina/historial" element={<HistorialNominaPage />} />
+                  <Route path="nomina/auditar/:nominaId" element={<AuditarNominaPage />} />
+                  <Route path="contabilidad" element={<ContabilidadPage />} />
+                  <Route path="contabilidad/libro-diario" element={<LibroDiarioPage />} />
+                  <Route path="contabilidad/catalogo-cuentas" element={<CatalogoCuentasPage />} />
+                  <Route path="contabilidad/reportes" element={<ReportesContablesPage />} />
+                  <Route path="configuracion" element={<ConfiguracionPage />} />
+                  <Route path="configuracion/ncf" element={<NCFPage />} />
+                  <Route path="configuracion/personalizacion" element={<PersonalizacionPage />} />
+                  <Route path="configuracion/facturacion-recurrente" element={<FacturacionRecurrentePage />} />
+                  <Route path="configuracion/roles" element={<RolesPage />} />
+                  <Route path="configuracion/usuarios" element={<GestionUsuariosPage />} />
+                  <Route path="configuracion/tasas" element={<TasasPage />} />
+                  <Route path="configuracion/empresas" element={<GestionEmpresasPage />} />
+                  <Route path="*" element={<Navigate to="/dashboard" />} />
                 </Routes>
               </Layout>
             </ProtectedRoute>
