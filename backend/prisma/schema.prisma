@@ -1,75 +1,151 @@
+// ---------- Encabezado obligatorio ----------
 generator client {
-model FacturaRecurrente {
-id Int @id @default(autoincrement())
-empresaId Int
-empresa Empresa @relation(fields: [empresaId], references: [id])
-clienteId Int
-cliente Cliente @relation(fields: [clienteId], references: [id])
-descripcion String
-monto Decimal @db.Decimal(12,2)
-frecuencia String // p.ej.: "mensual"
-nextDate DateTime
-activa Boolean @default(true)
+  provider = "prisma-client-js"
 }
 
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------- Enums ----------
+enum NominaStatus {
+  PendienteAuditoria
+  Auditada
+  Contabilizada
+  Anulada
+}
+
+// ---------- Bases / referencias mínimas ----------
+model Empresa {
+  id           Int                  @id @default(autoincrement())
+  nombre       String
+  rnc          String               @unique
+  createdAt    DateTime             @default(now())
+  updatedAt    DateTime             @updatedAt
+
+  clientes     Cliente[]
+  empleados    Empleado[]
+  recurrencias FacturaRecurrente[]
+  nominas      Nomina[]
+  asientos     AsientoContable[]
+  bankTx       BankTransaction[]
+  matches      ReconciliationMatch[]
+}
+
+model Cliente {
+  id           Int                  @id @default(autoincrement())
+  empresaId    Int
+  empresa      Empresa              @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+  nombre       String
+  rnc          String?
+  email        String?
+  telefono     String?
+  direccion    String?
+  createdAt    DateTime             @default(now())
+  updatedAt    DateTime             @updatedAt
+
+  recurrencias FacturaRecurrente[]
+
+  @@index([empresaId])
+}
+
+// ---------- Lo que pediste ----------
+model FacturaRecurrente {
+  id          Int       @id @default(autoincrement())
+  empresaId   Int
+  empresa     Empresa   @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+  clienteId   Int
+  cliente     Cliente   @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+  descripcion String
+  monto       Decimal   @db.Decimal(12, 2)
+  frecuencia  String    // e.g., "mensual"
+  nextDate    DateTime
+  activa      Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([empresaId])
+  @@index([clienteId])
+}
 
 model Empleado {
-id Int @id @default(autoincrement())
-empresaId Int
-empresa Empresa @relation(fields: [empresaId], references: [id])
-nombre String
-cedula String
-puesto String
-salarioBrutoMensual Decimal @db.Decimal(12,2)
-fechaIngreso DateTime
-activo Boolean @default(true)
-}
+  id                  Int       @id @default(autoincrement())
+  empresaId           Int
+  empresa             Empresa   @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+  nombre              String
+  cedula              String    @unique
+  puesto              String
+  salarioBrutoMensual Decimal   @db.Decimal(12, 2)
+  fechaIngreso        DateTime
+  activo              Boolean   @default(true)
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
 
+  @@index([empresaId])
+}
 
 model Nomina {
-id String @id // YYYY-MM
-empresaId Int
-empresa Empresa @relation(fields: [empresaId], references: [id])
-periodo String // YYYY-MM
-empleadosJson Json // arreglo de NominaEmpleado
-totalPagado Decimal @db.Decimal(12,2)
-totalCostoEmp Decimal @db.Decimal(12,2)
-status NominaStatus @default(PendienteAuditoria)
-asientoId String?
-generadoPor Json
-auditTrail Json?
-}
+  id            String       @id // YYYY-MM
+  empresaId     Int
+  empresa       Empresa      @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+  periodo       String       // YYYY-MM
+  empleadosJson Json         // arreglo de NominaEmpleado
+  totalPagado   Decimal      @db.Decimal(12, 2)
+  totalCostoEmp Decimal      @db.Decimal(12, 2)
+  status        NominaStatus @default(PendienteAuditoria)
+  asientoId     String?
+  generadoPor   Json
+  auditTrail    Json?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
 
+  @@index([empresaId])
+}
 
 model AsientoContable {
-id String @id
-empresaId Int
-empresa Empresa @relation(fields: [empresaId], references: [id])
-fecha DateTime
-descripcion String
-transaccionId String
-transaccionTipo String
-entradas Json // [{ cuentaId, descripcion, debito, credito }]
-}
+  id              String    @id
+  empresaId       Int
+  empresa         Empresa   @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+  fecha           DateTime
+  descripcion     String
+  transaccionId   String
+  transaccionTipo String
+  entradas        Json      // [{ cuentaId, descripcion, debito, credito }]
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 
+  @@index([empresaId])
+}
 
 model BankTransaction {
-id String @id
-empresaId Int
-empresa Empresa @relation(fields: [empresaId], references: [id])
-fecha DateTime
-descripcion String
-monto Decimal @db.Decimal(12,2)
-tipo String // "credito" | "debito"
+  id          String   @id
+  empresaId   Int
+  empresa     Empresa  @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+  fecha       DateTime
+  descripcion String
+  monto       Decimal  @db.Decimal(12, 2)
+  tipo        String   // "credito" | "debito"
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  matches     ReconciliationMatch[]
+
+  @@index([empresaId])
 }
 
-
 model ReconciliationMatch {
-id Int @id @default(autoincrement())
-empresaId Int
-bankTransaction BankTransaction @relation(fields: [bankTransactionId], references: [id])
-bankTransactionId String
-recordType String // 'factura' | 'gasto' | 'ingreso'
-recordId Int
-status String // 'sugerido' | 'confirmado'
+  id                Int             @id @default(autoincrement())
+  empresaId         Int
+  empresa           Empresa         @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+  bankTransactionId String
+  bankTransaction   BankTransaction @relation(fields: [bankTransactionId], references: [id], onDelete: Cascade)
+  recordType        String          // 'factura' | 'gasto' | 'ingreso'
+  recordId          Int
+  status            String          // 'sugerido' | 'confirmado'
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+
+  @@index([empresaId])
+  @@index([bankTransactionId])
 }
