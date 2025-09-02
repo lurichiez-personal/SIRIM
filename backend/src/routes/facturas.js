@@ -14,6 +14,66 @@ function requireFields(obj, fields) {
   }
 }
 
+/**
+ * GET /api/facturas
+ * Query:
+ *  - empresaId (required)
+ *  - q           (texto libre: clienteNombre o ncf)
+ *  - desde       (YYYY-MM-DD)
+ *  - hasta       (YYYY-MM-DD)
+ *  - status      ("Emitida" | "Anulada" | etc.)
+ *  - page        (1..n)
+ *  - pageSize    (1..100)
+ * Respuesta: { page, pageSize, total, rows }
+ */
+router.get("/", async (req, res, next) => {
+  try {
+    const empresaId = Number(req.query.empresaId);
+    if (!empresaId) {
+      const err = new Error("empresaId es requerido");
+      err.status = 400;
+      throw err;
+    }
+
+    const page = Math.max(1, Number(req.query.page || 1));
+    const pageSize = Math.min(100, Math.max(1, Number(req.query.pageSize || 20)));
+    const q = (req.query.q || "").toString().trim();
+    const status = (req.query.status || "").toString().trim();
+    const desde = req.query.desde ? new Date(String(req.query.desde)) : undefined;
+    const hasta = req.query.hasta ? new Date(String(req.query.hasta)) : undefined;
+
+    const where = { empresaId };
+
+    if (q) {
+      where.OR = [
+        { clienteNombre: { contains: q, mode: "insensitive" } },
+        { ncf: { contains: q, mode: "insensitive" } },
+      ];
+    }
+    if (status) where.estado = status;
+    if (desde || hasta) {
+      where.fecha = {};
+      if (desde) where.fecha.gte = desde;
+      if (hasta) where.fecha.lte = hasta;
+    }
+
+    const [total, rows] = await Promise.all([
+      prisma.factura.count({ where }),
+      prisma.factura.findMany({
+        where,
+        orderBy: { fecha: "desc" },
+        take: pageSize,
+        skip: (page - 1) * pageSize,
+        include: { items: true },
+      }),
+    ]);
+
+    return res.json({ page, pageSize, total, rows });
+  } catch (e) {
+    return next(e);
+  }
+});
+
 // -----------------------------------------------------------------------------
 // POST /api/facturas  → Crea factura (opcionalmente asigna NCF)
 // Body esperado:
