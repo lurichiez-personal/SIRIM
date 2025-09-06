@@ -6,7 +6,9 @@ SIRIM is a comprehensive web-based tax and accounting management system specific
 
 ## User Preferences
 
-Preferred communication style: Simple, everyday language.
+- **Communication style**: Simple, everyday language
+- **Data preservation policy**: ALWAYS preserve existing user data when making improvements or modifications. Only delete or modify existing data when explicitly requested by the user
+- **Development approach**: Make improvements incrementally without affecting existing functionality or data
 
 ## System Architecture
 
