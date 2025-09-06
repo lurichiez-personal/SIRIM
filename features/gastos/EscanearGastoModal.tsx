@@ -82,7 +82,7 @@ const EscanearGastoModal: React.FC<EscanearGastoModalProps> = ({ isOpen, onClose
         setShowValidation(false);
 
         try {
-            const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+            const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
             
             let imagePart;
             if (typeof imageSource === 'string') {
