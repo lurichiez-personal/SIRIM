@@ -72,6 +72,7 @@ app.get("/api", (_req, res) => {
 app.use("/api/health", healthRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/master", require("./routes/master"));
+app.use("/api/registration", require("./routes/registration"));
 app.use("/api/empresas", empresasRoutes);
 app.use("/api/clientes", clientesRoutes);
 app.use("/api/items", itemsRoutes);

@@ -10,7 +10,6 @@ import {
     InventarioIcon, CotizacionesIcon, DocumentDuplicateIcon, ScaleIcon,
     UsersGroupIcon, BookOpenIcon, ChevronDownIcon, ChartPieIcon, ClockIcon
 } from './icons/Icons';
-import { CogIcon } from '@heroicons/react/24/outline';
 import { useUIStore } from '../stores/useUIStore';
 import { useMediaQuery } from '../hooks/useMediaQuery';
 
@@ -138,7 +137,7 @@ const Sidebar: React.FC = () => {
                 }`
               }
             >
-              <CogIcon className="h-5 w-5 mr-3" />
+              <ConfiguracionIcon className="h-5 w-5 mr-3" />
               <span className="font-semibold">Panel Master</span>
             </NavLink>
           </div>
