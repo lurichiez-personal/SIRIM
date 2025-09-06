@@ -335,10 +335,10 @@ const SuscripcionesPage: React.FC = () => {
         {Object.entries(availableModules).map(([category, modules]) => (
           <div key={category} className="mb-8">
             <h3 className="text-lg font-semibold text-secondary-800 mb-4 capitalize">
-              {category.replace('_', ' ')}
+              {String(category).replace('_', ' ')}
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {(modules || []).filter(module => !module.isCore).map((module) => {
+              {(Array.isArray(modules) ? modules : []).filter(module => !module.isCore).map((module) => {
                 const isActive = currentSubscription?.modules?.some(
                   sm => sm.module.id === module.id && sm.status === 'ACTIVE'
                 ) || false;
