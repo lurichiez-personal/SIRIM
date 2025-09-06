@@ -98,6 +98,12 @@ const ConfiguracionPage: React.FC = () => {
                 description="Administre copias de seguridad automáticas y manuales de sus datos empresariales."
                 icon={ConfiguracionIcon}
             />
+            <SettingCard
+                to="microsoft"
+                title="Microsoft Office 365"
+                description="Configure la autenticación con Microsoft Azure AD para acceso empresarial."
+                icon={ClientesIcon}
+            />
         </div>
     </div>
   );

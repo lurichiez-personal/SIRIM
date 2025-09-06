@@ -12,12 +12,13 @@ interface AuthState {
   users: User[];
   login: (user: User) => void;
   logout: () => void;
-  triggerMicrosoftLogin: () => boolean;
+  triggerMicrosoftLogin: () => Promise<boolean>;
   loginWithPassword: (email: string, password: string) => Promise<boolean>;
   register: (data: { nombreEmpresa: string, rnc: string, nombreUsuario: string, email: string, password: string }) => Promise<boolean>;
   getUsersForTenant: (empresaId: number) => User[];
   addUser: (userData: Omit<User, 'id'>) => void;
   updateUser: (userData: User) => void;
+  handleMicrosoftCallback: () => Promise<boolean>;
 }
 
 const mockUsers: User[] = [
@@ -46,19 +47,75 @@ export const useAuthStore = create<AuthState>()(
         useTenantStore.getState().clearTenants();
         useDataStore.getState().clearData();
       },
-      triggerMicrosoftLogin: () => {
-        console.log("Simulando login con Microsoft...");
-        const microsoftUser = get().users.find(u => u.authMethod === 'microsoft' && u.roles.includes(Role.Contador));
-        if (microsoftUser && microsoftUser.activo) {
-            get().login(microsoftUser);
-            return true;
+      triggerMicrosoftLogin: async () => {
+        console.log("Iniciando login con Microsoft...");
+        
+        try {
+          // Importar dinámicamente para evitar problemas de SSR
+          const { microsoftAuthService } = await import('../utils/microsoftAuth');
+          
+          // Cargar configuración
+          const isConfigured = microsoftAuthService.loadConfiguration();
+          
+          if (!isConfigured || !microsoftAuthService.isReady()) {
+            useAlertStore.getState().showAlert(
+              'Microsoft Auth No Configurado',
+              'Debe configurar las credenciales de Microsoft primero. Vaya a Configuración > Microsoft Office 365.'
+            );
+            return false;
+          }
+
+          // Verificar si ya hay un token válido
+          if (microsoftAuthService.hasValidToken()) {
+            // Intentar obtener información del usuario con token existente
+            const tokenData = microsoftAuthService.getStoredToken();
+            if (tokenData) {
+              try {
+                const userInfo = await microsoftAuthService.getUserInfo(tokenData.access_token);
+                
+                // Buscar o crear usuario basado en información de Microsoft
+                const existingUser = get().users.find(u => 
+                  u.email.toLowerCase() === userInfo.mail?.toLowerCase() ||
+                  u.email.toLowerCase() === userInfo.userPrincipalName?.toLowerCase()
+                );
+
+                if (existingUser && existingUser.activo) {
+                  get().login(existingUser);
+                  return true;
+                } else {
+                  // Crear nuevo usuario si no existe
+                  const newUser: User = {
+                    id: `ms-${userInfo.id}`,
+                    nombre: userInfo.displayName,
+                    email: userInfo.mail || userInfo.userPrincipalName,
+                    roles: [Role.Contador],
+                    authMethod: 'microsoft',
+                    activo: true
+                  };
+                  
+                  set(state => ({ users: [...state.users, newUser] }));
+                  get().login(newUser);
+                  return true;
+                }
+              } catch (error) {
+                console.error('Error con token existente:', error);
+                // Token inválido, continuar con nuevo flujo de autenticación
+              }
+            }
+          }
+
+          // Iniciar proceso de autenticación (redirige a Microsoft)
+          microsoftAuthService.startAuthentication();
+          return true;
+          
+        } catch (error) {
+          console.error('Error en Microsoft login:', error);
+          useAlertStore.getState().showAlert(
+            'Error de Autenticación',
+            'No se pudo iniciar sesión con Microsoft. Verifique la configuración.'
+          );
+          return false;
         }
-        const fallbackUser = get().users.find(u => u.authMethod === 'microsoft');
-         if (fallbackUser && fallbackUser.activo) {
-            get().login(fallbackUser);
-            return true;
-        }
-        return false;
       },
       loginWithPassword: async (email, password) => {
         await new Promise(resolve => setTimeout(resolve, 500));
@@ -135,6 +192,50 @@ export const useAuthStore = create<AuthState>()(
         set(state => ({
             users: state.users.map(u => u.id === userData.id ? userData : u)
         }));
+      },
+
+      handleMicrosoftCallback: async () => {
+        try {
+          const { microsoftAuthService } = await import('../utils/microsoftAuth');
+          
+          const result = await microsoftAuthService.handleCallback();
+          if (!result) {
+            return false; // No hay callback de Microsoft
+          }
+
+          const { user: userInfo } = result;
+
+          // Buscar usuario existente o crear nuevo
+          let existingUser = get().users.find(u => 
+            u.email.toLowerCase() === userInfo.mail?.toLowerCase() ||
+            u.email.toLowerCase() === userInfo.userPrincipalName?.toLowerCase()
+          );
+
+          if (!existingUser) {
+            // Crear nuevo usuario
+            const newUser: User = {
+              id: `ms-${userInfo.id}`,
+              nombre: userInfo.displayName,
+              email: userInfo.mail || userInfo.userPrincipalName,
+              roles: [Role.Contador],
+              authMethod: 'microsoft',
+              activo: true
+            };
+            
+            set(state => ({ users: [...state.users, newUser] }));
+            existingUser = newUser;
+          }
+
+          if (existingUser.activo) {
+            get().login(existingUser);
+            return true;
+          }
+
+          return false;
+        } catch (error) {
+          console.error('Error procesando callback de Microsoft:', error);
+          return false;
+        }
       }
     }),
     {

@@ -66,6 +66,7 @@ function App(): React.ReactNode {
         
         {/* Auth Routes */}
         <Route path="/login" element={isAuthenticated ? <Navigate to="/dashboard" /> : <LoginPage />} />
+        <Route path="/auth/microsoft/callback" element={<LazyMicrosoftCallbackPage />} />
         
         {/* Client Portal Routes */}
         <Route path="/portal/login" element={isClientAuthenticated ? <Navigate to="/portal" /> : <ClientPortalLoginPage />} />
@@ -119,6 +120,7 @@ function App(): React.ReactNode {
                   <Route path="configuracion/empresas" element={<LazyGestionEmpresasPage />} />
                   <Route path="configuracion/marketing" element={<LazyMarketingPage />} />
                   <Route path="configuracion/backup" element={<LazyBackupPage />} />
+                  <Route path="configuracion/microsoft" element={<LazyMicrosoftConfigPage />} />
                   <Route path="*" element={<Navigate to="/dashboard" />} />
                 </Routes>
               </Layout>

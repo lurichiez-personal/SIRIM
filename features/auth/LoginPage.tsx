@@ -23,12 +23,16 @@ const LoginPage: React.FC = () => {
     setLoading(false);
   };
   
-  const handleMicrosoftLogin = () => {
+  const handleMicrosoftLogin = async () => {
     setError('');
     setLoading(true);
-    const success = triggerMicrosoftLogin();
-    if (!success) {
-      setError('No se pudo iniciar sesión con Microsoft.');
+    try {
+      const success = await triggerMicrosoftLogin();
+      if (!success) {
+        setError('No se pudo iniciar sesión con Microsoft. Verifique la configuración.');
+      }
+    } catch (error) {
+      setError('Error al conectar con Microsoft. Intente nuevamente.');
     }
     setLoading(false);
   }
