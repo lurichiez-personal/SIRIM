@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "npm install && cd backend && npm install && cd .. && vite build && cd backend && npm run build",
     "preview": "vite preview",
-    "start": "cd backend && PORT=80 npm start"
+    "start": "node start.js"
   },
   "dependencies": {
     "@google/genai": "0.14.0",
