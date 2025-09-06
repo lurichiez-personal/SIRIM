@@ -39,6 +39,7 @@ import {
   LazyBackupPage,
   LazyDGIIReportsPage,
   LazyMicrosoftCallbackPage,
+  LazyMicrosoftConfigPage,
   withLazyLoading
 } from './components/LazyComponents';
 
