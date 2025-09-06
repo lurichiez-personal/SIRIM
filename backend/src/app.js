@@ -18,6 +18,9 @@ const empleadosRoutes = require("./routes/empleados");
 const nominaRoutes = require("./routes/nomina");
 const asientosRoutes = require("./routes/asientos");
 const conciliacionRoutes = require("./routes/conciliacion");
+const subscriptionsRoutes = require("./routes/subscriptions");
+const paymentsRoutes = require("./routes/payments");
+const modulesRoutes = require("./routes/modules");
 
 const app = express();
 
@@ -64,6 +67,9 @@ app.use("/api/empleados", empleadosRoutes);
 app.use("/api/nomina", nominaRoutes);
 app.use("/api/asientos", asientosRoutes);
 app.use("/api/conciliacion", conciliacionRoutes);
+app.use("/api/subscriptions", subscriptionsRoutes);
+app.use("/api/payments", paymentsRoutes);
+app.use("/api/modules", modulesRoutes);
 
 // 404 por defecto (después de todas las rutas)
 app.use((req, res, next) => {
