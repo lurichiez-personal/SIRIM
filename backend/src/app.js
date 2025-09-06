@@ -1,6 +1,7 @@
 // src/app.js
 const express = require("express");
 const cors = require("cors");
+const path = require("path");
 const { errorHandler } = require("./middleware/error");
 
 // Rutas
@@ -54,7 +55,7 @@ app.get("/", (_req, res) => {
   res.json({ ok: true, service: "SIRIM API", ts: new Date().toISOString() });
 });
 
-// Mount
+// Mount API routes
 app.use("/api/health", healthRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/empresas", empresasRoutes);
@@ -74,10 +75,24 @@ app.use("/api/payments", paymentsRoutes);
 app.use("/api/modules", modulesRoutes);
 app.use("/api/admin", adminRoutes);
 
-// 404 por defecto (después de todas las rutas)
-app.use((req, res, next) => {
-  res.status(404).json({ error: "Not Found", path: req.path });
-});
+// Servir archivos estáticos del frontend en producción
+if (process.env.NODE_ENV === 'production') {
+  app.use(express.static(path.join(__dirname, '../../dist')));
+  
+  // Catch all handler: send back React's index.html file for any non-API routes
+  app.get('*', (req, res) => {
+    if (!req.path.startsWith('/api/')) {
+      res.sendFile(path.join(__dirname, '../../dist/index.html'));
+    } else {
+      res.status(404).json({ error: "API endpoint not found", path: req.path });
+    }
+  });
+} else {
+  // 404 por defecto en desarrollo (después de todas las rutas)
+  app.use((req, res, next) => {
+    res.status(404).json({ error: "Not Found", path: req.path });
+  });
+}
 
 // Manejador de errores
 app.use(errorHandler);
