@@ -40,6 +40,7 @@ import {
   LazyDGIIReportsPage,
   LazyMicrosoftCallbackPage,
   LazyMicrosoftConfigPage,
+  LazyMetasVentasPage,
   withLazyLoading
 } from './components/LazyComponents';
 
@@ -123,6 +124,7 @@ function App(): React.ReactNode {
                   <Route path="configuracion/marketing" element={<LazyMarketingPage />} />
                   <Route path="configuracion/backup" element={<LazyBackupPage />} />
                   <Route path="configuracion/microsoft" element={<LazyMicrosoftConfigPage />} />
+                  <Route path="configuracion/metas-ventas" element={<LazyMetasVentasPage />} />
                   <Route path="*" element={<Navigate to="/dashboard" />} />
                 </Routes>
               </Layout>

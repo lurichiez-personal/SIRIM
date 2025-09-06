@@ -69,6 +69,7 @@ export const LazyBackupPage = React.lazy(() => import('../features/configuracion
 export const LazyMicrosoftConfigPage = React.lazy(() => import('../features/configuracion/MicrosoftConfigPage'));
 export const LazyMicrosoftCallbackPage = React.lazy(() => import('../features/auth/MicrosoftCallbackPage'));
 export const LazyProcesarLoteFacturasModal = React.lazy(() => import('../features/gastos/ProcesarLoteFacturasModal'));
+export const LazyMetasVentasPage = React.lazy(() => import('../features/configuracion/MetasVentasPage'));
 
 // Lazy loading de sub-páginas de nómina
 export const LazyHistorialNominaPage = React.lazy(() => import('../features/nomina/HistorialNominaPage'));

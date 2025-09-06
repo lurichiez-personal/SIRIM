@@ -93,6 +93,12 @@ const ConfiguracionPage: React.FC = () => {
                 />
             </Can>
             <SettingCard
+                to="metas-ventas"
+                title="Metas de Ventas"
+                description="Configure sus objetivos de ventas mensuales y realice seguimiento de su progreso."
+                icon={ChartPieIcon}
+            />
+            <SettingCard
                 to="backup"
                 title="Sistema de Backup"
                 description="Administre copias de seguridad automáticas y manuales de sus datos empresariales."
