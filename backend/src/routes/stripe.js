@@ -6,6 +6,48 @@ const stripeService = require("../services/stripeService");
 const emailService = require("../services/emailService");
 const router = express.Router();
 
+// Crear payment intent para compra directa
+router.post("/create-payment-intent", async (req, res) => {
+  try {
+    const { plan, registrationData, amount } = req.body;
+
+    if (!registrationData || !amount) {
+      return res.status(400).json({
+        success: false,
+        message: "Faltan datos requeridos"
+      });
+    }
+
+    // Crear payment intent
+    const paymentIntent = await stripeService.createPaymentIntent({
+      amount: amount, // amount ya viene en centavos
+      currency: 'usd',
+      automatic_payment_methods: {
+        enabled: true
+      },
+      metadata: {
+        plan: plan,
+        nombreEmpresa: registrationData.nombreEmpresa,
+        rnc: registrationData.rnc,
+        email: registrationData.email
+      }
+    });
+
+    res.json({
+      success: true,
+      clientSecret: paymentIntent.client_secret
+    });
+
+  } catch (error) {
+    console.error("Error creando payment intent:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error al crear payment intent",
+      error: error.message
+    });
+  }
+});
+
 // Obtener planes disponibles de Stripe
 router.get("/plans", async (req, res) => {
   try {

@@ -73,6 +73,7 @@ export const LazyMetasVentasPage = React.lazy(() => import('../features/configur
 
 // Lazy loading de billing
 export const LazyBillingPage = React.lazy(() => import('../features/billing/BillingPage'));
+export const LazyCheckoutPage = React.lazy(() => import('../features/landing/CheckoutPage'));
 
 // Lazy loading de sub-páginas de nómina
 export const LazyHistorialNominaPage = React.lazy(() => import('../features/nomina/HistorialNominaPage'));

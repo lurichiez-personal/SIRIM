@@ -148,6 +148,18 @@ class StripeService {
     }
   }
 
+  // Crear payment intent simple
+  async createPaymentIntent(options) {
+    this._checkStripeAvailable();
+    try {
+      const paymentIntent = await stripe.paymentIntents.create(options);
+      return paymentIntent;
+    } catch (error) {
+      console.error('Error creando payment intent:', error);
+      throw new Error('Error al crear payment intent');
+    }
+  }
+
   // Webhook handler para eventos de Stripe
   constructEvent(payload, signature, endpointSecret) {
     this._checkStripeAvailable();

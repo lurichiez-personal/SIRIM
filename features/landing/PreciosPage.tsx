@@ -62,12 +62,13 @@ const PreciosPage: React.FC = () => {
                             <PriceDisplay price={plans?.basico?.price} />
                             <p className="text-sm text-secondary-600 mt-2">Ideal para freelancers y emprendedores que inician.</p>
                         </CardHeader>
-                        <CardContent className="text-center">
-                            <Link to="/registro"><Button className="w-full">Prueba gratis por 30 días</Button></Link>
+                        <CardContent className="text-center space-y-3">
+                            <Link to="/registro?plan=basico&trial=true"><Button variant="outline" className="w-full">Prueba gratis por 30 días</Button></Link>
+                            <Link to="/registro?plan=basico&trial=false"><Button className="w-full">Comprar Ahora</Button></Link>
                         </CardContent>
                     </Card>
 
-                    {/* Plan Pro */}
+                    {/* Plan Pro */
                     <Card className="border-2 border-primary ring-4 ring-primary-100 relative">
                          <div className="absolute top-0 -translate-y-1/2 left-1/2 -translate-x-1/2">
                             <span className="bg-primary text-white text-xs font-semibold px-3 py-1 rounded-full uppercase">Recomendado</span>
@@ -77,20 +78,22 @@ const PreciosPage: React.FC = () => {
                             <PriceDisplay price={plans?.pro?.price} />
                             <p className="text-sm text-secondary-600 mt-2">Para Pymes en crecimiento que necesitan automatización.</p>
                         </CardHeader>
-                        <CardContent className="text-center">
-                            <Link to="/registro"><Button className="w-full">Prueba gratis por 30 días</Button></Link>
+                        <CardContent className="text-center space-y-3">
+                            <Link to="/registro?plan=pro&trial=true"><Button variant="outline" className="w-full">Prueba gratis por 30 días</Button></Link>
+                            <Link to="/registro?plan=pro&trial=false"><Button className="w-full">Comprar Ahora</Button></Link>
                         </CardContent>
                     </Card>
 
-                    {/* Plan Premium */}
+                    {/* Plan Premium */
                     <Card>
                         <CardHeader className="text-center">
                             <CardTitle className="text-2xl">Premium</CardTitle>
                             <PriceDisplay price={plans?.premium?.price} />
                             <p className="text-sm text-secondary-600 mt-2">La solución completa con nómina y colaboración avanzada.</p>
                         </CardHeader>
-                        <CardContent className="text-center">
-                             <Link to="/registro"><Button className="w-full">Prueba gratis por 30 días</Button></Link>
+                        <CardContent className="text-center space-y-3">
+                            <Link to="/registro?plan=premium&trial=true"><Button variant="outline" className="w-full">Prueba gratis por 30 días</Button></Link>
+                            <Link to="/registro?plan=premium&trial=false"><Button className="w-full">Comprar Ahora</Button></Link>
                         </CardContent>
                     </Card>
                 </div>

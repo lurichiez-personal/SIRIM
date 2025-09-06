@@ -42,6 +42,7 @@ import {
   LazyMicrosoftConfigPage,
   LazyMetasVentasPage,
   LazyBillingPage,
+  LazyCheckoutPage,
   withLazyLoading
 } from './components/LazyComponents';
 
@@ -69,6 +70,7 @@ function App(): React.ReactNode {
           <Route path="/" element={<LazyHomePage />} />
           <Route path="/precios" element={<LazyPreciosPage />} />
           <Route path="/registro" element={<LazyRegistroPage />} />
+          <Route path="/checkout" element={<LazyCheckoutPage />} />
         </Route>
         
         {/* Auth Routes */}
