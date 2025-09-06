@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Factura, FacturaEstado, Cliente, Cotizacion, CotizacionEstado, NotaType, CodigoModificacionNCF, NCFType, NotaCreditoDebito, FacturaRecurrente } from '../../types';
+import { Factura, FacturaEstado, Cliente, Cotizacion, CotizacionEstado, NotaType, CodigoModificacionNCF, NCFType, NotaCreditoDebito, FacturaRecurrente, Ingreso } from '../../types';
 import { useTenantStore } from '../../stores/useTenantStore';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
@@ -134,7 +134,7 @@ const FacturasPage: React.FC = () => {
         setIsPagoModalOpen(true);
     };
 
-    const handleSavePago = (pagoData: Omit<Ingreso, 'id' | 'empresaId'>) => {
+    const handleSavePago = (pagoData: Omit<Ingreso, 'id' | 'empresaId' | 'conciliado'>) => {
         addIngreso(pagoData);
         setIsPagoModalOpen(false);
         setFacturaParaPago(null);

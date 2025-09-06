@@ -34,6 +34,7 @@ import ReportesContablesPage from './features/contabilidad/ReportesContablesPage
 import HistorialNominaPage from './features/nomina/HistorialNominaPage';
 import AuditarNominaPage from './features/nomina/AuditarNominaPage';
 import MarketingPage from './features/configuracion/MarketingPage';
+import CuentasPorCobrarPage from './features/cuentas-por-cobrar/CuentasPorCobrarPage';
 
 // Client Portal
 import ClientPortalLayout from './features/portal/ClientPortalLayout';
@@ -95,6 +96,7 @@ function App(): React.ReactNode {
                   <Route path="notas" element={<NotasPage />} />
                   <Route path="gastos" element={<GastosPage />} />
                   <Route path="ingresos" element={<IngresosPage />} />
+                  <Route path="cuentas-por-cobrar" element={<CuentasPorCobrarPage />} />
                   <Route path="inventario" element={<InventarioPage />} />
                   <Route path="reportes" element={<ReportesPage />} />
                   <Route path="conciliacion" element={<ConciliacionPage />} />

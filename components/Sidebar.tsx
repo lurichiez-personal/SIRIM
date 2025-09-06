@@ -28,6 +28,7 @@ const navItems: NavItem[] = [
   { to: '/dashboard/notas', label: 'Notas de Crédito', icon: DocumentDuplicateIcon, permission: Permission.GESTIONAR_NOTAS },
   { to: '/dashboard/gastos', label: 'Gastos', icon: GastosIcon, permission: Permission.GESTIONAR_GASTOS },
   { to: '/dashboard/ingresos', label: 'Pagos y Cobros', icon: IngresosIcon, permission: Permission.GESTIONAR_PAGOS },
+  { to: '/dashboard/cuentas-por-cobrar', label: 'Cuentas por Cobrar', icon: IngresosIcon, permission: Permission.GESTIONAR_PAGOS },
   { to: '/dashboard/inventario', label: 'Inventario', icon: InventarioIcon, permission: Permission.GESTIONAR_INVENTARIO },
   { 
     to: '/dashboard/nomina', 
