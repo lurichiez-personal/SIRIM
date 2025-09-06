@@ -21,6 +21,8 @@ import NCFPage from './features/configuracion/NCFPage';
 import NotasPage from './features/notas/NotasPage';
 import PersonalizacionPage from './features/configuracion/PersonalizacionPage';
 import FacturacionRecurrentePage from './features/configuracion/FacturacionRecurrentePage';
+import ConfiguracionPreciosPage from './features/configuracion/ConfiguracionPreciosPage';
+import ConfiguracionLandingPage from './features/configuracion/ConfiguracionLandingPage';
 import ConciliacionPage from './features/conciliacion/ConciliacionPage';
 import RolesPage from './features/configuracion/RolesPage';
 import GestionUsuariosPage from './features/configuracion/GestionUsuariosPage';
@@ -113,6 +115,8 @@ function App(): React.ReactNode {
                   <Route path="configuracion/usuarios" element={<GestionUsuariosPage />} />
                   <Route path="configuracion/tasas" element={<TasasPage />} />
                   <Route path="configuracion/empresas" element={<GestionEmpresasPage />} />
+                  <Route path="configuracion/precios" element={<ConfiguracionPreciosPage />} />
+                  <Route path="configuracion/landing" element={<ConfiguracionLandingPage />} />
                   <Route path="suscripciones" element={<SuscripcionesPage />} />
                   <Route path="*" element={<Navigate to="/dashboard" />} />
                 </Routes>

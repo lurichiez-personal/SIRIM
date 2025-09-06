@@ -54,6 +54,22 @@ const ConfiguracionPage: React.FC = () => {
                 description="Suba el logo de su empresa, elija un color de acento y personalice sus documentos."
                 icon={ClientesIcon}
             />
+            <Can I={Permission.GESTIONAR_EMPRESAS}>
+                <SettingCard
+                    to="/configuracion/precios"
+                    title="Configuración de Precios"
+                    description="Administre los precios de planes y módulos adicionales del sistema."
+                    icon={ReceiptPercentIcon}
+                />
+            </Can>
+            <Can I={Permission.GESTIONAR_EMPRESAS}>
+                <SettingCard
+                    to="/configuracion/landing"
+                    title="Configuración del Landing Page"
+                    description="Edite el contenido y textos de la página principal de marketing."
+                    icon={DocumentDuplicateIcon}
+                />
+            </Can>
             <SettingCard
                 to="/configuracion/facturacion-recurrente"
                 title="Facturación Recurrente"

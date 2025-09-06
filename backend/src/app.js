@@ -21,6 +21,7 @@ const conciliacionRoutes = require("./routes/conciliacion");
 const subscriptionsRoutes = require("./routes/subscriptions");
 const paymentsRoutes = require("./routes/payments");
 const modulesRoutes = require("./routes/modules");
+const adminRoutes = require("./routes/admin");
 
 const app = express();
 
@@ -70,6 +71,7 @@ app.use("/api/conciliacion", conciliacionRoutes);
 app.use("/api/subscriptions", subscriptionsRoutes);
 app.use("/api/payments", paymentsRoutes);
 app.use("/api/modules", modulesRoutes);
+app.use("/api/admin", adminRoutes);
 
 // 404 por defecto (después de todas las rutas)
 app.use((req, res, next) => {
