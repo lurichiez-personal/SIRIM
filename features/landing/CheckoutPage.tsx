@@ -66,21 +66,20 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({ plan, isTrial, registration
     setError('');
 
     try {
-      // Primero registrar la empresa
-      const registrationResponse = await fetch('/api/registration/register-company', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(registrationData)
-      });
-
-      const registrationResult = await registrationResponse.json();
-      
-      if (!registrationResult.message) {
-        throw new Error(registrationResult.error || 'Error en el registro');
-      }
-
       if (isTrial) {
         // Solo registrar sin pago
+        const registrationResponse = await fetch('/api/registration/register-company', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(registrationData)
+        });
+
+        const registrationResult = await registrationResponse.json();
+        
+        if (!registrationResult.message) {
+          throw new Error(registrationResult.error || 'Error en el registro');
+        }
+
         navigate('/dashboard', { 
           state: { message: 'Registro exitoso. Tu período de prueba de 30 días ha comenzado.' }
         });
@@ -88,15 +87,43 @@ const CheckoutForm: React.FC<CheckoutFormProps> = ({ plan, isTrial, registration
       }
 
       // Procesar pago para compra directa
-      const { error: stripeError } = await stripe.confirmPayment({
+      const { error: stripeError, paymentIntent } = await stripe.confirmPayment({
         elements,
         confirmParams: {
           return_url: `${window.location.origin}/#/dashboard/billing/success`,
         },
+        redirect: 'if_required'
       });
 
       if (stripeError) {
         setError(stripeError.message || 'Error al procesar el pago');
+        return;
+      }
+
+      if (paymentIntent && paymentIntent.status === 'succeeded') {
+        // Registrar empresa con pago exitoso
+        const registrationResponse = await fetch('/api/registration/register-company-with-payment', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            ...registrationData,
+            plan: plan,
+            paymentIntentId: paymentIntent.id
+          })
+        });
+
+        const registrationResult = await registrationResponse.json();
+        
+        if (!registrationResult.message) {
+          throw new Error(registrationResult.error || 'Error en el registro');
+        }
+
+        navigate('/dashboard', { 
+          state: { 
+            message: 'Pago exitoso y cuenta creada. ¡Bienvenido a SIRIM!',
+            paymentSuccess: true 
+          }
+        });
       }
     } catch (err: any) {
       setError(err.message || 'Error inesperado');
