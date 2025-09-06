@@ -44,6 +44,9 @@ import {
   withLazyLoading
 } from './components/LazyComponents';
 
+// Master Dashboard - solo importación directa ya que no está en LazyComponents
+const MasterDashboardLazy = React.lazy(() => import('./features/master/MasterDashboard'));
+
 // Client Portal
 import ClientPortalLayout from './features/portal/ClientPortalLayout';
 import ClientPortalLoginPage from './features/portal/ClientPortalLoginPage';
@@ -125,6 +128,7 @@ function App(): React.ReactNode {
                   <Route path="configuracion/backup" element={<LazyBackupPage />} />
                   <Route path="configuracion/microsoft" element={<LazyMicrosoftConfigPage />} />
                   <Route path="configuracion/metas-ventas" element={<LazyMetasVentasPage />} />
+                  <Route path="master" element={<MasterDashboardLazy />} />
                   <Route path="*" element={<Navigate to="/dashboard" />} />
                 </Routes>
               </Layout>

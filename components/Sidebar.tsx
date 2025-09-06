@@ -3,12 +3,14 @@ import React, { useState } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { Permission } from '../types';
 import Can from './Can';
+import { useAuthStore } from '../stores/useAuthStore';
 import { 
     DashboardIcon, ClientesIcon, FacturasIcon, GastosIcon, 
     IngresosIcon, ReportesIcon, ConfiguracionIcon, LogoIcon,
     InventarioIcon, CotizacionesIcon, DocumentDuplicateIcon, ScaleIcon,
     UsersGroupIcon, BookOpenIcon, ChevronDownIcon, ChartPieIcon, ClockIcon
 } from './icons/Icons';
+import { CogIcon } from '@heroicons/react/24/outline';
 import { useUIStore } from '../stores/useUIStore';
 import { useMediaQuery } from '../hooks/useMediaQuery';
 
@@ -84,6 +86,7 @@ const NavItemLink: React.FC<{ item: Omit<NavItem, 'permission'>, isSubmenu?: boo
 
 const Sidebar: React.FC = () => {
   const { isSidebarOpen } = useUIStore();
+  const { user } = useAuthStore();
   const location = useLocation();
   const [openSubmenus, setOpenSubmenus] = useState<{[key: string]: boolean}>(() => {
       const activeMenu = navItems.find(item => item.children?.some(child => location.pathname.startsWith(child.to)));
@@ -123,6 +126,23 @@ const Sidebar: React.FC = () => {
             )}
           </Can>
         ))}
+        
+        {/* Panel Master - Solo para lurichiez@gmail.com */}
+        {user?.email === 'lurichiez@gmail.com' && (
+          <div className="mt-4 pt-4 border-t border-primary-600">
+            <NavLink
+              to="/dashboard/master"
+              className={({ isActive }) =>
+                `flex items-center px-4 py-3 text-secondary-100 hover:bg-primary-700 rounded-lg transition-colors duration-200 ${
+                  isActive ? 'bg-primary-700 text-white' : ''
+                }`
+              }
+            >
+              <CogIcon className="h-5 w-5 mr-3" />
+              <span className="font-semibold">Panel Master</span>
+            </NavLink>
+          </div>
+        )}
       </nav>
       <div className="mt-auto text-center text-xs text-primary-200">
         <p>&copy; {new Date().getFullYear()} SIRIM</p>
