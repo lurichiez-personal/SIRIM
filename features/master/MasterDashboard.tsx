@@ -48,7 +48,7 @@ interface MasterStats {
 }
 
 export default function MasterDashboard() {
-  const { user, isAuthenticated, switchToCompany } = useAuthStore();
+  const { user, isAuthenticated } = useAuthStore();
   const navigate = useNavigate();
   const [empresas, setEmpresas] = useState<Empresa[]>([]);
   const [stats, setStats] = useState<MasterStats | null>(null);
@@ -100,25 +100,15 @@ export default function MasterDashboard() {
     }
   };
 
-  const handleAccessCompany = async (empresa: Empresa) => {
-    try {
-      // Cambiar al contexto de la empresa seleccionada
-      const success = await switchToCompany(empresa.id);
-      
-      if (success) {
-        // Navegar al dashboard de la empresa
-        navigate('/dashboard', { 
-          state: { 
-            message: `Trabajando en el espacio de ${empresa.nombre}`,
-            masterMode: true 
-          }
-        });
-      } else {
-        throw new Error('No se pudo cambiar a la empresa seleccionada');
+  const handleAccessCompany = (empresa: Empresa) => {
+    // Navegar directamente al dashboard con información de la empresa
+    navigate('/dashboard', { 
+      state: { 
+        message: `Trabajando en el espacio de ${empresa.nombre}`,
+        masterMode: true,
+        selectedCompany: empresa
       }
-    } catch (error) {
-      console.error('Error cambiando de empresa:', error);
-    }
+    });
   };
 
   const getStatusBadgeColor = (status: string) => {
