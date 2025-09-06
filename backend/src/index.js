@@ -13,8 +13,8 @@ async function bootstrap() {
     await prisma.$connect();
     app.locals.prisma = prisma;
 
-    server = app.listen(PORT, () => {
-      console.log(`SIRIM API escuchando en :${PORT}`);
+    server = app.listen(PORT, '0.0.0.0', () => {
+      console.log(`SIRIM API escuchando en 0.0.0.0:${PORT}`);
     });
   } catch (err) {
     console.error("Error al iniciar servidor:", err);
