@@ -258,7 +258,7 @@ const BackupPage: React.FC = () => {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center space-x-2">
-            <DatabaseIcon className="h-5 w-5" />
+            <ConfiguracionIcon className="h-5 w-5" />
             <span>Estado del Sistema</span>
           </CardTitle>
         </CardHeader>
@@ -394,7 +394,8 @@ const BackupPage: React.FC = () => {
               <p className="text-sm text-secondary-600">Crear backups automáticamente</p>
             </div>
             <ToggleSwitch
-              enabled={config.autoBackupEnabled}
+              id="auto-backup"
+              checked={config.autoBackupEnabled}
               onChange={(enabled) => handleConfigUpdate({ autoBackupEnabled: enabled })}
             />
           </div>
@@ -442,7 +443,8 @@ const BackupPage: React.FC = () => {
               <p className="text-sm text-secondary-600">Reducir tamaño de backups</p>
             </div>
             <ToggleSwitch
-              enabled={config.compressionEnabled}
+              id="compression"
+              checked={config.compressionEnabled}
               onChange={(enabled) => handleConfigUpdate({ compressionEnabled: enabled })}
             />
           </div>
