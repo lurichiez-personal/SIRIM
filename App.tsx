@@ -33,6 +33,7 @@ import CatalogoCuentasPage from './features/contabilidad/CatalogoCuentasPage';
 import ReportesContablesPage from './features/contabilidad/ReportesContablesPage';
 import HistorialNominaPage from './features/nomina/HistorialNominaPage';
 import AuditarNominaPage from './features/nomina/AuditarNominaPage';
+import SuscripcionesPage from './features/suscripciones/SuscripcionesPage';
 
 // Client Portal
 import ClientPortalLayout from './features/portal/ClientPortalLayout';
@@ -112,6 +113,7 @@ function App(): React.ReactNode {
                   <Route path="configuracion/usuarios" element={<GestionUsuariosPage />} />
                   <Route path="configuracion/tasas" element={<TasasPage />} />
                   <Route path="configuracion/empresas" element={<GestionEmpresasPage />} />
+                  <Route path="suscripciones" element={<SuscripcionesPage />} />
                   <Route path="*" element={<Navigate to="/dashboard" />} />
                 </Routes>
               </Layout>
