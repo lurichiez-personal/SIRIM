@@ -11,31 +11,69 @@ interface ClientAuthState {
   triggerLogin: (email: string, password: string) => Promise<boolean>;
 }
 
-const mockClientUsers: ClientUser[] = [
-    { id: 'client-user-1', clienteId: 1, nombre: 'Juan Perez (Cliente A)', email: 'clienteA@email.com', password: 'password123' },
-    { id: 'client-user-2', clienteId: 2, nombre: 'Maria Gomez (Cliente B)', email: 'clienteB@email.com', password: 'password123' },
-    { id: 'client-user-demo', clienteId: 1, nombre: 'Cliente A Corp (Demo)', email: 'cliente@demo.com', password: 'demo' },
-];
+// Los usuarios cliente ahora vienen exclusivamente de la base de datos PostgreSQL
 
 export const useClientAuthStore = create<ClientAuthState>()(
   persist(
     (set, get) => ({
       isClientAuthenticated: false,
       clientUser: null,
-      clientUsers: mockClientUsers,
+      clientUsers: [], // Los usuarios cliente se cargan dinámicamente desde la BD
       login: (user: ClientUser) => set({ isClientAuthenticated: true, clientUser: user }),
       logout: () => set({ isClientAuthenticated: false, clientUser: null }),
       triggerLogin: async (email: string, password: string) => {
-        await new Promise(resolve => setTimeout(resolve, 500));
-        const cleanEmail = email.trim().toLowerCase();
-        const cleanPassword = password.trim();
-        const foundUser = get().clientUsers.find(u => u.email.trim().toLowerCase() === cleanEmail);
-        
-        if (foundUser && foundUser.password?.trim() === cleanPassword) {
-            set({ isClientAuthenticated: true, clientUser: foundUser });
-            return true;
+        try {
+          const cleanEmail = email.trim().toLowerCase();
+          const cleanPassword = password.trim();
+          
+          // Intentar login con backend primero
+          const response = await fetch('/api/client-auth/login', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              email: cleanEmail,
+              password: cleanPassword
+            })
+          });
+
+          if (response.ok) {
+            const result = await response.json();
+            
+            if (result.clientUser && result.token) {
+              // Guardar token del cliente
+              localStorage.setItem('clientToken', result.token);
+              
+              // Login exitoso
+              set({ isClientAuthenticated: true, clientUser: result.clientUser });
+              return true;
+            }
+          }
+          
+          // Si el backend falla, intentar con usuarios locales como fallback
+          const foundUser = get().clientUsers.find(u => u.email.trim().toLowerCase() === cleanEmail);
+          
+          if (foundUser && foundUser.password?.trim() === cleanPassword) {
+              set({ isClientAuthenticated: true, clientUser: foundUser });
+              return true;
+          }
+          
+          return false;
+        } catch (error) {
+          console.error('Error en login de cliente:', error);
+          
+          // Fallback a usuarios locales
+          const cleanEmail = email.trim().toLowerCase();
+          const foundUser = get().clientUsers.find(u => u.email.trim().toLowerCase() === cleanEmail);
+          
+          if (foundUser && foundUser.password?.trim() === cleanPassword) {
+              set({ isClientAuthenticated: true, clientUser: foundUser });
+              return true;
+          }
+          
+          return false;
         }
-        return false;
       },
     }),
     {
