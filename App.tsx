@@ -38,6 +38,7 @@ import {
   LazyReportesContablesPage,
   LazyBackupPage,
   LazyDGIIReportsPage,
+  LazyMicrosoftCallbackPage,
   withLazyLoading
 } from './components/LazyComponents';
 
