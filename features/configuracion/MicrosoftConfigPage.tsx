@@ -200,7 +200,7 @@ const MicrosoftConfigPage: React.FC = () => {
                 className="w-full border border-secondary-300 rounded-md px-3 py-2"
               />
               <p className="text-xs text-secondary-500 mt-1">
-                Obténgalo del Azure Portal > App registrations > su aplicación > Overview
+                Obténgalo del Azure Portal → App registrations → su aplicación → Overview
               </p>
             </div>
 
@@ -216,7 +216,7 @@ const MicrosoftConfigPage: React.FC = () => {
                 className="w-full border border-secondary-300 rounded-md px-3 py-2"
               />
               <p className="text-xs text-secondary-500 mt-1">
-                Obténgalo del Azure Portal > App registrations > su aplicación > Overview
+                Obténgalo del Azure Portal → App registrations → su aplicación → Overview
               </p>
             </div>
 
@@ -239,7 +239,7 @@ const MicrosoftConfigPage: React.FC = () => {
                 className="w-full border border-secondary-300 rounded-md px-3 py-2"
               />
               <p className="text-xs text-secondary-500 mt-1">
-                Obténgalo del Azure Portal > App registrations > su aplicación > Certificates & secrets
+                Obténgalo del Azure Portal → App registrations → su aplicación → Certificates & secrets
               </p>
             </div>
 
@@ -254,7 +254,7 @@ const MicrosoftConfigPage: React.FC = () => {
                 className="w-full border border-secondary-300 rounded-md px-3 py-2"
               />
               <p className="text-xs text-secondary-500 mt-1">
-                Debe configurar esta misma URL en Azure Portal > App registrations > su aplicación > Authentication
+                Debe configurar esta misma URL en Azure Portal → App registrations → su aplicación → Authentication
               </p>
             </div>
 
@@ -325,7 +325,7 @@ const MicrosoftConfigPage: React.FC = () => {
                 <h4 className="font-semibold">1. Registrar Aplicación en Azure Portal</h4>
                 <ul className="mt-2 space-y-1 text-secondary-600">
                   <li>• Vaya a portal.azure.com</li>
-                  <li>• Azure Active Directory > App registrations > New registration</li>
+                  <li>• Azure Active Directory → App registrations → New registration</li>
                   <li>• Nombre: "SIRIM OAuth Client"</li>
                   <li>• Account types: Single tenant o Multi-tenant según necesidades</li>
                 </ul>
@@ -334,7 +334,7 @@ const MicrosoftConfigPage: React.FC = () => {
               <div className="border-l-4 border-green-500 pl-4">
                 <h4 className="font-semibold">2. Configurar Authentication</h4>
                 <ul className="mt-2 space-y-1 text-secondary-600">
-                  <li>• Authentication > Add a platform > Web</li>
+                  <li>• Authentication → Add a platform → Web</li>
                   <li>• Redirect URI: <code className="bg-secondary-100 px-2 py-1 rounded">{config.redirectUri}</code></li>
                   <li>• Enable "Access tokens" and "ID tokens"</li>
                 </ul>
@@ -343,7 +343,7 @@ const MicrosoftConfigPage: React.FC = () => {
               <div className="border-l-4 border-purple-500 pl-4">
                 <h4 className="font-semibold">3. Crear Client Secret (Opcional)</h4>
                 <ul className="mt-2 space-y-1 text-secondary-600">
-                  <li>• Certificates & secrets > New client secret</li>
+                  <li>• Certificates & secrets → New client secret</li>
                   <li>• Copie el VALUE (no el Secret ID)</li>
                   <li>• Guárdelo de forma segura</li>
                 </ul>
@@ -352,8 +352,8 @@ const MicrosoftConfigPage: React.FC = () => {
               <div className="border-l-4 border-orange-500 pl-4">
                 <h4 className="font-semibold">4. Configurar API Permissions</h4>
                 <ul className="mt-2 space-y-1 text-secondary-600">
-                  <li>• API permissions > Add a permission</li>
-                  <li>• Microsoft Graph > Delegated permissions</li>
+                  <li>• API permissions → Add a permission</li>
+                  <li>• Microsoft Graph → Delegated permissions</li>
                   <li>• Agregar: User.Read, openid, profile, email</li>
                   <li>• Grant admin consent (si es necesario)</li>
                 </ul>
