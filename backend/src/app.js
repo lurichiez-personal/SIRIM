@@ -51,7 +51,16 @@ app.use(
 app.use(express.json({ limit: "1mb" }));
 
 // Servir archivos estáticos del frontend SIEMPRE (desarrollo y producción)
-app.use(express.static(path.join(__dirname, '../../dist')));
+app.use(express.static(path.join(__dirname, '../../dist'), {
+  setHeaders: (res, path) => {
+    // Forzar recarga para CSS y JS
+    if (path.endsWith('.css') || path.endsWith('.js')) {
+      res.set('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.set('Pragma', 'no-cache');
+      res.set('Expires', '0');
+    }
+  }
+}));
 
 // API health check en ruta específica
 app.get("/api", (_req, res) => {
