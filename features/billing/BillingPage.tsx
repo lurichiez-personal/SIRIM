@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { StripeProvider } from './StripeProvider';
 import { SubscriptionManager } from './SubscriptionManager';
+import CancelSubscriptionSection from './CancelSubscriptionSection';
 import { useAuthStore } from '../../stores/useAuthStore';
 
 interface SubscriptionStatus {
@@ -222,22 +223,23 @@ const BillingPage: React.FC = () => {
             )}
           </div>
 
-          {subscription.status === 'ACTIVE' || subscription.status === 'TRIAL' ? (
-            <div className="mt-8 flex gap-4">
-              <button
-                onClick={() => cancelSubscription(false)}
-                className="bg-yellow-600 text-white px-4 py-2 rounded hover:bg-yellow-700"
-              >
-                Cancelar al Final del Período
-              </button>
-              <button
-                onClick={() => cancelSubscription(true)}
-                className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700"
-              >
-                Cancelar Inmediatamente
-              </button>
+          {(subscription.status === 'active' || subscription.status === 'trial') && (
+            <div className="mt-8">
+              <CancelSubscriptionSection 
+                subscription={{
+                  id: subscription.id,
+                  status: subscription.status,
+                  currentPeriodStart: subscription.currentPeriodStart,
+                  currentPeriodEnd: subscription.currentPeriodEnd,
+                  plan: {
+                    name: 'Plan Actual',
+                    price: 0
+                  }
+                }}
+                onCancelSuccess={loadSubscriptionStatus}
+              />
             </div>
-          ) : null}
+          )}
         </div>
 
         <div className="bg-white rounded-lg shadow-lg border border-gray-200 p-6">
