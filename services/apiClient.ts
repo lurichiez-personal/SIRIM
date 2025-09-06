@@ -16,7 +16,7 @@ interface ApiResponse<T> {
 
 class ApiClient {
   private getHeaders(): HeadersInit {
-    const token = useAuthStore.getState().token;
+    const token = localStorage.getItem('token');
     return {
       'Content-Type': 'application/json',
       ...(token && { 'Authorization': `Bearer ${token}` })

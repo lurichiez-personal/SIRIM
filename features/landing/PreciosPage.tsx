@@ -41,7 +41,7 @@ const PreciosPage: React.FC = () => {
 
     const PriceDisplay = ({ price }: { price: number | undefined }) => {
         if (!hydrated || price === undefined) {
-            return <div className="h-10 w-20 bg-secondary-200 animate-pulse rounded-md mx-auto mt-2"></div>
+            return <div className="h-10 w-20 bg-secondary-200 animate-pulse rounded-md mx-auto mt-2"></div>;
         }
         return <p className="text-4xl font-bold mt-2">${price} <span className="text-lg font-normal text-secondary-500">/ mes</span></p>;
     };
