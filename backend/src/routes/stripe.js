@@ -48,6 +48,46 @@ router.post("/create-payment-intent", async (req, res) => {
   }
 });
 
+// Cancelar suscripción
+router.post("/cancel-subscription", async (req, res) => {
+  try {
+    const { subscriptionId } = req.body;
+
+    if (!subscriptionId) {
+      return res.status(400).json({
+        success: false,
+        message: "ID de suscripción requerido"
+      });
+    }
+
+    // Cancelar en Stripe
+    const cancelledSubscription = await stripeService.cancelSubscription(subscriptionId);
+    
+    // Actualizar en base de datos
+    await prisma.suscripcion.update({
+      where: { stripeSubscriptionId: subscriptionId },
+      data: { 
+        status: 'cancelled',
+        cancelledAt: new Date()
+      }
+    });
+
+    res.json({
+      success: true,
+      message: "Suscripción cancelada exitosamente",
+      subscription: cancelledSubscription
+    });
+
+  } catch (error) {
+    console.error("Error cancelando suscripción:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error al cancelar suscripción",
+      error: error.message
+    });
+  }
+});
+
 // Obtener planes disponibles de Stripe
 router.get("/plans", async (req, res) => {
   try {

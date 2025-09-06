@@ -148,6 +148,18 @@ class StripeService {
     }
   }
 
+  // Cancelar suscripción
+  async cancelSubscription(subscriptionId) {
+    this._checkStripeAvailable();
+    try {
+      const subscription = await stripe.subscriptions.cancel(subscriptionId);
+      return subscription;
+    } catch (error) {
+      console.error('Error cancelando suscripción:', error);
+      throw new Error('Error al cancelar suscripción');
+    }
+  }
+
   // Crear payment intent simple
   async createPaymentIntent(options) {
     this._checkStripeAvailable();
