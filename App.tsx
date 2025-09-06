@@ -36,6 +36,7 @@ import {
   LazyLibroDiarioPage,
   LazyCatalogoCuentasPage,
   LazyReportesContablesPage,
+  LazyDGIIReportsPage,
   withLazyLoading
 } from './components/LazyComponents';
 
@@ -98,6 +99,7 @@ function App(): React.ReactNode {
                   <Route path="cuentas-por-cobrar" element={<CuentasPorCobrarPageLazy />} />
                   <Route path="inventario" element={<InventarioPageLazy />} />
                   <Route path="reportes" element={<ReportesPageLazy />} />
+                  <Route path="reportes/dgii" element={<LazyDGIIReportsPage />} />
                   <Route path="conciliacion" element={<ConciliacionPageLazy />} />
                   <Route path="nomina" element={<NominaPageLazy />} />
                   <Route path="nomina/historial" element={<LazyHistorialNominaPage />} />

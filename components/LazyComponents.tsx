@@ -48,6 +48,7 @@ export const LazyGastosPage = React.lazy(() => import('../features/gastos/Gastos
 export const LazyIngresosPage = React.lazy(() => import('../features/ingresos/IngresosPage'));
 export const LazyInventarioPage = React.lazy(() => import('../features/inventario/InventarioPage'));
 export const LazyReportesPage = React.lazy(() => import('../features/reportes/ReportesPage'));
+export const LazyDGIIReportsPage = React.lazy(() => import('../features/reportes/DGIIReportsPage'));
 export const LazyConfiguracionPage = React.lazy(() => import('../features/configuracion/ConfiguracionPage'));
 export const LazyConciliacionPage = React.lazy(() => import('../features/conciliacion/ConciliacionPage'));
 export const LazyNominaPage = React.lazy(() => import('../features/nomina/NominaPage'));
