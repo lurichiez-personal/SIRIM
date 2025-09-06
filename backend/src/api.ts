@@ -1,6 +1,9 @@
 // src/api.ts
-const REPLIT_DOMAIN = process.env.REPLIT_DEV_DOMAIN;
-const API = REPLIT_DOMAIN ? `https://${REPLIT_DOMAIN}:3001` : "http://localhost:3001";
+// Use relative URLs when in production, full URLs in development
+const isReplit = typeof window !== 'undefined' && window.location.hostname.includes('replit');
+const API = isReplit 
+  ? `${window.location.protocol}//${window.location.hostname}:3001`
+  : "http://localhost:3001";
 
 export async function api(path: string, opts: RequestInit = {}) {
   const token = localStorage.getItem("token"); // guarda tu token aquí tras login
