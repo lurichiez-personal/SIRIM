@@ -118,50 +118,127 @@ export const useAuthStore = create<AuthState>()(
         }
       },
       loginWithPassword: async (email, password) => {
-        await new Promise(resolve => setTimeout(resolve, 500));
-        const cleanEmail = email.trim().toLowerCase();
-        const cleanPassword = password.trim();
-        
-        const foundUser = get().users.find(u => u.email.trim().toLowerCase() === cleanEmail && u.authMethod === 'local');
-        
-        if (foundUser && foundUser.password?.trim() === cleanPassword) {
-            if (!foundUser.activo) {
-                console.error("Login fallido: Usuario inactivo.");
-                return false;
+        try {
+          const cleanEmail = email.trim().toLowerCase();
+          const cleanPassword = password.trim();
+          
+          // Intentar login con backend primero
+          const response = await fetch('/api/auth/login', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              email: cleanEmail,
+              password: cleanPassword
+            })
+          });
+
+          if (response.ok) {
+            const result = await response.json();
+            
+            if (result.user && result.token) {
+              // Guardar token
+              localStorage.setItem('token', result.token);
+              
+              // Crear objeto de usuario
+              const user: User = {
+                id: result.user.id.toString(),
+                nombre: result.user.nombre,
+                email: result.user.email,
+                roles: [Role.Admin], // Ajustar según el rol real
+                authMethod: 'local',
+                activo: result.user.active
+              };
+              
+              // Login exitoso
+              get().login(user);
+              return true;
             }
-            get().login(foundUser);
-            return true;
+          }
+          
+          // Si el backend falla, intentar con usuarios locales/mock como fallback
+          const foundUser = get().users.find(u => u.email.trim().toLowerCase() === cleanEmail && u.authMethod === 'local');
+          
+          if (foundUser && foundUser.password?.trim() === cleanPassword) {
+              if (!foundUser.activo) {
+                  console.error("Login fallido: Usuario inactivo.");
+                  return false;
+              }
+              get().login(foundUser);
+              return true;
+          }
+          
+          console.error("Login fallido: Credenciales incorrectas.");
+          return false;
+        } catch (error) {
+          console.error('Error en login:', error);
+          
+          // Fallback a usuarios locales en caso de error de red
+          const cleanEmail = email.trim().toLowerCase();
+          const cleanPassword = password.trim();
+          const foundUser = get().users.find(u => u.email.trim().toLowerCase() === cleanEmail && u.authMethod === 'local');
+          
+          if (foundUser && foundUser.password?.trim() === cleanPassword && foundUser.activo) {
+              get().login(foundUser);
+              return true;
+          }
+          
+          return false;
         }
-        console.error("Login fallido: Credenciales incorrectas.");
-        return false;
       },
       register: async (data) => {
-        const { nombreEmpresa, rnc, nombreUsuario, email, password } = data;
-        
-        const existingUser = get().users.find(u => u.email.toLowerCase() === email.toLowerCase());
-        if (existingUser) {
-            useAlertStore.getState().showAlert('Error de Registro', 'El correo electrónico ya está en uso.');
+        try {
+          const { nombreEmpresa, rnc, nombreUsuario, email, password } = data;
+          
+          // Usar el endpoint del backend que guarda en PostgreSQL
+          const response = await fetch('/api/registration/register-company', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              nombreEmpresa,
+              rnc,
+              nombreUsuario,
+              email,
+              password
+            })
+          });
+
+          const result = await response.json();
+          
+          if (response.ok && result.message) {
+            // El registro fue exitoso, crear usuario local para la sesión
+            const newUser: User = {
+              id: result.user.id.toString(),
+              nombre: result.user.nombre,
+              email: result.user.email,
+              roles: [Role.Admin],
+              empresaId: result.empresa.id,
+              authMethod: 'local',
+              activo: true,
+            };
+            
+            // Agregar a usuarios locales y hacer login
+            set(state => ({ users: [...state.users, newUser] }));
+            get().login(newUser);
+            
+            useAlertStore.getState().showAlert(
+              'Registro Exitoso', 
+              `Empresa "${result.empresa.nombre}" creada exitosamente. Se ha enviado una notificación por email.`
+            );
+            
+            return true;
+          } else {
+            useAlertStore.getState().showAlert('Error de Registro', result.error || 'Error en el registro');
             return false;
+          }
+        } catch (error) {
+          console.error('Error en registro:', error);
+          useAlertStore.getState().showAlert('Error de Conexión', 'No se pudo conectar con el servidor');
+          return false;
         }
-
-        const newEmpresa = useTenantStore.getState().addEmpresa({ nombre: nombreEmpresa, rnc });
-
-        const newUser: User = {
-            id: `user-reg-${Date.now()}`,
-            nombre: nombreUsuario,
-            email: email,
-            password: password,
-            roles: [Role.Admin],
-            empresaId: newEmpresa.id,
-            authMethod: 'local',
-            activo: true,
-        };
-        
-        set(state => ({ users: [...state.users, newUser] }));
-        
-        get().login(newUser);
-
-        return true;
       },
       getUsersForTenant: (empresaId: number) => {
         return get().users.filter(u => u.empresaId === empresaId);
