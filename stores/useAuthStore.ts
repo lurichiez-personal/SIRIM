@@ -15,8 +15,8 @@ interface AuthState {
   triggerMicrosoftLogin: () => Promise<boolean>;
   loginWithPassword: (email: string, password: string) => Promise<boolean>;
   register: (data: { nombreEmpresa: string, rnc: string, nombreUsuario: string, email: string, password: string }) => Promise<boolean>;
-  getUsersForTenant: (empresaId: number) => User[];
-  addUser: (userData: Omit<User, 'id'>) => void;
+  getUsersForTenant: (empresaId: number) => Promise<User[]>;
+  addUser: (userData: Omit<User, 'id'>) => Promise<void>;
   updateUser: (userData: User) => void;
   handleMicrosoftCallback: () => Promise<boolean>;
 }

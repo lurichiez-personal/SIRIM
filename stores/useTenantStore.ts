@@ -11,30 +11,39 @@ interface TenantState {
   fetchAvailableTenants: () => void;
   getTenantById: (tenantId: number) => Empresa | undefined;
   clearTenants: () => void;
-  addEmpresa: (empresaData: Omit<Empresa, 'id' | 'trialEndsAt'>) => Empresa;
+  addEmpresa: (empresaData: Omit<Empresa, 'id' | 'trialEndsAt'>) => Promise<Empresa>;
 }
 
-const mockEmpresas: Empresa[] = [
-    { id: 1, nombre: 'Empresa A S.R.L.', rnc: '101000001' },
-    { id: 2, nombre: 'Consultores B & Asociados', rnc: '102000002' },
-    { id: 3, nombre: 'Constructora C por A', rnc: '103000003' }
-];
+// Las empresas ahora vienen exclusivamente de la base de datos PostgreSQL
 
-// Función para simular una llamada a la API
-const fetchTenantsFromApi = async (userId: string | undefined, allTenants: Empresa[]): Promise<Empresa[]> => {
+// Función para obtener empresas desde la base de datos
+const fetchTenantsFromApi = async (userId: string | undefined): Promise<Empresa[]> => {
     console.log(`Fetching tenants for user ${userId}`);
-    await new Promise(resolve => setTimeout(resolve, 500));
-    const user = useAuthStore.getState().user;
-    if (user?.empresaId) {
-        return allTenants.filter(e => e.id === user.empresaId);
+    
+    try {
+        const response = await fetch('/api/empresas', {
+            headers: {
+                'Authorization': `Bearer ${localStorage.getItem('token')}`
+            }
+        });
+        
+        if (response.ok) {
+            const empresas = await response.json();
+            return empresas;
+        }
+        
+        console.error('Error obteniendo empresas:', response.statusText);
+        return [];
+    } catch (error) {
+        console.error('Error de conexión obteniendo empresas:', error);
+        return [];
     }
-    return allTenants; // El contador ve todas
 };
 
 
 export const useTenantStore = create<TenantState>((set, get) => ({
   selectedTenant: null,
-  availableTenants: mockEmpresas,
+  availableTenants: [], // Las empresas se cargan dinámicamente desde la BD
   setTenant: (tenantId: number) => {
     const { availableTenants } = get();
     const newTenant = availableTenants.find(t => t.id === tenantId) || null;
@@ -46,15 +55,14 @@ export const useTenantStore = create<TenantState>((set, get) => ({
   },
   fetchAvailableTenants: async () => {
     const user = useAuthStore.getState().user;
-    const allTenants = get().availableTenants;
-    const tenants = await fetchTenantsFromApi(user?.id, allTenants);
+    const tenants = await fetchTenantsFromApi(user?.id);
     
-    // Do not set availableTenants here again as it's the source of truth now.
-    // Only determine the selected one.
+    // Actualizar la lista de tenants disponibles
+    set({ availableTenants: tenants });
     
     if (user && tenants.length > 0) {
         const currentSelected = get().selectedTenant;
-        // If there's no selection or the current selection is not in the available list, set a default.
+        // Si no hay selección o la selección actual no está en la lista, establecer un default
         if (!currentSelected || !tenants.some(t => t.id === currentSelected.id)) {
             const defaultTenantId = user.empresaId || tenants[0].id;
             const defaultTenant = tenants.find(t => t.id === defaultTenantId);
@@ -72,18 +80,63 @@ export const useTenantStore = create<TenantState>((set, get) => ({
   clearTenants: () => {
     set({ selectedTenant: null });
   },
-  addEmpresa: (empresaData) => {
-    const trialEndDate = new Date();
-    trialEndDate.setDate(trialEndDate.getDate() + 30);
-    
-    const newEmpresa: Empresa = {
-        ...empresaData,
-        id: Date.now(),
-        trialEndsAt: trialEndDate.toISOString(),
-    };
-    set(state => ({
-        availableTenants: [...state.availableTenants, newEmpresa]
-    }));
-    return newEmpresa;
+  addEmpresa: async (empresaData) => {
+    try {
+        const response = await fetch('/api/empresas', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${localStorage.getItem('token')}`
+            },
+            body: JSON.stringify(empresaData)
+        });
+
+        if (response.ok) {
+            const newEmpresa = await response.json();
+            
+            // Agregar a la lista local
+            set(state => ({
+                availableTenants: [...state.availableTenants, newEmpresa]
+            }));
+            
+            return newEmpresa;
+        } else {
+            console.error('Error creando empresa:', response.statusText);
+            
+            // Fallback: crear localmente (temporal)
+            const trialEndDate = new Date();
+            trialEndDate.setDate(trialEndDate.getDate() + 30);
+            
+            const newEmpresa: Empresa = {
+                ...empresaData,
+                id: Date.now(),
+                trialEndsAt: trialEndDate.toISOString(),
+            };
+            
+            set(state => ({
+                availableTenants: [...state.availableTenants, newEmpresa]
+            }));
+            
+            return newEmpresa;
+        }
+    } catch (error) {
+        console.error('Error de conexión creando empresa:', error);
+        
+        // Fallback: crear localmente (temporal)
+        const trialEndDate = new Date();
+        trialEndDate.setDate(trialEndDate.getDate() + 30);
+        
+        const newEmpresa: Empresa = {
+            ...empresaData,
+            id: Date.now(),
+            trialEndsAt: trialEndDate.toISOString(),
+        };
+        
+        set(state => ({
+            availableTenants: [...state.availableTenants, newEmpresa]
+        }));
+        
+        return newEmpresa;
+    }
   }
 }));
