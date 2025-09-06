@@ -50,8 +50,8 @@ app.use(
 // Body parser
 app.use(express.json({ limit: "1mb" }));
 
-// Ping rápido
-app.get("/", (_req, res) => {
+// API health check en ruta específica
+app.get("/api", (_req, res) => {
   res.json({ ok: true, service: "SIRIM API", ts: new Date().toISOString() });
 });
 
