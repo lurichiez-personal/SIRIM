@@ -112,14 +112,21 @@ const EscanearGastoModal: React.FC<EscanearGastoModalProps> = ({ isOpen, onClose
             setStatusText('Análisis profundo de factura dominicana...');
             
             const enhancedPrompt = {
-                text: `Eres un experto en facturas fiscales dominicanas. Analiza esta imagen con máxima precisión y extrae EXACTAMENTE la información solicitada. 
+                text: `Eres un experto contador especializado en facturas fiscales dominicanas. Analiza esta imagen con máxima precisión y extrae EXACTAMENTE toda la información tributaria.
 
 INSTRUCCIONES CRÍTICAS:
-1. Solo extrae datos que REALMENTE veas en la imagen
-2. Para números, busca los valores exactos sin aproximaciones
-3. Valida que el RNC tenga 9 u 11 dígitos
-4. Valida que el NCF siga el formato correcto (B/E + 10 dígitos)
-5. Si no estás 100% seguro de un valor, márcalo como null
+1. Busca TODOS los impuestos dominicanos que aparezcan en la factura
+2. Presta especial atención a términos como "Propina", "Propina Legal", "10%", "Service Charge"
+3. Para números, busca los valores exactos sin aproximaciones
+4. Valida que el RNC tenga 9 u 11 dígitos
+5. Valida que el NCF siga el formato correcto (B/E + 10 dígitos)
+6. Si no estás 100% seguro de un valor, márcalo como null
+
+IMPUESTOS DOMINICANOS A BUSCAR:
+- ITBIS: Impuesto sobre Transferencia de Bienes y Servicios (18%)
+- ISC: Impuesto Selectivo al Consumo (variable)
+- Propina Legal: Servicio obligatorio (10%) - puede aparecer como "Propina", "Service Charge", "Servicio 10%"
+- Otros impuestos municipales o especiales
 
 FORMATO DE RESPUESTA (JSON puro):
 {
@@ -135,16 +142,18 @@ FORMATO DE RESPUESTA (JSON puro):
   "confidence_notes": "observaciones sobre la calidad de los datos extraídos"
 }
 
-CAMPOS A BUSCAR:
+CAMPOS DETALLADOS:
 - RNC: Registro Nacional del Contribuyente (9 u 11 dígitos)
 - NCF: Número de Comprobante Fiscal (B0100001234 o E310001234)
-- Subtotal: Monto antes de impuestos
-- ITBIS: Impuesto sobre Transferencia de Bienes (usualmente 18%)
-- ISC: Impuesto Selectivo al Consumo
-- Propina Legal: Propina obligatoria (usualmente 10%)
-- Monto/Total: Valor total a pagar
-- Descripción: Concepto principal de la compra
-- Método de Pago: Como se pagó
+- Subtotal: Monto antes de impuestos (base gravable)
+- ITBIS: Impuesto sobre Transferencia de Bienes (18% del subtotal)
+- ISC: Impuesto Selectivo al Consumo (sobre productos específicos)
+- Propina Legal: Servicio obligatorio 10% (buscar como "Propina", "Service", "Servicio 10%")
+- Monto/Total: Valor total final a pagar
+- Descripción: Concepto principal de la compra/servicio
+- Método de Pago: Efectivo, Tarjeta, Transferencia, Crédito
+
+IMPORTANTE: Si ves "Propina 10%" o "Service Charge" o similar, inclúyelo en propinaLegal.
 
 Responde SOLO con el JSON, sin explicaciones adicionales.`
             };
