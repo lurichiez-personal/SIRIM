@@ -21,14 +21,7 @@ interface AuthState {
   handleMicrosoftCallback: () => Promise<boolean>;
 }
 
-const mockUsers: User[] = [
-    { id: 'user-master-001', nombre: 'Luis Richiez', email: 'lurichiez@gmail.com', roles: [Role.Contador], authMethod: 'local', password: 'Alonso260990#', activo: true },
-    { id: 'user-contador-001', nombre: 'Contador General', email: 'contador@sirim.com', roles: [Role.Contador], authMethod: 'microsoft', activo: true },
-    { id: 'user-admin-empresa-a', nombre: 'Admin Empresa A', email: 'admin@empresa-a.com', roles: [Role.Admin], empresaId: 1, authMethod: 'local', password: 'password123', activo: true },
-    { id: 'user-ops-empresa-a', nombre: 'Usuario Operaciones A', email: 'operaciones@empresa-a.com', roles: [Role.Operaciones], empresaId: 1, authMethod: 'microsoft', activo: true },
-    { id: 'user-admin-empresa-b', nombre: 'Admin Empresa B', email: 'admin@empresa-b.com', roles: [Role.Admin], empresaId: 2, authMethod: 'local', password: 'password123', activo: true },
-    { id: 'user-ops-empresa-b', nombre: 'Usuario Operaciones B', email: 'operaciones@empresa-b.com', roles: [Role.Operaciones], empresaId: 2, authMethod: 'local', password: 'password123', activo: false },
-];
+// Los usuarios ahora vienen exclusivamente de la base de datos PostgreSQL
 
 
 export const useAuthStore = create<AuthState>()(
@@ -36,7 +29,7 @@ export const useAuthStore = create<AuthState>()(
     (set, get) => ({
       isAuthenticated: false,
       user: null,
-      users: mockUsers,
+      users: [], // Los usuarios se cargan dinámicamente desde la BD
 
       login: (user: User) => {
         set({ isAuthenticated: true, user });
@@ -157,33 +150,10 @@ export const useAuthStore = create<AuthState>()(
             }
           }
           
-          // Si el backend falla, intentar con usuarios locales/mock como fallback
-          const foundUser = get().users.find(u => u.email.trim().toLowerCase() === cleanEmail && u.authMethod === 'local');
-          
-          if (foundUser && foundUser.password?.trim() === cleanPassword) {
-              if (!foundUser.activo) {
-                  console.error("Login fallido: Usuario inactivo.");
-                  return false;
-              }
-              get().login(foundUser);
-              return true;
-          }
-          
           console.error("Login fallido: Credenciales incorrectas.");
           return false;
         } catch (error) {
           console.error('Error en login:', error);
-          
-          // Fallback a usuarios locales en caso de error de red
-          const cleanEmail = email.trim().toLowerCase();
-          const cleanPassword = password.trim();
-          const foundUser = get().users.find(u => u.email.trim().toLowerCase() === cleanEmail && u.authMethod === 'local');
-          
-          if (foundUser && foundUser.password?.trim() === cleanPassword && foundUser.activo) {
-              get().login(foundUser);
-              return true;
-          }
-          
           return false;
         }
       },
@@ -240,21 +210,60 @@ export const useAuthStore = create<AuthState>()(
           return false;
         }
       },
-      getUsersForTenant: (empresaId: number) => {
-        return get().users.filter(u => u.empresaId === empresaId);
+      getUsersForTenant: async (empresaId: number) => {
+        try {
+          const response = await fetch(`/api/auth/users?empresaId=${empresaId}`, {
+            headers: {
+              'Authorization': `Bearer ${localStorage.getItem('token')}`
+            }
+          });
+          
+          if (response.ok) {
+            const users = await response.json();
+            return users;
+          }
+          
+          // Fallback a datos locales si hay
+          return get().users.filter(u => u.empresaId === empresaId);
+        } catch (error) {
+          console.error('Error obteniendo usuarios:', error);
+          return get().users.filter(u => u.empresaId === empresaId);
+        }
       },
-      addUser: (userData) => {
-        const { users } = get();
-        if (userData.roles.includes(Role.Admin)) {
-            const adminsInCompany = users.filter(u => u.empresaId === userData.empresaId && u.roles.includes(Role.Admin));
+      addUser: async (userData) => {
+        try {
+          // Verificar límites antes de enviar
+          const existingUsers = await get().getUsersForTenant(userData.empresaId!);
+          if (userData.roles.includes(Role.Admin)) {
+            const adminsInCompany = existingUsers.filter(u => u.roles.includes(Role.Admin));
             if (adminsInCompany.length >= 3) {
                 useAlertStore.getState().showAlert('Límite Alcanzado', 'Una empresa no puede tener más de 3 administradores.');
                 return;
             }
-        }
+          }
 
-        const newUser: User = { ...userData, id: `user-local-${Date.now()}`};
-        set(state => ({ users: [...state.users, newUser]}));
+          const response = await fetch('/api/auth/register', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${localStorage.getItem('token')}`
+            },
+            body: JSON.stringify(userData)
+          });
+
+          if (response.ok) {
+            const newUser = await response.json();
+            // Agregar a la lista local también
+            set(state => ({ users: [...state.users, newUser]}));
+            useAlertStore.getState().showAlert('Usuario Creado', 'Usuario agregado exitosamente');
+          } else {
+            const error = await response.json();
+            useAlertStore.getState().showAlert('Error', error.error || 'Error al crear usuario');
+          }
+        } catch (error) {
+          console.error('Error creando usuario:', error);
+          useAlertStore.getState().showAlert('Error de Conexión', 'No se pudo conectar con el servidor');
+        }
       },
       updateUser: (userData) => {
         const { users } = get();
