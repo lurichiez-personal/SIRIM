@@ -20,7 +20,7 @@ import {
   BackupMetadata,
   BackupConfig
 } from '../../utils/backupSystem';
-import { DatabaseIcon, DownloadIcon, UploadIcon, InformationCircleIcon } from '../../components/icons/Icons';
+import { ConfiguracionIcon, InformationCircleIcon } from '../../components/icons/Icons';
 
 const BackupPage: React.FC = () => {
   const { selectedTenant } = useTenantStore();
@@ -239,7 +239,7 @@ const BackupPage: React.FC = () => {
             variant="secondary"
             disabled={isRestoringBackup}
           >
-            <UploadIcon className="h-4 w-4 mr-2" />
+            <span className="mr-2">📁</span>
             {isRestoringBackup ? 'Restaurando...' : 'Restaurar Backup'}
           </Button>
         </div>
@@ -324,7 +324,7 @@ const BackupPage: React.FC = () => {
         <CardContent>
           {backupHistory.length === 0 ? (
             <div className="text-center py-8 text-secondary-500">
-              <DatabaseIcon className="h-12 w-12 mx-auto mb-4 opacity-50" />
+              <div className="text-6xl mb-4 opacity-50">💾</div>
               <p>No hay backups disponibles</p>
               <p className="text-sm">Cree su primer backup usando el botón de arriba</p>
             </div>
@@ -357,7 +357,7 @@ const BackupPage: React.FC = () => {
                         variant="secondary"
                         onClick={() => handleDownloadBackup(backup)}
                       >
-                        <DownloadIcon className="h-4 w-4" />
+                        💾
                       </Button>
                       <Button
                         size="small"
