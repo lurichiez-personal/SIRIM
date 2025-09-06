@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/Card';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell, AreaChart, Area } from 'recharts';
-import { TrendingUpIcon, TrendingDownIcon, AlertTriangleIcon } from '../icons/Icons';
+import { InformationCircleIcon, ChevronDownIcon } from '../icons/Icons';
 
 export interface MetricTrend {
   current: number;
@@ -47,9 +47,9 @@ export const KPIWidget: React.FC<KPIWidgetProps> = ({
               trend.isPositive ? 'text-green-600' : 'text-red-600'
             }`}>
               {trend.isPositive ? (
-                <TrendingUpIcon className="h-4 w-4 mr-1" />
+                <span className="text-xs mr-1">↗</span>
               ) : (
-                <TrendingDownIcon className="h-4 w-4 mr-1" />
+                <span className="text-xs mr-1">↘</span>
               )}
               {Math.abs(trend.percentage).toFixed(1)}%
             </div>
@@ -90,7 +90,7 @@ export const AlertWidget: React.FC<AlertWidgetProps> = ({ alerts }) => {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center text-sm font-medium text-secondary-600">
-          <AlertTriangleIcon className="h-4 w-4 mr-2" />
+          <InformationCircleIcon className="h-4 w-4 mr-2" />
           Alertas ({alerts.length})
         </CardTitle>
       </CardHeader>

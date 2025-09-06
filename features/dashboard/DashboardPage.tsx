@@ -19,7 +19,7 @@ import {
   getTimeSeriesData, 
   getRevenueBreakdown 
 } from '../../utils/analyticsCalculations';
-import { TrendingUpIcon, CurrencyDollarIcon, ChartBarIcon, UserGroupIcon } from '../../components/icons/Icons';
+import { InformationCircleIcon, IngresosIcon, ReportesIcon, ClientesIcon } from '../../components/icons/Icons';
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8'];
 
@@ -118,7 +118,7 @@ const DashboardPage: React.FC = () => {
           formatter={formatCurrency}
           color="text-green-600"
           trend={getTrend(advancedKPIs.totalRevenue, previousMonthKPIs?.totalRevenue || null)}
-          icon={<CurrencyDollarIcon className="h-5 w-5" />}
+          icon={<IngresosIcon className="h-5 w-5" />}
           subtitle="Facturación total"
         />
         <KPIWidget
@@ -127,7 +127,7 @@ const DashboardPage: React.FC = () => {
           formatter={formatCurrency}
           color="text-red-600"
           trend={getTrend(advancedKPIs.totalExpenses, previousMonthKPIs?.totalExpenses || null)}
-          icon={<ChartBarIcon className="h-5 w-5" />}
+          icon={<ReportesIcon className="h-5 w-5" />}
           subtitle="Gastos operacionales"
         />
         <KPIWidget
@@ -136,7 +136,7 @@ const DashboardPage: React.FC = () => {
           formatter={formatCurrency}
           color={advancedKPIs.netProfit >= 0 ? "text-green-600" : "text-red-600"}
           trend={getTrend(advancedKPIs.netProfit, previousMonthKPIs?.netProfit || null)}
-          icon={<TrendingUpIcon className="h-5 w-5" />}
+          icon={<InformationCircleIcon className="h-5 w-5" />}
           subtitle="Ingresos - Gastos"
         />
         <KPIWidget
@@ -144,7 +144,7 @@ const DashboardPage: React.FC = () => {
           value={timeSeriesData.length > 0 ? timeSeriesData[timeSeriesData.length - 1]?.clientes || 0 : 0}
           formatter={(v) => v.toString()}
           color="text-blue-600"
-          icon={<UserGroupIcon className="h-5 w-5" />}
+          icon={<ClientesIcon className="h-5 w-5" />}
           subtitle="Este período"
         />
       </div>
