@@ -10,6 +10,7 @@ import { useNCFStore } from '../../stores/useNCFStore';
 import { useDataStore } from '../../stores/useDataStore';
 import VistaPreviaFacturaModal from './VistaPreviaFacturaModal';
 import NuevaNotaModal from '../notas/NuevaNotaModal';
+import NuevoPagoModal from '../ingresos/NuevoPagoModal';
 import Pagination from '../../components/ui/Pagination';
 import Checkbox from '../../components/ui/Checkbox';
 import { exportToCSV } from '../../utils/csvExport';
@@ -19,7 +20,7 @@ const ITEMS_PER_PAGE = 10;
 const FacturasPage: React.FC = () => {
     const { selectedTenant } = useTenantStore();
     const { getNextNCF } = useNCFStore();
-    const { facturas, clientes, items, addFactura, updateFactura, addCliente, updateCotizacionStatus, addNota, updateFacturaStatus, getPagedFacturas, bulkUpdateFacturaStatus } = useDataStore();
+    const { facturas, clientes, items, addFactura, updateFactura, addCliente, updateCotizacionStatus, addNota, updateFacturaStatus, getPagedFacturas, bulkUpdateFacturaStatus, addIngreso, getFacturasParaPago } = useDataStore();
     
     const location = useLocation();
     const navigate = useNavigate();
@@ -28,6 +29,8 @@ const FacturasPage: React.FC = () => {
     const [isFacturaModalOpen, setIsFacturaModalOpen] = useState(false);
     const [isVistaPreviaOpen, setIsVistaPreviaOpen] = useState(false);
     const [isNotaModalOpen, setIsNotaModalOpen] = useState(false);
+    const [isPagoModalOpen, setIsPagoModalOpen] = useState(false);
+    const [facturaParaPago, setFacturaParaPago] = useState<Factura | null>(null);
     
     const [cotizacionParaFacturar, setCotizacionParaFacturar] = useState<Cotizacion | null>(null);
     const [facturaRecurrenteParaFacturar, setFacturaRecurrenteParaFacturar] = useState<FacturaRecurrente | null>(null);
@@ -125,6 +128,17 @@ const FacturasPage: React.FC = () => {
         }
     };
     const handleCreateCliente = (newClientData: { nombre: string; rnc?: string, estadoDGII?: string }): Cliente => addCliente(newClientData);
+
+    const handleRecibirPago = (factura: Factura) => {
+        setFacturaParaPago(factura);
+        setIsPagoModalOpen(true);
+    };
+
+    const handleSavePago = (pagoData: Omit<Ingreso, 'id' | 'empresaId'>) => {
+        addIngreso(pagoData);
+        setIsPagoModalOpen(false);
+        setFacturaParaPago(null);
+    };
 
     const formatCurrency = (value: number) => new Intl.NumberFormat('es-DO', { style: 'currency', currency: 'DOP' }).format(value);
 
@@ -228,6 +242,9 @@ const FacturasPage: React.FC = () => {
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">
                                             <Button size="sm" variant="secondary" onClick={() => { setFacturaParaVer(factura); setIsVistaPreviaOpen(true); }}>Ver</Button>
+                                            {(factura.estado === FacturaEstado.Emitida || factura.estado === FacturaEstado.PagadaParcialmente) && (
+                                                <Button size="sm" variant="primary" onClick={() => handleRecibirPago(factura)}>Recibir Pago</Button>
+                                            )}
                                             <Button size="sm" variant="secondary" onClick={() => { setFacturaParaNota(factura); setIsNotaModalOpen(true); }}>Nota de Crédito</Button>
                                         </td>
                                     </tr>
@@ -263,6 +280,15 @@ const FacturasPage: React.FC = () => {
             facturasDisponibles={facturas.filter(f => f.estado !== FacturaEstado.Anulada)}
             facturaAfectadaInicial={facturaParaNota}
         />
+        
+        {facturaParaPago && (
+            <NuevoPagoModal
+                isOpen={isPagoModalOpen}
+                onClose={() => { setIsPagoModalOpen(false); setFacturaParaPago(null); }}
+                onSave={handleSavePago}
+                facturasDisponibles={[facturaParaPago]}
+            />
+        )}
     </div>
   );
 };

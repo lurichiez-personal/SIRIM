@@ -167,10 +167,10 @@ const CotizacionesPage: React.FC = () => {
                                             <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-4">
                                                 <button onClick={() => handleVerCotizacion(cot)} className="text-primary hover:text-primary-700">Ver</button>
                                                 {cot.estado === CotizacionEstado.Pendiente && (
-                                                    <>
-                                                        <button onClick={() => handleOpenModalParaEditar(cot)} className="text-primary hover:text-primary-700">Editar</button>
-                                                        <Button variant="secondary" size="sm" onClick={() => handleConvertirAFactura(cot)}>Convertir a Factura</Button>
-                                                    </>
+                                                    <button onClick={() => handleOpenModalParaEditar(cot)} className="text-primary hover:text-primary-700">Editar</button>
+                                                )}
+                                                {(cot.estado === CotizacionEstado.Pendiente || cot.estado === CotizacionEstado.Aprobada) && (
+                                                    <Button variant="secondary" size="sm" onClick={() => handleConvertirAFactura(cot)}>Convertir a Factura</Button>
                                                 )}
                                             </td>
                                         </tr>
