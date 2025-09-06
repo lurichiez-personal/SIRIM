@@ -8,6 +8,7 @@ SIRIM is a comprehensive web-based tax and accounting management system specific
 
 - **Communication style**: Simple, everyday language
 - **Data preservation policy**: ALWAYS preserve existing user data when making improvements or modifications. Only delete or modify existing data when explicitly requested by the user
+- **Data cleaning policy**: NEVER clean operational data (gastos, ventas, contabilidad, facturas, clientes, empleados, etc.) unless explicitly requested. All client-entered data must be preserved during improvements
 - **Development approach**: Make improvements incrementally without affecting existing functionality or data
 
 ## System Architecture
