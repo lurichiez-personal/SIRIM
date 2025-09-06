@@ -5,6 +5,7 @@ import { useTenantStore } from './useTenantStore';
 import { useNotificationStore } from './useNotificationStore';
 import { useAuthStore } from './useAuthStore';
 import { generarAsientoNomina, generarAsientoFacturaVenta, generarAsientoGasto, generarAsientoIngreso, generarAsientoNotaCredito, generarAsientoDesvinculacion } from '../utils/accountingUtils';
+import { apiClient } from '../services/apiClient';
 
 // --- MOCK DATA SOURCE ---
 
@@ -152,22 +153,61 @@ export const useDataStore = create<DataState>((set, get) => ({
   empleados: [], nominas: [], desvinculaciones: [], asientosContables: [],
 
   // --- ACTIONS ---
-  fetchData: (empresaId) => {
-    // In a real app, this would be an API call. Here we filter mock data.
-    set({
-        clientes: [...allClientes.filter(c => c.empresaId === empresaId)],
-        facturas: [...allFacturas.filter(f => f.empresaId === empresaId)],
-        items: [...allItems.filter(i => i.empresaId === empresaId)],
+  fetchData: async (empresaId) => {
+    try {
+      console.log(`Fetching data for empresa ${empresaId}...`);
+      
+      // Fetch all business data from API
+      const [
+        clientesRes,
+        facturasRes,
+        itemsRes,
+        gastosRes,
+        empleadosRes
+      ] = await Promise.all([
+        apiClient.getClientes(empresaId),
+        apiClient.getFacturas(empresaId),
+        apiClient.getItems(empresaId),
+        apiClient.getGastos(empresaId),
+        apiClient.getEmpleados(empresaId)
+      ]);
+
+      // Update store with real API data
+      set({
+        clientes: clientesRes.rows || [],
+        facturas: facturasRes.rows || [],
+        items: itemsRes.rows || [],
+        gastos: gastosRes.rows || [],
+        empleados: empleadosRes.rows || [],
+        // For now, keep mock data for features not yet migrated
         cotizaciones: [...allCotizaciones.filter(c => c.empresaId === empresaId)],
         notas: [...allNotas.filter(n => n.empresaId === empresaId)],
-        gastos: [...allGastos.filter(g => g.empresaId === empresaId)],
         ingresos: [...allIngresos.filter(i => i.empresaId === empresaId)],
         facturasRecurrentes: [...allFacturasRecurrentes.filter(fr => fr.empresaId === empresaId)],
-        empleados: [...allEmpleados.filter(e => e.empresaId === empresaId)],
         nominas: [...allNominas.filter(n => n.empresaId === empresaId)],
         desvinculaciones: [...allDesvinculaciones.filter(d => d.empresaId === empresaId)],
         asientosContables: [...allAsientosContables.filter(a => a.empresaId === empresaId)],
-    });
+      });
+
+      console.log(`Data loaded: ${clientesRes.rows?.length || 0} clients, ${facturasRes.rows?.length || 0} invoices, ${itemsRes.rows?.length || 0} items, ${gastosRes.rows?.length || 0} expenses`);
+    } catch (error) {
+      console.error('Error fetching data:', error);
+      // Fallback to mock data if API fails
+      set({
+        clientes: [...allClientes.filter(c => c.empresaId === empresaId)],
+        facturas: [...allFacturas.filter(f => f.empresaId === empresaId)],
+        items: [...allItems.filter(i => i.empresaId === empresaId)],
+        gastos: [...allGastos.filter(g => g.empresaId === empresaId)],
+        empleados: [...allEmpleados.filter(e => e.empresaId === empresaId)],
+        cotizaciones: [...allCotizaciones.filter(c => c.empresaId === empresaId)],
+        notas: [...allNotas.filter(n => n.empresaId === empresaId)],
+        ingresos: [...allIngresos.filter(i => i.empresaId === empresaId)],
+        facturasRecurrentes: [...allFacturasRecurrentes.filter(fr => fr.empresaId === empresaId)],
+        nominas: [...allNominas.filter(n => n.empresaId === empresaId)],
+        desvinculaciones: [...allDesvinculaciones.filter(d => d.empresaId === empresaId)],
+        asientosContables: [...allAsientosContables.filter(a => a.empresaId === empresaId)],
+      });
+    }
   },
   clearData: () => {
     set({ clientes: [], facturas: [], items: [], cotizaciones: [], notas: [], gastos: [], ingresos: [], facturasRecurrentes: [], empleados: [], nominas: [], desvinculaciones: [], asientosContables: [] });
@@ -512,20 +552,37 @@ export const useDataStore = create<DataState>((set, get) => ({
     facturaIds.forEach(id => get().updateFacturaStatus(id, status));
   },
 
-  addCliente: (clienteData) => {
+  addCliente: async (clienteData) => {
     const empresaId = useTenantStore.getState().selectedTenant?.id;
     if (!empresaId) throw new Error("No tenant selected");
-    const newCliente: Cliente = {
-        id: Date.now(),
-        empresaId,
-        createdAt: new Date().toISOString(),
-        activo: true,
-        estadoDGII: 'NO VERIFICADO', // Default value
-        ...clienteData,
-    };
-    allClientes.unshift(newCliente);
-    get().fetchData(empresaId);
-    return newCliente;
+    
+    try {
+      const newClienteData = { ...clienteData, empresaId };
+      const response = await apiClient.createCliente(newClienteData);
+      
+      if (response.error) {
+        console.error('Error creating cliente:', response.error);
+        throw new Error(response.error);
+      }
+      
+      // Refresh data from API
+      await get().fetchData(empresaId);
+      return response.data;
+    } catch (error) {
+      console.error('Error adding cliente:', error);
+      // Fallback to mock data behavior
+      const newCliente: Cliente = {
+          id: Date.now(),
+          empresaId,
+          createdAt: new Date().toISOString(),
+          activo: true,
+          estadoDGII: 'NO VERIFICADO', // Default value
+          ...clienteData,
+      };
+      allClientes.unshift(newCliente);
+      get().fetchData(empresaId);
+      return newCliente;
+    }
   },
   updateCliente: (cliente) => {
     const empresaId = useTenantStore.getState().selectedTenant?.id;
