@@ -17,7 +17,8 @@ interface DGIIDataState {
 }
 
 const DGII_RNC_URL = 'https://dgii.gov.do/app/WebApps/Consultas/RNC/DGII_RNC.zip';
-const PROXY_URL = `https://corsproxy.io/?${encodeURIComponent(DGII_RNC_URL)}`;
+// Using a more reliable CORS proxy service
+const PROXY_URL = `https://api.allorigins.win/get?url=${encodeURIComponent(DGII_RNC_URL)}`;
 
 
 export const useDGIIDataStore = create<DGIIDataState>((set, get) => ({
@@ -48,7 +49,20 @@ export const useDGIIDataStore = create<DGIIDataState>((set, get) => ({
       if (!response.ok) {
         throw new Error(`Error al descargar: ${response.statusText}. El servicio proxy puede estar experimentando problemas. Por favor, intente más tarde.`);
       }
-      const zipBlob = await response.blob();
+      
+      // Parse the response from AllOrigins proxy
+      const proxyResponse = await response.json();
+      if (!proxyResponse.contents) {
+        throw new Error('No se pudo obtener el contenido del archivo desde el proxy.');
+      }
+      
+      // Convert base64 contents to blob
+      const binaryString = atob(proxyResponse.contents);
+      const bytes = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
+      const zipBlob = new Blob([bytes]);
       
       set({ status: 'processing', progress: 5 });
 
