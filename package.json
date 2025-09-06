@@ -10,13 +10,16 @@
     "start": "cd backend && npm start"
   },
   "dependencies": {
-    "react-dom": "^19.1.1",
-    "react": "^19.1.1",
-    "react-router-dom": "^7.8.1",
-    "zustand": "^5.0.8",
-    "recharts": "^2.12.7",
     "@google/genai": "0.14.0",
-    "jszip": "3.10.1"
+    "autoprefixer": "^10.4.21",
+    "jszip": "3.10.1",
+    "postcss": "^8.5.6",
+    "react": "^19.1.1",
+    "react-dom": "^19.1.1",
+    "react-router-dom": "^7.8.1",
+    "recharts": "^2.12.7",
+    "tailwindcss": "^4.1.13",
+    "zustand": "^5.0.8"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",
