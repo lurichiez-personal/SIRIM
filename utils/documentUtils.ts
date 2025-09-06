@@ -23,7 +23,21 @@ export const generarVoucherPago = (empleadoNomina: NominaEmpleado, periodo: stri
         <head>
             <meta charset="UTF-8">
             <title>Volante de Pago - ${empleadoNomina.nombre}</title>
-            <script src="https://cdn.tailwindcss.com"></script>
+            <style>
+                body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+                .p-8 { padding: 2rem; } .p-6 { padding: 1.5rem; } .p-4 { padding: 1rem; }
+                .mb-6 { margin-bottom: 1.5rem; } .mb-4 { margin-bottom: 1rem; } .mb-2 { margin-bottom: 0.5rem; } .mt-4 { margin-top: 1rem; } .mt-6 { margin-top: 1.5rem; }
+                .text-2xl { font-size: 1.5rem; } .text-xl { font-size: 1.25rem; } .text-lg { font-size: 1.125rem; }
+                .font-bold { font-weight: 700; } .font-semibold { font-weight: 600; }
+                .text-center { text-align: center; } .text-right { text-align: right; }
+                .border { border: 1px solid #e5e7eb; } .border-b { border-bottom: 1px solid #e5e7eb; } .rounded-lg { border-radius: 0.5rem; } .rounded-md { border-radius: 0.375rem; }
+                .bg-gray-100 { background-color: #f3f4f6; } .bg-gray-50 { background-color: #f9fafb; }
+                .text-green-700 { color: #15803d; } .text-red-700 { color: #b91c1c; } .text-blue-700 { color: #1d4ed8; }
+                .grid { display: grid; } .grid-cols-2 { grid-template-columns: repeat(2, 1fr); } .gap-8 { gap: 2rem; }
+                .flex { display: flex; } .justify-between { justify-content: space-between; }
+                .max-w-3xl { max-width: 48rem; } .mx-auto { margin-left: auto; margin-right: auto; }
+                .py-1 { padding-top: 0.25rem; padding-bottom: 0.25rem; } .pb-1 { padding-bottom: 0.25rem; }
+            </style>
         </head>
         <body class="font-sans p-8">
             <div class="max-w-3xl mx-auto border rounded-lg p-6">
