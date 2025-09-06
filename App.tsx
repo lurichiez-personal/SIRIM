@@ -36,6 +36,7 @@ import {
   LazyLibroDiarioPage,
   LazyCatalogoCuentasPage,
   LazyReportesContablesPage,
+  LazyBackupPage,
   LazyDGIIReportsPage,
   withLazyLoading
 } from './components/LazyComponents';
@@ -117,6 +118,7 @@ function App(): React.ReactNode {
                   <Route path="configuracion/tasas" element={<LazyTasasPage />} />
                   <Route path="configuracion/empresas" element={<LazyGestionEmpresasPage />} />
                   <Route path="configuracion/marketing" element={<LazyMarketingPage />} />
+                  <Route path="configuracion/backup" element={<LazyBackupPage />} />
                   <Route path="*" element={<Navigate to="/dashboard" />} />
                 </Routes>
               </Layout>

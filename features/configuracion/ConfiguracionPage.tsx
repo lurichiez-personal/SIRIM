@@ -92,6 +92,12 @@ const ConfiguracionPage: React.FC = () => {
                     icon={ChartPieIcon}
                 />
             </Can>
+            <SettingCard
+                to="backup"
+                title="Sistema de Backup"
+                description="Administre copias de seguridad automáticas y manuales de sus datos empresariales."
+                icon={ConfiguracionIcon}
+            />
         </div>
     </div>
   );

@@ -65,6 +65,7 @@ export const LazyGestionUsuariosPage = React.lazy(() => import('../features/conf
 export const LazyTasasPage = React.lazy(() => import('../features/configuracion/TasasPage'));
 export const LazyGestionEmpresasPage = React.lazy(() => import('../features/configuracion/GestionEmpresasPage'));
 export const LazyMarketingPage = React.lazy(() => import('../features/configuracion/MarketingPage'));
+export const LazyBackupPage = React.lazy(() => import('../features/configuracion/BackupPage'));
 
 // Lazy loading de sub-páginas de nómina
 export const LazyHistorialNominaPage = React.lazy(() => import('../features/nomina/HistorialNominaPage'));
