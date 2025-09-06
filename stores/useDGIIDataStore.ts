@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import JSZip from 'jszip';
-import { findRNC, clearRNCData, appendRNCData, getDBInfo } from '../utils/rnc-database';
+import { findRNC, clearRNCData, appendRNCData, getDBInfo, addTestRNCData } from '../utils/rnc-database';
 
 type RNCDataStatus = 'idle' | 'checking' | 'downloading' | 'processing' | 'ready' | 'error';
 
@@ -13,6 +13,7 @@ interface DGIIDataState {
   progress: number;
   init: () => void;
   triggerUpdate: () => Promise<void>;
+  addTestData: () => Promise<void>;
   lookupRNC: (rnc: string) => Promise<{ nombre: string, status: string } | null>;
 }
 
@@ -40,8 +41,10 @@ export const useDGIIDataStore = create<DGIIDataState>((set, get) => ({
           set({ status: 'ready', recordCount: info.count, lastUpdated: info.lastUpdated });
       } else {
           set({ status: 'idle' });
-          // If the DB is empty, trigger the update automatically.
-          get().triggerUpdate();
+          // If the DB is empty, add test data first, then try to update from DGII
+          await get().addTestData();
+          // Optionally trigger DGII update in background (without blocking UI)
+          // get().triggerUpdate();
       }
   },
 
@@ -170,6 +173,27 @@ export const useDGIIDataStore = create<DGIIDataState>((set, get) => ({
       console.error("Error al actualizar la base de datos de RNC:", error);
       const message = error instanceof Error ? error.message : 'Ocurrió un error desconocido.';
       set({ status: 'error', errorMessage: message, loading: false });
+    }
+  },
+
+  addTestData: async () => {
+    try {
+      await addTestRNCData();
+      const info = await getDBInfo();
+      if (info) {
+        set({ 
+          status: 'ready', 
+          recordCount: info.count, 
+          lastUpdated: Date.now(),
+          errorMessage: null 
+        });
+      }
+    } catch (error) {
+      console.error("Error agregando datos de prueba:", error);
+      set({ 
+        status: 'error', 
+        errorMessage: 'Error al agregar datos de prueba' 
+      });
     }
   },
 
