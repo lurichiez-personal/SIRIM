@@ -33,6 +33,7 @@ model Empresa {
   matches       ReconciliationMatch[]
   subscription  Subscription?
   moduleUsage   ModuleUsage[]
+  metasVentas   MetaVentas[]
 }
 
 model Cliente {
@@ -370,4 +371,22 @@ model LandingConfig {
   updatedAt        DateTime @updatedAt
 
   @@map("landing_config")
+}
+
+// ---------- Metas de Ventas ----------
+
+model MetaVentas {
+  id          Int      @id @default(autoincrement())
+  empresaId   Int
+  empresa     Empresa  @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+  ano         Int      // Año de la meta
+  mes         Int      // Mes de la meta (1-12)
+  metaMensual Decimal  @db.Decimal(12, 2)
+  notas       String?  // Notas adicionales sobre la meta
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([empresaId, ano, mes]) // Una meta por empresa por mes
+  @@index([empresaId])
+  @@map("metas_ventas")
 }

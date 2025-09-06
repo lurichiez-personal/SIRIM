@@ -522,3 +522,14 @@ export interface CuentaContable {
   permiteMovimientos: boolean;
   padreId?: string | null;
 }
+
+export interface MetaVentas {
+  id: number;
+  empresaId: number;
+  ano: number;
+  mes: number;
+  metaMensual: number;
+  notas?: string;
+  createdAt: string;
+  updatedAt: string;
+}

@@ -23,6 +23,7 @@ const subscriptionsRoutes = require("./routes/subscriptions");
 const paymentsRoutes = require("./routes/payments");
 const modulesRoutes = require("./routes/modules");
 const adminRoutes = require("./routes/admin");
+const metasVentasRoutes = require("./routes/metas-ventas");
 
 const app = express();
 
@@ -86,6 +87,7 @@ app.use("/api/subscriptions", subscriptionsRoutes);
 app.use("/api/payments", paymentsRoutes);
 app.use("/api/modules", modulesRoutes);
 app.use("/api/admin", adminRoutes);
+app.use("/api/metas-ventas", metasVentasRoutes);
 
 // Catch all handler para React Router (SIEMPRE activo)
 app.get('*', (req, res) => {
