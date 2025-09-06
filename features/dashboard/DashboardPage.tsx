@@ -1,6 +1,6 @@
 
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { Card, CardHeader, CardContent, CardTitle } from '../../components/ui/Card';
 import { useTenantStore } from '../../stores/useTenantStore';
 import { useDataStore } from '../../stores/useDataStore';
@@ -20,6 +20,7 @@ import {
   getRevenueBreakdown 
 } from '../../utils/analyticsCalculations';
 import { InformationCircleIcon, IngresosIcon, ReportesIcon, ClientesIcon } from '../../components/icons/Icons';
+import { MetaVentas } from '../../types';
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8'];
 
@@ -83,7 +84,39 @@ const DashboardPage: React.FC = () => {
   }, [facturas, gastos, ingresos, selectedTenant]);
 
   // Meta de ventas (puede configurarse posteriormente)
-  const salesTarget = 500000; // DOP
+  // Estado para meta de ventas personalizada
+  const [metaVentas, setMetaVentas] = useState<MetaVentas | null>(null);
+  
+  // Cargar meta de ventas del mes actual
+  useEffect(() => {
+    const cargarMetaActual = async () => {
+      if (!selectedTenant) return;
+      
+      try {
+        const response = await fetch(`/api/metas-ventas/actual?empresaId=${selectedTenant.id}`);
+        if (response.ok) {
+          const meta = await response.json();
+          setMetaVentas(meta);
+        }
+      } catch (error) {
+        console.error('Error cargando meta de ventas:', error);
+        // Usar meta por defecto si no se puede cargar
+        setMetaVentas({
+          id: 0,
+          empresaId: selectedTenant.id,
+          ano: new Date().getFullYear(),
+          mes: new Date().getMonth() + 1,
+          metaMensual: 500000, // Meta por defecto
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        });
+      }
+    };
+
+    cargarMetaActual();
+  }, [selectedTenant]);
+
+  const salesTarget = metaVentas?.metaMensual || 500000; // DOP
   
   if (!advancedKPIs) {
     return <div>Cargando datos analíticos...</div>;
