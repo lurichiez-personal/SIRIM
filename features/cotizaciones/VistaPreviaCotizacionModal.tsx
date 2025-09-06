@@ -29,7 +29,7 @@ const VistaPreviaCotizacionModal: React.FC<VistaPreviaCotizacionModalProps> = ({
         if (printContent) {
             const printWindow = window.open('', '', 'height=800,width=1000');
             printWindow?.document.write('<html><head><title>Cotización</title>');
-            printWindow?.document.write('<style>body{font-family:sans-serif;padding:2rem;}.font-bold{font-weight:700;}.text-center{text-align:center;}.mb-4{margin-bottom:1rem;}.bg-gray-50{background-color:#f9fafb;}.p-4{padding:1rem;}.rounded{border-radius:0.25rem;}</style>');
+            printWindow?.document.write('<script src="https://cdn.tailwindcss.com"></script>');
             printWindow?.document.write('</head><body class="p-8">');
             printWindow?.document.write(printContent.innerHTML);
             printWindow?.document.write('</body></html>');

@@ -92,17 +92,3 @@ export async function getDBInfo(): Promise<{ lastUpdated: number, count: number 
         return null;
     }
 }
-
-// Function to add test data for RNC lookup testing
-export async function addTestRNCData(): Promise<void> {
-    const testData = [
-        { rnc: '130123456', name: 'EMPRESA DE PRUEBA SRL', status: 'ACTIVO' },
-        { rnc: '40212345678', name: 'JUAN CARLOS PEREZ MARTINEZ', status: 'ACTIVO' },
-        { rnc: '130987654', name: 'COMERCIAL DOMINICANA SA', status: 'SUSPENDIDO' },
-        { rnc: '40298765432', name: 'MARIA RODRIGUEZ GONZALEZ', status: 'ACTIVO' },
-        { rnc: '101234567', name: 'SERVICIOS TECNOLOGICOS DEL CARIBE', status: 'ACTIVO' }
-    ];
-    
-    await appendRNCData(testData);
-    console.log('Datos de prueba de RNC agregados correctamente');
-}

@@ -5,6 +5,44 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>SIRIM - Sistema Inteligente de Registros Impositivos</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              primary: {
+                DEFAULT: '#005A9C',
+                '50': '#E6F0F6',
+                '100': '#CCE1EE',
+                '200': '#99C2DD',
+                '300': '#66A4CC',
+                '400': '#3385BB',
+                '500': '#0067AC',
+                '600': '#005A9C',
+                '700': '#004C8A',
+                '800': '#003E78',
+                '900': '#003166',
+                '950': '#00234D'
+              },
+              secondary: {
+                DEFAULT: '#4A5568',
+                '50': '#F7FAFC',
+                '100': '#EDF2F7',
+                '200': '#E2E8F0',
+                '300': '#CBD5E0',
+                '400': '#A0AEC0',
+                '500': '#718096',
+                '600': '#4A5568',
+                '700': '#2D3748',
+                '800': '#1A202C',
+                '900': '#171923'
+              },
+            }
+          }
+        }
+      }
+    </script>
   <script type="importmap">
 {
   "imports": {
@@ -20,6 +58,7 @@
   }
 }
 </script>
+<link rel="stylesheet" href="/index.css">
 </head>
   <body class="bg-secondary-50">
     <div id="root"></div>

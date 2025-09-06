@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import JSZip from 'jszip';
-import { findRNC, clearRNCData, appendRNCData, getDBInfo, addTestRNCData } from '../utils/rnc-database';
+import { findRNC, clearRNCData, appendRNCData, getDBInfo } from '../utils/rnc-database';
 
 type RNCDataStatus = 'idle' | 'checking' | 'downloading' | 'processing' | 'ready' | 'error';
 
@@ -13,17 +13,11 @@ interface DGIIDataState {
   progress: number;
   init: () => void;
   triggerUpdate: () => Promise<void>;
-  addTestData: () => Promise<void>;
   lookupRNC: (rnc: string) => Promise<{ nombre: string, status: string } | null>;
 }
 
 const DGII_RNC_URL = 'https://dgii.gov.do/app/WebApps/Consultas/RNC/DGII_RNC.zip';
-// Using multiple CORS proxy services as fallback
-const PROXY_URLS = [
-  `https://api.allorigins.win/get?url=${encodeURIComponent(DGII_RNC_URL)}`,
-  `https://cors-anywhere.herokuapp.com/${DGII_RNC_URL}`,
-  `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(DGII_RNC_URL)}`
-];
+const PROXY_URL = `https://corsproxy.io/?${encodeURIComponent(DGII_RNC_URL)}`;
 
 
 export const useDGIIDataStore = create<DGIIDataState>((set, get) => ({
@@ -41,68 +35,20 @@ export const useDGIIDataStore = create<DGIIDataState>((set, get) => ({
           set({ status: 'ready', recordCount: info.count, lastUpdated: info.lastUpdated });
       } else {
           set({ status: 'idle' });
-          // If the DB is empty, add test data first, then try to update from DGII
-          await get().addTestData();
-          // Optionally trigger DGII update in background (without blocking UI)
-          // get().triggerUpdate();
+          // If the DB is empty, trigger the update automatically.
+          get().triggerUpdate();
       }
   },
 
   triggerUpdate: async () => {
     set({ status: 'downloading', errorMessage: null, loading: true, progress: 0 });
-    
-    let zipBlob: Blob | null = null;
-    let lastError: Error | null = null;
-    
-    // Try each proxy URL until one works
-    for (let i = 0; i < PROXY_URLS.length; i++) {
-      try {
-        const proxyUrl = PROXY_URLS[i];
-        console.log(`Intentando descargar desde proxy ${i + 1}/${PROXY_URLS.length}: ${proxyUrl}`);
-        
-        const response = await fetch(proxyUrl);
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-        }
-        
-        if (proxyUrl.includes('allorigins.win')) {
-          // Parse the response from AllOrigins proxy
-          const proxyResponse = await response.json();
-          if (!proxyResponse.contents) {
-            throw new Error('No se pudo obtener el contenido del archivo desde el proxy.');
-          }
-          
-          // Convert base64 contents to blob
-          const binaryString = atob(proxyResponse.contents);
-          const bytes = new Uint8Array(binaryString.length);
-          for (let i = 0; i < binaryString.length; i++) {
-            bytes[i] = binaryString.charCodeAt(i);
-          }
-          zipBlob = new Blob([bytes]);
-        } else {
-          // Direct response for other proxies
-          zipBlob = await response.blob();
-        }
-        
-        console.log(`Descarga exitosa usando proxy ${i + 1}`);
-        break; // Exit loop on success
-        
-      } catch (error) {
-        lastError = error instanceof Error ? error : new Error('Error desconocido');
-        console.warn(`Proxy ${i + 1} falló:`, lastError.message);
-        
-        // If this is the last proxy, throw the error
-        if (i === PROXY_URLS.length - 1) {
-          throw new Error(`Todos los servicios proxy fallaron. Último error: ${lastError.message}`);
-        }
-      }
-    }
-    
-    if (!zipBlob) {
-      throw new Error('No se pudo descargar el archivo después de intentar todos los proxies.');
-    }
-
     try {
+      // 1. Download ZIP file
+      const response = await fetch(PROXY_URL);
+      if (!response.ok) {
+        throw new Error(`Error al descargar: ${response.statusText}. El servicio proxy puede estar experimentando problemas. Por favor, intente más tarde.`);
+      }
+      const zipBlob = await response.blob();
       
       set({ status: 'processing', progress: 5 });
 
@@ -173,27 +119,6 @@ export const useDGIIDataStore = create<DGIIDataState>((set, get) => ({
       console.error("Error al actualizar la base de datos de RNC:", error);
       const message = error instanceof Error ? error.message : 'Ocurrió un error desconocido.';
       set({ status: 'error', errorMessage: message, loading: false });
-    }
-  },
-
-  addTestData: async () => {
-    try {
-      await addTestRNCData();
-      const info = await getDBInfo();
-      if (info) {
-        set({ 
-          status: 'ready', 
-          recordCount: info.count, 
-          lastUpdated: Date.now(),
-          errorMessage: null 
-        });
-      }
-    } catch (error) {
-      console.error("Error agregando datos de prueba:", error);
-      set({ 
-        status: 'error', 
-        errorMessage: 'Error al agregar datos de prueba' 
-      });
     }
   },
 

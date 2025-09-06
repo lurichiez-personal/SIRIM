@@ -408,6 +408,7 @@ export enum Permission {
     GESTIONAR_CONTABILIDAD = 'gestionar_contabilidad',
     GESTIONAR_CATALOGO_CUENTAS = 'gestionar_catalogo_cuentas',
     VER_REPORTES_FINANCIEROS = 'ver_reportes_financieros',
+    GESTIONAR_MARKETING = 'gestionar_marketing',
 }
 
 export type RolePermissions = {

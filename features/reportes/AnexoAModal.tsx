@@ -20,7 +20,7 @@ const AnexoAModal: React.FC<AnexoAModalProps> = ({ isOpen, onClose, data, period
         if (printContent) {
             const printWindow = window.open('', '', 'height=800,width=1000');
             printWindow?.document.write('<html><head><title>Anexo A / IT-1</title>');
-            printWindow?.document.write('<style>body{font-family:sans-serif;padding:2rem;}.text-xl{font-size:1.25rem;}.font-bold{font-weight:700;}.text-center{text-align:center;}.mb-6{margin-bottom:1.5rem;}.text-md{font-size:1rem;}.space-y-6>*+*{margin-top:1.5rem;}</style>');
+            printWindow?.document.write('<script src="https://cdn.tailwindcss.com"></script>');
             printWindow?.document.write('</head><body class="p-8">');
             printWindow?.document.write(printContent.innerHTML);
             printWindow?.document.write('</body></html>');
