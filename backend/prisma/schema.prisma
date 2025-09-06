@@ -20,7 +20,8 @@ enum NominaStatus {
 model Empresa {
   id           Int                  @id @default(autoincrement())
   nombre       String
-  rnc          String               @unique
+  rnc              String               @unique
+  stripeCustomerId String?              @unique // ID del cliente en Stripe
   createdAt    DateTime             @default(now())
   updatedAt    DateTime             @updatedAt
 
@@ -258,8 +259,14 @@ model Subscription {
   id                String             @id @default(cuid())
   empresaId         Int                @unique
   empresa           Empresa            @relation(fields: [empresaId], references: [id], onDelete: Cascade)
-  planId            String
-  plan              SubscriptionPlan   @relation(fields: [planId], references: [id])
+  planId               String?
+  plan                 SubscriptionPlan?  @relation(fields: [planId], references: [id])
+  stripeSubscriptionId String?            @unique // ID de la suscripción en Stripe
+  stripePriceId        String?            // ID del precio en Stripe
+  trialEndsAt          DateTime?          // Fin del período de prueba
+  activatedAt          DateTime?          // Fecha de activación
+  cancelledAt          DateTime?          // Fecha de cancelación
+  cancellationDate     DateTime?          // Fecha programada de cancelación
   status            SubscriptionStatus @default(TRIAL)
   currentPeriodStart DateTime
   currentPeriodEnd  DateTime
@@ -302,7 +309,8 @@ model Payment {
   currency          String        @default("DOP")
   paymentMethod     PaymentMethod
   status            PaymentStatus @default(PENDING)
-  stripePaymentId   String?       // ID del payment intent en Stripe
+  stripePaymentIntentId String?   // ID del payment intent en Stripe
+  stripeInvoiceId      String?   // ID de la factura en Stripe
   azulTransactionId String?       // ID de transacción en Azul
   cardLast4         String?       // últimos 4 dígitos de la tarjeta
   cardBrand         String?       // visa, mastercard, etc.

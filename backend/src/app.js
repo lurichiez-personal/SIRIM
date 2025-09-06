@@ -87,6 +87,7 @@ app.use("/api/asientos", asientosRoutes);
 app.use("/api/conciliacion", conciliacionRoutes);
 app.use("/api/subscriptions", subscriptionsRoutes);
 app.use("/api/payments", paymentsRoutes);
+app.use("/api/stripe", require("./routes/stripe"));
 app.use("/api/modules", modulesRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/metas-ventas", metasVentasRoutes);
