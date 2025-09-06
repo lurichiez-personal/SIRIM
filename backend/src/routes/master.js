@@ -1,7 +1,7 @@
 const { Router } = require("express");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
-const { prisma } = require("../db");
+const prisma = require("../db");
 const { requireFields } = require("../utils/validators");
 
 const router = Router();
