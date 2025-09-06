@@ -39,7 +39,7 @@ router.put('/pricing/plan/:id', async (req, res) => {
     const { price, description } = req.body;
 
     const updatedPlan = await prisma.subscriptionPlan.update({
-      where: { id: parseInt(id) },
+      where: { id: id },
       data: {
         price: parseFloat(price),
         description

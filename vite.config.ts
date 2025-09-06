@@ -8,6 +8,7 @@ export default defineConfig(({ mode }) => {
         host: '0.0.0.0',
         port: 5000,
         strictPort: true,
+        allowedHosts: 'all',
         hmr: {
           port: 5000,
         },
