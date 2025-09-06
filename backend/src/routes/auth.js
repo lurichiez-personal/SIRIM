@@ -41,4 +41,59 @@ res.json({ ok: true });
 });
 
 
+router.post("/forgot-password", async (req, res, next) => {
+try {
+requireFields(req.body, ["email"]);
+const { email } = req.body;
+
+// Buscar usuario
+const user = await prisma.user.findUnique({ where: { email } });
+
+// Por seguridad, siempre devolver éxito (no revelar si el email existe)
+if (user && user.activo) {
+  // Generar nueva contraseña temporal
+  const tempPassword = Math.random().toString(36).slice(-12);
+  const hash = await bcrypt.hash(tempPassword, 10);
+  
+  // Actualizar contraseña en base de datos
+  await prisma.user.update({
+    where: { id: user.id },
+    data: { password: hash }
+  });
+
+  // Enviar email con nueva contraseña
+  try {
+    const emailService = require('../services/emailService');
+    const emailData = {
+      to: user.email,
+      subject: 'SIRIM - Nueva Contraseña Temporal',
+      html: `
+        <h2>Recuperación de Contraseña - SIRIM</h2>
+        <p>Hola ${user.nombre},</p>
+        <p>Su nueva contraseña temporal es: <strong>${tempPassword}</strong></p>
+        <p>Por favor, inicie sesión con esta contraseña y cámbiela inmediatamente por una de su preferencia.</p>
+        <p>Si no solicitó este cambio, contacte soporte inmediatamente.</p>
+        <br>
+        <p>Saludos,<br>Equipo SIRIM</p>
+      `
+    };
+    
+    await emailService.sendEmail(emailData);
+    console.log(`Contraseña temporal enviada a: ${user.email}`);
+  } catch (emailError) {
+    console.error('Error enviando email de recuperación:', emailError);
+  }
+}
+
+// Siempre responder éxito por seguridad
+res.json({ 
+  success: true, 
+  message: 'Si el correo existe en nuestros registros, hemos enviado las instrucciones de recuperación.' 
+});
+
+} catch (e) { 
+next(e); 
+}
+});
+
 module.exports = router;
