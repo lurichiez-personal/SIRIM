@@ -11,6 +11,7 @@ import Pagination from '../../components/ui/Pagination';
 import Checkbox from '../../components/ui/Checkbox';
 import { exportToCSV } from '../../utils/csvExport';
 import EscanearGastoModal from './EscanearGastoModal';
+import ProcesarLoteFacturasModal from './ProcesarLoteFacturasModal';
 
 const ITEMS_PER_PAGE = 10;
 const GASTO_CATEGORIAS_606 = [
@@ -26,6 +27,7 @@ const GastosPage: React.FC = () => {
     const [loading, setLoading] = useState(true);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isScanModalOpen, setIsScanModalOpen] = useState(false);
+    const [isLoteModalOpen, setIsLoteModalOpen] = useState(false);
     const [isVistaPreviaOpen, setIsVistaPreviaOpen] = useState(false);
     const [gastoParaEditar, setGastoParaEditar] = useState<Gasto | null>(null);
     const [gastoParaVer, setGastoParaVer] = useState<Gasto | null>(null);
@@ -67,6 +69,16 @@ const GastosPage: React.FC = () => {
         setIsModalOpen(true);
     };
 
+    const handleBatchComplete = (gastos: Partial<Gasto>[]) => {
+        // Agregar todos los gastos válidos del lote
+        gastos.forEach(gastoData => {
+            if (gastoData.monto && gastoData.monto > 0) {
+                addGasto(gastoData as Omit<Gasto, 'id' | 'empresaId' | 'conciliado'>);
+            }
+        });
+        setIsLoteModalOpen(false);
+    };
+
     const formatCurrency = (value: number) => new Intl.NumberFormat('es-DO', { style: 'currency', currency: 'DOP' }).format(value);
 
     const handleSelectAll = (checked: boolean) => setSelectedIds(checked ? new Set(pagedData.items.map(g => g.id)) : new Set());
@@ -101,7 +113,8 @@ const GastosPage: React.FC = () => {
             <h1 className="text-3xl font-bold text-secondary-800">Gastos</h1>
             <div className="flex space-x-2">
                 <Button variant="secondary" leftIcon={<DownloadIcon />} onClick={handleExport}>Exportar a CSV</Button>
-                <Button variant="secondary" onClick={() => setIsScanModalOpen(true)}>Escanear Gasto</Button>
+                <Button variant="secondary" onClick={() => setIsScanModalOpen(true)}>📷 Escanear Gasto</Button>
+                <Button variant="secondary" onClick={() => setIsLoteModalOpen(true)}>📄 Lote PDF</Button>
                 <Button leftIcon={<PlusIcon />} onClick={() => { setGastoParaEditar(null); setScannedData(null); setIsModalOpen(true); }}>
                     Registrar Gasto
                 </Button>
@@ -172,6 +185,7 @@ const GastosPage: React.FC = () => {
         <NuevoGastoModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onSave={handleSaveGasto} gastoParaEditar={gastoParaEditar} initialData={scannedData} />
         <VistaPreviaGastoModal isOpen={isVistaPreviaOpen} onClose={() => setIsVistaPreviaOpen(false)} gasto={gastoParaVer} />
         <EscanearGastoModal isOpen={isScanModalOpen} onClose={() => setIsScanModalOpen(false)} onScanComplete={handleScanComplete} />
+        <ProcesarLoteFacturasModal isOpen={isLoteModalOpen} onClose={() => setIsLoteModalOpen(false)} onBatchComplete={handleBatchComplete} />
     </div>
   );
 };
