@@ -24,13 +24,15 @@ model Empresa {
   createdAt    DateTime             @default(now())
   updatedAt    DateTime             @updatedAt
 
-  clientes     Cliente[]
-  empleados    Empleado[]
-  recurrencias FacturaRecurrente[]
-  nominas      Nomina[]
-  asientos     AsientoContable[]
-  bankTx       BankTransaction[]
-  matches      ReconciliationMatch[]
+  clientes      Cliente[]
+  empleados     Empleado[]
+  recurrencias  FacturaRecurrente[]
+  nominas       Nomina[]
+  asientos      AsientoContable[]
+  bankTx        BankTransaction[]
+  matches       ReconciliationMatch[]
+  subscription  Subscription?
+  moduleUsage   ModuleUsage[]
 }
 
 model Cliente {
@@ -148,4 +150,207 @@ model ReconciliationMatch {
 
   @@index([empresaId])
   @@index([bankTransactionId])
+}
+
+// ---------- Sistema de Suscripciones y Módulos ----------
+
+enum PlanType {
+  BASICO
+  PRO 
+  PREMIUM
+}
+
+enum ModuleStatus {
+  ACTIVE
+  INACTIVE
+  TRIAL
+  EXPIRED
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  INACTIVE
+  CANCELLED
+  PAST_DUE
+  TRIAL
+}
+
+enum PaymentStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  CANCELLED
+  REFUNDED
+}
+
+enum PaymentMethod {
+  CREDIT_CARD
+  DEBIT_CARD
+  BANK_TRANSFER
+  AZUL
+  CARDNET
+  VISANET
+}
+
+model SubscriptionPlan {
+  id            String        @id @default(cuid())
+  name          String        @unique
+  planType      PlanType
+  price         Decimal       @db.Decimal(10, 2)
+  currency      String        @default("DOP")
+  billingCycle  String        // 'monthly', 'yearly'
+  trialDays     Int           @default(30)
+  description   String?
+  features      Json          // JSON con características del plan
+  active        Boolean       @default(true)
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  subscriptions Subscription[]
+  modules       PlanModule[]
+
+  @@map("subscription_plans")
+}
+
+model Module {
+  id          String        @id @default(cuid())
+  name        String        @unique
+  displayName String
+  description String?
+  category    String        // 'facturacion', 'contabilidad', 'nomina', etc.
+  basePrice   Decimal       @db.Decimal(10, 2)
+  currency    String        @default("DOP")
+  isCore      Boolean       @default(false) // módulos principales incluidos en todos los planes
+  features    Json?         // funcionalidades específicas del módulo
+  settings    Json?         // configuraciones del módulo
+  active      Boolean       @default(true)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  planModules         PlanModule[]
+  subscriptionModules SubscriptionModule[]
+  usageTracking       ModuleUsage[]
+
+  @@map("modules")
+}
+
+model PlanModule {
+  id         String           @id @default(cuid())
+  planId     String
+  plan       SubscriptionPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+  moduleId   String
+  module     Module           @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  included   Boolean          @default(true) // si está incluido en el plan base
+  extraPrice Decimal?         @db.Decimal(10, 2) // precio adicional si no está incluido
+  maxUsage   Int?             // límite de uso (ej: cantidad de facturas)
+  createdAt  DateTime         @default(now())
+
+  @@unique([planId, moduleId])
+  @@map("plan_modules")
+}
+
+model Subscription {
+  id                String             @id @default(cuid())
+  empresaId         Int                @unique
+  empresa           Empresa            @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+  planId            String
+  plan              SubscriptionPlan   @relation(fields: [planId], references: [id])
+  status            SubscriptionStatus @default(TRIAL)
+  currentPeriodStart DateTime
+  currentPeriodEnd  DateTime
+  trialEnd          DateTime?
+  cancelAtPeriodEnd Boolean            @default(false)
+  metadata          Json?              // información adicional
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+
+  modules       SubscriptionModule[]
+  payments      Payment[]
+  invoices      SubscriptionInvoice[]
+
+  @@map("subscriptions")
+}
+
+model SubscriptionModule {
+  id              String       @id @default(cuid())
+  subscriptionId  String
+  subscription    Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  moduleId        String
+  module          Module       @relation(fields: [moduleId], references: [id])
+  status          ModuleStatus @default(ACTIVE)
+  activatedAt     DateTime     @default(now())
+  expiresAt       DateTime?
+  additionalPrice Decimal?     @db.Decimal(10, 2) // precio adicional por este módulo
+  settings        Json?        // configuraciones específicas del módulo para esta suscripción
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  @@unique([subscriptionId, moduleId])
+  @@map("subscription_modules")
+}
+
+model Payment {
+  id                String        @id @default(cuid())
+  subscriptionId    String
+  subscription      Subscription  @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  amount            Decimal       @db.Decimal(10, 2)
+  currency          String        @default("DOP")
+  paymentMethod     PaymentMethod
+  status            PaymentStatus @default(PENDING)
+  stripePaymentId   String?       // ID del payment intent en Stripe
+  azulTransactionId String?       // ID de transacción en Azul
+  cardLast4         String?       // últimos 4 dígitos de la tarjeta
+  cardBrand         String?       // visa, mastercard, etc.
+  failureReason     String?       // razón del fallo si aplica
+  processedAt       DateTime?
+  nextRetryAt       DateTime?     // para reintentos automáticos
+  retryCount        Int           @default(0)
+  metadata          Json?         // información adicional del procesador de pagos
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  invoice SubscriptionInvoice?
+
+  @@map("payments")
+}
+
+model SubscriptionInvoice {
+  id             String       @id @default(cuid())
+  subscriptionId String
+  subscription   Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  paymentId      String?      @unique
+  payment        Payment?     @relation(fields: [paymentId], references: [id])
+  invoiceNumber  String       @unique
+  amount         Decimal      @db.Decimal(10, 2)
+  currency       String       @default("DOP")
+  itbis          Decimal      @db.Decimal(10, 2) // ITBIS (18% en RD)
+  totalAmount    Decimal      @db.Decimal(10, 2)
+  periodStart    DateTime
+  periodEnd      DateTime
+  dueDate        DateTime
+  paidAt         DateTime?
+  items          Json         // desglose de items facturados
+  ncf            String?      // Número de Comprobante Fiscal (requerido en RD)
+  ncfSequence    String?      // Secuencia del NCF
+  dgiiReported   Boolean      @default(false) // si fue reportado a la DGII
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@map("subscription_invoices")
+}
+
+model ModuleUsage {
+  id         String   @id @default(cuid())
+  empresaId  Int
+  empresa    Empresa  @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+  moduleId   String
+  module     Module   @relation(fields: [moduleId], references: [id])
+  usageType  String   // 'api_call', 'document', 'transaction', etc.
+  quantity   Int      @default(1)
+  metadata   Json?    // información adicional sobre el uso
+  recordedAt DateTime @default(now())
+
+  @@index([empresaId, moduleId, recordedAt])
+  @@map("module_usage")
 }
