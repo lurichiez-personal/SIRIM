@@ -521,3 +521,98 @@ model Notification {
   @@index([read])
   @@index([createdAt])
 }
+
+// ---------- MODELOS DE NEGOCIO PRINCIPALES ----------
+
+model Factura {
+  id                  Int       @id @default(autoincrement())
+  empresaId           Int
+  clienteId           Int
+  clienteNombre       String
+  fecha               DateTime
+  subtotal            Decimal   @db.Decimal(12, 2)
+  descuentoPorcentaje Decimal?  @db.Decimal(5, 2)
+  montoDescuento      Decimal?  @db.Decimal(12, 2)
+  aplicaITBIS         Boolean   @default(true)
+  itbis               Decimal   @db.Decimal(12, 2)
+  aplicaISC           Boolean   @default(false)
+  isc                 Decimal?  @db.Decimal(12, 2)
+  aplicaPropina       Boolean   @default(false)
+  propinaLegal        Decimal?  @db.Decimal(12, 2)
+  montoTotal          Decimal   @db.Decimal(12, 2)
+  montoPagado         Decimal   @db.Decimal(12, 2) @default(0)
+  ncf                 String?
+  estado              String    @default("Emitida")
+  cotizacionId        Int?
+  facturaRecurrenteId Int?
+  conciliado          Boolean   @default(false)
+  comments            Json      @default("[]")
+  auditLog            Json      @default("[]")
+  asientoId           String?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  items    FacturaItem[]
+
+  @@index([empresaId])
+  @@index([clienteId])
+  @@index([fecha])
+  @@index([estado])
+}
+
+model FacturaItem {
+  id             Int     @id @default(autoincrement())
+  facturaId      Int
+  factura        Factura @relation(fields: [facturaId], references: [id], onDelete: Cascade)
+  itemId         Int?
+  codigo         String
+  descripcion    String
+  cantidad       Decimal @db.Decimal(12, 4)
+  precioUnitario Decimal @db.Decimal(12, 2)
+  subtotal       Decimal @db.Decimal(12, 2)
+
+  @@index([facturaId])
+}
+
+model Item {
+  id                 Int      @id @default(autoincrement())
+  empresaId          Int
+  codigo             String
+  nombre             String
+  descripcion        String?
+  precio             Decimal  @db.Decimal(12, 2)
+  costo              Decimal? @db.Decimal(12, 2)
+  cantidadDisponible Decimal? @db.Decimal(12, 4)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@index([empresaId])
+  @@unique([empresaId, codigo])
+}
+
+model Gasto {
+  id              Int      @id @default(autoincrement())
+  empresaId       Int
+  proveedorNombre String?
+  rncProveedor    String?
+  categoriaGasto  String?
+  fecha           DateTime
+  subtotal        Decimal  @db.Decimal(12, 2)
+  itbis           Decimal  @db.Decimal(12, 2)
+  isc             Decimal? @db.Decimal(12, 2)
+  propinaLegal    Decimal? @db.Decimal(12, 2)
+  monto           Decimal  @db.Decimal(12, 2)
+  ncf             String?
+  descripcion     String
+  conciliado      Boolean  @default(false)
+  aplicaITBIS     Boolean  @default(true)
+  metodoPago      String?
+  comments        Json     @default("[]")
+  auditLog        Json     @default("[]")
+  asientoId       String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([empresaId])
+  @@index([fecha])
+}
