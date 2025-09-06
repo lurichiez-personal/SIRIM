@@ -50,6 +50,11 @@ app.use(
 // Body parser
 app.use(express.json({ limit: "1mb" }));
 
+// Servir archivos estáticos del frontend PRIMERO (en producción)
+if (process.env.NODE_ENV === 'production') {
+  app.use(express.static(path.join(__dirname, '../../dist')));
+}
+
 // API health check en ruta específica
 app.get("/api", (_req, res) => {
   res.json({ ok: true, service: "SIRIM API", ts: new Date().toISOString() });
@@ -75,11 +80,8 @@ app.use("/api/payments", paymentsRoutes);
 app.use("/api/modules", modulesRoutes);
 app.use("/api/admin", adminRoutes);
 
-// Servir archivos estáticos del frontend en producción
+// Catch all handler para React Router (SOLO en producción)
 if (process.env.NODE_ENV === 'production') {
-  app.use(express.static(path.join(__dirname, '../../dist')));
-  
-  // Catch all handler: send back React's index.html file for any non-API routes
   app.get('*', (req, res) => {
     if (!req.path.startsWith('/api/')) {
       res.sendFile(path.join(__dirname, '../../dist/index.html'));
