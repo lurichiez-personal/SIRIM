@@ -1,5 +1,5 @@
 const express = require('express');
-const prisma = require('../db').prisma;
+const prisma = require('../db');
 const router = express.Router();
 
 // GET /api/metas-ventas - Obtener metas de ventas por empresa
