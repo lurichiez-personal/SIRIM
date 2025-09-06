@@ -1,9 +1,29 @@
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import Button from '../../components/ui/Button';
 
+interface LandingConfig {
+  heroTitle: string;
+  heroSubtitle: string;
+  heroButtonText: string;
+  trialDays: number;
+}
+
 const HomePage: React.FC = () => {
+    const [config, setConfig] = useState<LandingConfig | null>(null);
+
+    useEffect(() => {
+        fetch('/api/admin/landing-config')
+            .then(response => response.ok ? response.json() : null)
+            .then(data => setConfig(data))
+            .catch(console.error);
+    }, []);
+
+    const title = config?.heroTitle || 'La Contabilidad de tu Negocio, Simplificada.';
+    const subtitle = config?.heroSubtitle || 'SIRIM es la plataforma todo-en-uno para la gestión de impuestos y contabilidad en República Dominicana. Facturación, gastos, reportes DGII y más, en un solo lugar.';
+    const buttonText = config?.heroButtonText || `Empieza tu prueba de ${config?.trialDays || 30} días`;
+
     return (
         <>
             <div className="relative isolate overflow-hidden bg-white">
@@ -18,15 +38,20 @@ const HomePage: React.FC = () => {
                 <div className="container mx-auto px-4 sm:px-6 lg:px-8 pt-24 pb-32 sm:pt-32 sm:pb-40">
                     <div className="max-w-2xl text-center mx-auto">
                         <h1 className="text-4xl md:text-6xl font-extrabold text-secondary-900 tracking-tight">
-                            La Contabilidad de tu Negocio, <span className="text-primary">Simplificada.</span>
+                            {title.includes('Simplificada.') ? (
+                                <>
+                                    {title.replace(', Simplificada.', ', ')}
+                                    <span className="text-primary">Simplificada.</span>
+                                </>
+                            ) : title}
                         </h1>
                         <p className="mt-6 max-w-2xl mx-auto text-lg text-secondary-600">
-                            SIRIM es la plataforma todo-en-uno para la gestión de impuestos y contabilidad en República Dominicana. Facturación, gastos, reportes DGII y más, en un solo lugar.
+                            {subtitle}
                         </p>
                         <div className="mt-10">
                             <Link to="/precios">
                                 <Button size="md" className="px-8 py-3 text-lg rounded-full">
-                                    Empieza tu prueba de 30 días
+                                    {buttonText}
                                 </Button>
                             </Link>
                         </div>

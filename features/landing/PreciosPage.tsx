@@ -1,9 +1,29 @@
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import Button from '../../components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/Card';
 import { CheckIcon, XMarkIcon } from '../../components/icons/Icons';
+
+interface Plan {
+  id: number;
+  name: string;
+  price: number;
+  description: string;
+  modules: Array<{
+    module: {
+      id: string;
+      name: string;
+      category: string;
+    };
+  }>;
+}
+
+interface LandingConfig {
+  pricingTitle: string;
+  pricingSubtitle: string;
+  trialDays: number;
+}
 
 const features = [
     { category: 'Facturación', name: 'Facturas de Venta', plans: { basico: true, pro: true, premium: true } },
@@ -27,53 +47,86 @@ const features = [
 ];
 
 const PreciosPage: React.FC = () => {
+    const [plans, setPlans] = useState<Plan[]>([]);
+    const [config, setConfig] = useState<LandingConfig | null>(null);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        fetchData();
+    }, []);
+
+    const fetchData = async () => {
+        try {
+            const [plansResponse, configResponse] = await Promise.all([
+                fetch('/api/admin/pricing'),
+                fetch('/api/admin/landing-config')
+            ]);
+
+            if (plansResponse.ok) {
+                const plansData = await plansResponse.json();
+                setPlans(plansData.plans || []);
+            }
+
+            if (configResponse.ok) {
+                const configData = await configResponse.json();
+                setConfig(configData);
+            }
+        } catch (error) {
+            console.error('Error fetching data:', error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    if (loading) {
+        return (
+            <div className="bg-secondary-50">
+                <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-16">
+                    <div className="text-center">Cargando planes...</div>
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div className="bg-secondary-50">
             <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-16">
                 <div className="text-center mb-12">
-                    <h1 className="text-4xl font-bold text-secondary-900">Planes para cada etapa de tu negocio</h1>
-                    <p className="mt-4 text-lg text-secondary-600">Empieza con una prueba gratuita de 30 días en cualquier plan. Sin tarjeta de crédito.</p>
+                    <h1 className="text-4xl font-bold text-secondary-900">
+                        {config?.pricingTitle || 'Planes para cada etapa de tu negocio'}
+                    </h1>
+                    <p className="mt-4 text-lg text-secondary-600">
+                        {config?.pricingSubtitle || `Empieza con una prueba gratuita de ${config?.trialDays || 30} días en cualquier plan. Sin tarjeta de crédito.`}
+                    </p>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-16">
-                    {/* Plan Básico */}
-                    <Card>
-                        <CardHeader className="text-center">
-                            <CardTitle className="text-2xl">Básico</CardTitle>
-                            <p className="text-4xl font-bold mt-2">$25 <span className="text-lg font-normal text-secondary-500">/ mes</span></p>
-                            <p className="text-sm text-secondary-600 mt-2">Ideal para freelancers y emprendedores que inician.</p>
-                        </CardHeader>
-                        <CardContent className="text-center">
-                            <Link to="/registro"><Button className="w-full">Prueba gratis por 30 días</Button></Link>
-                        </CardContent>
-                    </Card>
-
-                    {/* Plan Pro */}
-                    <Card className="border-2 border-primary ring-4 ring-primary-100 relative">
-                         <div className="absolute top-0 -translate-y-1/2 left-1/2 -translate-x-1/2">
-                            <span className="bg-primary text-white text-xs font-semibold px-3 py-1 rounded-full uppercase">Recomendado</span>
-                        </div>
-                        <CardHeader className="text-center">
-                            <CardTitle className="text-2xl">Pro</CardTitle>
-                            <p className="text-4xl font-bold mt-2">$45 <span className="text-lg font-normal text-secondary-500">/ mes</span></p>
-                            <p className="text-sm text-secondary-600 mt-2">Para Pymes en crecimiento que necesitan automatización.</p>
-                        </CardHeader>
-                        <CardContent className="text-center">
-                            <Link to="/registro"><Button className="w-full">Prueba gratis por 30 días</Button></Link>
-                        </CardContent>
-                    </Card>
-
-                    {/* Plan Premium */}
-                    <Card>
-                        <CardHeader className="text-center">
-                            <CardTitle className="text-2xl">Premium</CardTitle>
-                            <p className="text-4xl font-bold mt-2">$75 <span className="text-lg font-normal text-secondary-500">/ mes</span></p>
-                            <p className="text-sm text-secondary-600 mt-2">La solución completa con nómina y colaboración avanzada.</p>
-                        </CardHeader>
-                        <CardContent className="text-center">
-                             <Link to="/registro"><Button className="w-full">Prueba gratis por 30 días</Button></Link>
-                        </CardContent>
-                    </Card>
+                    {plans.map((plan, index) => (
+                        <Card 
+                            key={plan.id} 
+                            className={plan.name.toLowerCase() === 'pro' ? 'border-2 border-primary ring-4 ring-primary-100 relative' : ''}
+                        >
+                            {plan.name.toLowerCase() === 'pro' && (
+                                <div className="absolute top-0 -translate-y-1/2 left-1/2 -translate-x-1/2">
+                                    <span className="bg-primary text-white text-xs font-semibold px-3 py-1 rounded-full uppercase">Recomendado</span>
+                                </div>
+                            )}
+                            <CardHeader className="text-center">
+                                <CardTitle className="text-2xl">{plan.name}</CardTitle>
+                                <p className="text-4xl font-bold mt-2">
+                                    ${plan.price} <span className="text-lg font-normal text-secondary-500">/ mes</span>
+                                </p>
+                                <p className="text-sm text-secondary-600 mt-2">{plan.description}</p>
+                            </CardHeader>
+                            <CardContent className="text-center">
+                                <Link to="/registro">
+                                    <Button className="w-full">
+                                        Prueba gratis por {config?.trialDays || 30} días
+                                    </Button>
+                                </Link>
+                            </CardContent>
+                        </Card>
+                    ))}
                 </div>
                 
                 {/* Feature Comparison */}
