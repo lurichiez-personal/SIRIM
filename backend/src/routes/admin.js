@@ -60,7 +60,7 @@ router.put('/pricing/module/:id', async (req, res) => {
     const { price } = req.body;
 
     const updatedModule = await prisma.module.update({
-      where: { id: parseInt(id) },
+      where: { id: id },
       data: {
         price: parseFloat(price)
       }
