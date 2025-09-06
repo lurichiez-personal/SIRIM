@@ -17,8 +17,12 @@ interface DGIIDataState {
 }
 
 const DGII_RNC_URL = 'https://dgii.gov.do/app/WebApps/Consultas/RNC/DGII_RNC.zip';
-// Using a more reliable CORS proxy service
-const PROXY_URL = `https://api.allorigins.win/get?url=${encodeURIComponent(DGII_RNC_URL)}`;
+// Using multiple CORS proxy services as fallback
+const PROXY_URLS = [
+  `https://api.allorigins.win/get?url=${encodeURIComponent(DGII_RNC_URL)}`,
+  `https://cors-anywhere.herokuapp.com/${DGII_RNC_URL}`,
+  `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(DGII_RNC_URL)}`
+];
 
 
 export const useDGIIDataStore = create<DGIIDataState>((set, get) => ({
@@ -43,26 +47,59 @@ export const useDGIIDataStore = create<DGIIDataState>((set, get) => ({
 
   triggerUpdate: async () => {
     set({ status: 'downloading', errorMessage: null, loading: true, progress: 0 });
+    
+    let zipBlob: Blob | null = null;
+    let lastError: Error | null = null;
+    
+    // Try each proxy URL until one works
+    for (let i = 0; i < PROXY_URLS.length; i++) {
+      try {
+        const proxyUrl = PROXY_URLS[i];
+        console.log(`Intentando descargar desde proxy ${i + 1}/${PROXY_URLS.length}: ${proxyUrl}`);
+        
+        const response = await fetch(proxyUrl);
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        
+        if (proxyUrl.includes('allorigins.win')) {
+          // Parse the response from AllOrigins proxy
+          const proxyResponse = await response.json();
+          if (!proxyResponse.contents) {
+            throw new Error('No se pudo obtener el contenido del archivo desde el proxy.');
+          }
+          
+          // Convert base64 contents to blob
+          const binaryString = atob(proxyResponse.contents);
+          const bytes = new Uint8Array(binaryString.length);
+          for (let i = 0; i < binaryString.length; i++) {
+            bytes[i] = binaryString.charCodeAt(i);
+          }
+          zipBlob = new Blob([bytes]);
+        } else {
+          // Direct response for other proxies
+          zipBlob = await response.blob();
+        }
+        
+        console.log(`Descarga exitosa usando proxy ${i + 1}`);
+        break; // Exit loop on success
+        
+      } catch (error) {
+        lastError = error instanceof Error ? error : new Error('Error desconocido');
+        console.warn(`Proxy ${i + 1} falló:`, lastError.message);
+        
+        // If this is the last proxy, throw the error
+        if (i === PROXY_URLS.length - 1) {
+          throw new Error(`Todos los servicios proxy fallaron. Último error: ${lastError.message}`);
+        }
+      }
+    }
+    
+    if (!zipBlob) {
+      throw new Error('No se pudo descargar el archivo después de intentar todos los proxies.');
+    }
+
     try {
-      // 1. Download ZIP file
-      const response = await fetch(PROXY_URL);
-      if (!response.ok) {
-        throw new Error(`Error al descargar: ${response.statusText}. El servicio proxy puede estar experimentando problemas. Por favor, intente más tarde.`);
-      }
-      
-      // Parse the response from AllOrigins proxy
-      const proxyResponse = await response.json();
-      if (!proxyResponse.contents) {
-        throw new Error('No se pudo obtener el contenido del archivo desde el proxy.');
-      }
-      
-      // Convert base64 contents to blob
-      const binaryString = atob(proxyResponse.contents);
-      const bytes = new Uint8Array(binaryString.length);
-      for (let i = 0; i < binaryString.length; i++) {
-        bytes[i] = binaryString.charCodeAt(i);
-      }
-      const zipBlob = new Blob([bytes]);
       
       set({ status: 'processing', progress: 5 });
 
