@@ -34,6 +34,8 @@ model Empresa {
   subscription  Subscription?
   moduleUsage   ModuleUsage[]
   metasVentas   MetaVentas[]
+  usuarios      UserEmpresa[]
+  suscripcion   Suscripcion?
 }
 
 model Cliente {
@@ -210,6 +212,7 @@ model SubscriptionPlan {
 
   subscriptions Subscription[]
   modules       PlanModule[]
+  suscripciones Suscripcion[]
 
   @@map("subscription_plans")
 }
@@ -389,4 +392,124 @@ model MetaVentas {
   @@unique([empresaId, ano, mes]) // Una meta por empresa por mes
   @@index([empresaId])
   @@map("metas_ventas")
+}
+
+// ---------- Sistema Master User y SaaS ----------
+
+// Sistema de usuarios master para administración de clientes
+model User {
+  id           Int      @id @default(autoincrement())
+  email        String   @unique
+  password     String?  // Opcional para OAuth users
+  nombre       String
+  role         String   @default("client") // "master", "client", "employee"
+  active       Boolean  @default(true)
+  emailVerified Boolean @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  
+  // Relaciones
+  empresas     UserEmpresa[]
+  notifications Notification[]
+  
+  @@index([email])
+  @@index([role])
+}
+
+// Relación many-to-many entre usuarios y empresas
+model UserEmpresa {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  empresaId Int
+  role      String   @default("admin") // "admin", "contador", "operaciones"
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  empresa   Empresa  @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+  
+  @@unique([userId, empresaId])
+  @@index([userId])
+  @@index([empresaId])
+}
+
+// Sistema de suscripciones mejorado
+model Suscripcion {
+  id              Int      @id @default(autoincrement())
+  empresaId       Int      @unique
+  planId          String
+  stripeCustomerId String? @unique
+  stripeSubscriptionId String? @unique
+  status          String   @default("trial") // "trial", "active", "past_due", "canceled", "unpaid"
+  currentPeriodStart DateTime
+  currentPeriodEnd   DateTime
+  trialEnd        DateTime?
+  cancelAt        DateTime?
+  canceledAt      DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  empresa         Empresa  @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+  plan            SubscriptionPlan @relation(fields: [planId], references: [id])
+  pagos           Pago[]
+  
+  @@index([empresaId])
+  @@index([stripeCustomerId])
+  @@index([status])
+}
+
+// Registro de pagos
+model Pago {
+  id              Int      @id @default(autoincrement())
+  suscripcionId   Int
+  stripePaymentIntentId String? @unique
+  amount          Decimal  @db.Decimal(10, 2)
+  currency        String   @default("USD")
+  status          String   // "pending", "succeeded", "failed", "canceled"
+  paymentMethod   String?  // "card", "bank_transfer", etc.
+  description     String?
+  paidAt          DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  suscripcion     Suscripcion @relation(fields: [suscripcionId], references: [id], onDelete: Cascade)
+  
+  @@index([suscripcionId])
+  @@index([status])
+  @@index([paidAt])
+}
+
+// Configuración de cuentas para recibir pagos
+model PaymentConfig {
+  id                Int      @id @default(autoincrement())
+  stripePublishableKey String?
+  stripeSecretKey   String?
+  stripeWebhookSecret String?
+  sendGridApiKey    String?
+  supportEmail      String   @default("soporte@sirim.do")
+  bankAccount       String?  // Para transferencias
+  paypalAccount     String?  // Para PayPal
+  active            Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+}
+
+// Sistema de notificaciones
+model Notification {
+  id        Int      @id @default(autoincrement())
+  userId    Int?     // Null para notificaciones globales
+  type      String   // "new_client", "payment_success", "payment_failed", "subscription_canceled"
+  title     String
+  message   String
+  data      String?  // JSON con datos adicionales
+  read      Boolean  @default(false)
+  emailSent Boolean  @default(false)
+  createdAt DateTime @default(now())
+  
+  user      User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([userId])
+  @@index([type])
+  @@index([read])
+  @@index([createdAt])
 }
