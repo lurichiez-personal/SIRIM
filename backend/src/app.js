@@ -71,6 +71,7 @@ app.get("/api", (_req, res) => {
 // Mount API routes
 app.use("/api/health", healthRoutes);
 app.use("/api/auth", authRoutes);
+app.use("/api/master", require("./routes/master"));
 app.use("/api/empresas", empresasRoutes);
 app.use("/api/clientes", clientesRoutes);
 app.use("/api/items", itemsRoutes);
