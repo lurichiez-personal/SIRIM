@@ -54,6 +54,7 @@ const navItems: NavItem[] = [
   },
   { to: '/dashboard/conciliacion', label: 'Conciliación', icon: ScaleIcon, permission: Permission.GESTIONAR_CONCILIACION },
   { to: '/dashboard/reportes', label: 'Reportes DGII', icon: ReportesIcon, permission: Permission.VER_REPORTES_DGII },
+  { to: '/dashboard/billing', label: 'Mi Suscripción', icon: ChartPieIcon, permission: Permission.VER_DASHBOARD },
   { to: '/dashboard/configuracion', label: 'Configuración', icon: ConfiguracionIcon, permission: Permission.GESTIONAR_CONFIGURACION_EMPRESA },
 ];
 

@@ -41,6 +41,7 @@ import {
   LazyMicrosoftCallbackPage,
   LazyMicrosoftConfigPage,
   LazyMetasVentasPage,
+  LazyBillingPage,
   withLazyLoading
 } from './components/LazyComponents';
 
@@ -128,6 +129,7 @@ function App(): React.ReactNode {
                   <Route path="configuracion/backup" element={<LazyBackupPage />} />
                   <Route path="configuracion/microsoft" element={<LazyMicrosoftConfigPage />} />
                   <Route path="configuracion/metas-ventas" element={<LazyMetasVentasPage />} />
+                  <Route path="billing" element={<LazyBillingPage />} />
                   <Route path="master" element={<MasterDashboardLazy />} />
                   <Route path="*" element={<Navigate to="/dashboard" />} />
                 </Routes>
