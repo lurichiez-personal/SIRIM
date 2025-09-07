@@ -29,7 +29,7 @@ const NuevoUsuarioModal: React.FC<NuevoUsuarioModalProps> = ({ isOpen, onClose, 
     useEnterToNavigate(formRef);
 
     const availableRoles = useMemo(() => {
-        if (currentUser?.roles.includes(Role.Contador)) {
+        if (currentUser?.roles.includes(Role.Master) || currentUser?.roles.includes(Role.Contador)) {
             return Object.values(Role); // Master user can assign any role
         }
         if (currentUser?.roles.includes(Role.Admin)) {
