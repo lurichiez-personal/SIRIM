@@ -174,11 +174,11 @@ export const useDataStore = create<DataState>((set, get) => ({
 
       // Update store with real API data
       set({
-        clientes: clientesRes.rows || [],
-        facturas: facturasRes.rows || [],
-        items: itemsRes.rows || [],
-        gastos: gastosRes.rows || [],
-        empleados: empleadosRes.rows || [],
+        clientes: (clientesRes.rows as Cliente[]) || [],
+        facturas: (facturasRes.rows as Factura[]) || [],
+        items: (itemsRes.rows as Item[]) || [],
+        gastos: (gastosRes.rows as Gasto[]) || [],
+        empleados: (empleadosRes.rows as Empleado[]) || [],
         // For now, keep mock data for features not yet migrated
         cotizaciones: [...allCotizaciones.filter(c => c.empresaId === empresaId)],
         notas: [...allNotas.filter(n => n.empresaId === empresaId)],
@@ -552,7 +552,7 @@ export const useDataStore = create<DataState>((set, get) => ({
     facturaIds.forEach(id => get().updateFacturaStatus(id, status));
   },
 
-  addCliente: async (clienteData) => {
+  addCliente: async (clienteData): Promise<Cliente> => {
     const empresaId = useTenantStore.getState().selectedTenant?.id;
     if (!empresaId) throw new Error("No tenant selected");
     
@@ -567,7 +567,7 @@ export const useDataStore = create<DataState>((set, get) => ({
       
       // Refresh data from API
       await get().fetchData(empresaId);
-      return response.data;
+      return response.data as Cliente;
     } catch (error) {
       console.error('Error adding cliente:', error);
       // Fallback to mock data behavior
