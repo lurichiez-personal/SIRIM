@@ -21,7 +21,14 @@ const fetchTenantsFromApi = async (userId: string | undefined): Promise<Empresa[
     console.log(`Fetching tenants for user ${userId}`);
     
     try {
-        const response = await fetch('/api/empresas', {
+        // Detectar si es usuario master y usar endpoint correcto
+        const user = useAuthStore.getState().user;
+        const isMasterUser = user?.email === 'lurichiez@gmail.com' && user?.roles?.includes('Master');
+        const endpoint = isMasterUser ? '/api/master/empresas' : '/api/empresas';
+        
+        console.log(`Using endpoint: ${endpoint} for ${isMasterUser ? 'master' : 'regular'} user`);
+        
+        const response = await fetch(endpoint, {
             headers: {
                 'Authorization': `Bearer ${localStorage.getItem('token')}`
             }
