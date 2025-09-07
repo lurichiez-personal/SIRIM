@@ -10,6 +10,7 @@ SIRIM is a comprehensive web-based tax and accounting management system specific
 - **Data preservation policy**: ALWAYS preserve existing user data when making improvements or modifications. Only delete or modify existing data when explicitly requested by the user
 - **Data cleaning policy**: NEVER clean operational data (gastos, ventas, contabilidad, facturas, clientes, empleados, etc.) unless explicitly requested. All client-entered data must be preserved during improvements
 - **Development approach**: Make improvements incrementally without affecting existing functionality or data
+- **CRITICAL: Master user credentials**: NEVER delete or modify the master user credentials (lurichiez@gmail.com / Alonso260990#). These credentials must be preserved at all costs and should NEVER be removed from the database under any circumstances
 
 ## System Architecture
 
