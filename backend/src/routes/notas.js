@@ -24,9 +24,9 @@ router.get('/', async (req, res, next) => {
 
     if (q) {
       where.OR = [
-        { clienteNombre: { contains: q, mode: 'insensitive' } },
-        { ncf: { contains: q, mode: 'insensitive' } },
-        { facturaAfectadaNCF: { contains: q, mode: 'insensitive' } }
+        { motivo: { contains: q, mode: 'insensitive' } },
+        { descripcion: { contains: q, mode: 'insensitive' } },
+        { ncf: { contains: q, mode: 'insensitive' } }
       ];
     }
     if (tipo) where.tipo = tipo;
@@ -72,42 +72,33 @@ router.get('/:id', async (req, res, next) => {
 router.post('/', async (req, res, next) => {
   try {
     const {
-      empresaId, tipo, facturaAfectadaId, facturaAfectadaNCF, ncf, fecha,
-      clienteId, clienteNombre, subtotal, descuentoPorcentaje, montoDescuento,
-      aplicaITBIS, aplicaISC, isc, itbis, aplicaPropina, propinaLegal,
-      montoTotal, codigoModificacion, descripcion, asientoId
+      empresaId, clienteId, facturaId, tipo, fecha, subtotal,
+      aplicaITBIS, itbis, montoTotal, ncf, motivo, descripcion
     } = req.body;
 
     // Validar campos requeridos
-    if (!empresaId || !tipo || !facturaAfectadaId || !facturaAfectadaNCF || !ncf || !fecha || !clienteId || !clienteNombre || !subtotal || !montoTotal || !codigoModificacion || !descripcion) {
+    if (!empresaId || !clienteId || !tipo || !fecha || !subtotal || !montoTotal || !motivo || !descripcion) {
       return res.status(400).json({ 
-        error: 'Campos requeridos: empresaId, tipo, facturaAfectadaId, facturaAfectadaNCF, ncf, fecha, clienteId, clienteNombre, subtotal, montoTotal, codigoModificacion, descripcion' 
+        error: 'Campos requeridos: empresaId, clienteId, tipo, fecha, subtotal, montoTotal, motivo, descripcion' 
       });
     }
 
     const nota = await prisma.notaCreditoDebito.create({
       data: {
         empresaId: Number(empresaId),
-        tipo,
-        facturaAfectadaId: Number(facturaAfectadaId),
-        facturaAfectadaNCF,
-        ncf,
-        fecha: new Date(fecha),
         clienteId: Number(clienteId),
-        clienteNombre,
+        facturaId: facturaId ? Number(facturaId) : null,
+        tipo,
+        fecha: new Date(fecha),
         subtotal: Number(subtotal),
-        descuentoPorcentaje: descuentoPorcentaje ? Number(descuentoPorcentaje) : null,
-        montoDescuento: montoDescuento ? Number(montoDescuento) : null,
         aplicaITBIS: Boolean(aplicaITBIS),
-        aplicaISC: Boolean(aplicaISC),
-        isc: Number(isc || 0),
         itbis: Number(itbis || 0),
-        aplicaPropina: Boolean(aplicaPropina),
-        propinaLegal: Number(propinaLegal || 0),
         montoTotal: Number(montoTotal),
-        codigoModificacion,
+        ncf: ncf || null,
+        motivo,
         descripcion,
-        asientoId: asientoId || null
+        estado: 'Emitida',
+        comments: []
       }
     });
 
@@ -120,10 +111,8 @@ router.put('/:id', async (req, res, next) => {
   try {
     const id = Number(req.params.id);
     const {
-      empresaId, tipo, facturaAfectadaId, facturaAfectadaNCF, ncf, fecha,
-      clienteId, clienteNombre, subtotal, descuentoPorcentaje, montoDescuento,
-      aplicaITBIS, aplicaISC, isc, itbis, aplicaPropina, propinaLegal,
-      montoTotal, codigoModificacion, descripcion, asientoId
+      empresaId, clienteId, facturaId, tipo, fecha, subtotal,
+      aplicaITBIS, itbis, montoTotal, ncf, motivo, descripcion, estado
     } = req.body;
 
     // Verificar que la nota existe y pertenece a la empresa
@@ -138,26 +127,18 @@ router.put('/:id', async (req, res, next) => {
     const nota = await prisma.notaCreditoDebito.update({
       where: { id },
       data: {
-        tipo,
-        facturaAfectadaId: Number(facturaAfectadaId),
-        facturaAfectadaNCF,
-        ncf,
-        fecha: new Date(fecha),
         clienteId: Number(clienteId),
-        clienteNombre,
+        facturaId: facturaId ? Number(facturaId) : null,
+        tipo,
+        fecha: new Date(fecha),
         subtotal: Number(subtotal),
-        descuentoPorcentaje: descuentoPorcentaje ? Number(descuentoPorcentaje) : null,
-        montoDescuento: montoDescuento ? Number(montoDescuento) : null,
         aplicaITBIS: Boolean(aplicaITBIS),
-        aplicaISC: Boolean(aplicaISC),
-        isc: Number(isc || 0),
         itbis: Number(itbis || 0),
-        aplicaPropina: Boolean(aplicaPropina),
-        propinaLegal: Number(propinaLegal || 0),
         montoTotal: Number(montoTotal),
-        codigoModificacion,
+        ncf: ncf || null,
+        motivo,
         descripcion,
-        asientoId: asientoId || existing.asientoId
+        estado: estado || existing.estado
       }
     });
 
