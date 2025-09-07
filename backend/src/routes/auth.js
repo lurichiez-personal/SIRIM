@@ -29,7 +29,7 @@ const user = await prisma.user.findUnique({ where: { email } });
 if (!user || !user.active) return res.status(401).json({ error: "Credenciales inválidas" });
 const ok = await bcrypt.compare(password, user.password);
 if (!ok) return res.status(401).json({ error: "Credenciales inválidas" });
-const token = jwt.sign({ email: user.email, roles: user.roles, empresaId: user.empresaId }, process.env.JWT_SECRET, { subject: user.id.toString(), expiresIn: "7d" });
+const token = jwt.sign({ email: user.email, roles: user.roles, empresaId: user.empresaId }, process.env.JWT_SECRET || 'sirim-secret-key', { subject: user.id.toString(), expiresIn: "7d" });
 res.json({ token, user: { id: user.id, email: user.email, nombre: user.nombre, roles: user.roles, empresaId: user.empresaId } });
 } catch (e) { next(e); }
 });

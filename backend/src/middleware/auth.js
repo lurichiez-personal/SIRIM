@@ -6,7 +6,7 @@ const auth = req.headers.authorization || "";
 const token = auth.startsWith("Bearer ") ? auth.slice(7) : null;
 if (!token) return res.status(401).json({ error: "Token requerido" });
 try {
-const payload = jwt.verify(token, process.env.JWT_SECRET);
+const payload = jwt.verify(token, process.env.JWT_SECRET || 'sirim-secret-key');
 req.user = { id: payload.sub, email: payload.email, roles: payload.roles, empresaId: payload.empresaId };
 return next();
 } catch (e) {
