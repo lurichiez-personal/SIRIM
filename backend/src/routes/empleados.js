@@ -49,4 +49,33 @@ res.json(updated);
 });
 
 
+// DELETE individual empleado
+router.delete("/:id", async (req, res, next) => {
+try {
+const id = parseInt(req.params.id, 10);
+await prisma.empleado.delete({ where: { id } });
+res.json({ success: true, message: 'Empleado eliminado exitosamente' });
+} catch (e) { next(e); }
+});
+
+// DELETE multiple empleados (bulk delete)
+router.delete("/", async (req, res, next) => {
+try {
+const { ids } = req.body;
+if (!Array.isArray(ids) || ids.length === 0) {
+return res.status(400).json({ error: 'Se requiere un array de IDs para eliminar' });
+}
+const result = await prisma.empleado.deleteMany({ 
+where: { 
+id: { in: ids.map(id => parseInt(id, 10)) } 
+} 
+});
+res.json({ 
+success: true, 
+message: `${result.count} empleados eliminados exitosamente`,
+deletedCount: result.count
+});
+} catch (e) { next(e); }
+});
+
 module.exports = router;

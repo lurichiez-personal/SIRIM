@@ -66,4 +66,33 @@ res.json({ ok: true });
 });
 
 
+// DELETE individual cliente
+router.delete("/:id", async (req, res, next) => {
+try {
+const id = parseInt(req.params.id, 10);
+await prisma.cliente.delete({ where: { id } });
+res.json({ success: true, message: 'Cliente eliminado exitosamente' });
+} catch (e) { next(e); }
+});
+
+// DELETE multiple clientes (bulk delete)
+router.delete("/", async (req, res, next) => {
+try {
+const { ids } = req.body;
+if (!Array.isArray(ids) || ids.length === 0) {
+return res.status(400).json({ error: 'Se requiere un array de IDs para eliminar' });
+}
+const result = await prisma.cliente.deleteMany({ 
+where: { 
+id: { in: ids.map(id => parseInt(id, 10)) } 
+} 
+});
+res.json({ 
+success: true, 
+message: `${result.count} clientes eliminados exitosamente`,
+deletedCount: result.count
+});
+} catch (e) { next(e); }
+});
+
 module.exports = router;

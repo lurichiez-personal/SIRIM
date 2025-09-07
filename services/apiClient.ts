@@ -80,6 +80,14 @@ class ApiClient {
     return this.put(`/clientes/${clienteId}`, clienteData);
   }
 
+  async deleteCliente(clienteId: number) {
+    return this.delete(`/clientes/${clienteId}`);
+  }
+
+  async bulkDeleteClientes(clienteIds: number[]) {
+    return this.delete('/clientes', { ids: clienteIds });
+  }
+
   async getFacturas(empresaId: number, params?: any) {
     return this.get('/facturas', { empresaId, ...params });
   }
@@ -134,6 +142,14 @@ class ApiClient {
 
   async updateEmpleado(empleadoId: number, empleadoData: any) {
     return this.put(`/empleados/${empleadoId}`, empleadoData);
+  }
+
+  async deleteEmpleado(empleadoId: number) {
+    return this.delete(`/empleados/${empleadoId}`);
+  }
+
+  async bulkDeleteEmpleados(empleadoIds: number[]) {
+    return this.delete('/empleados', { ids: empleadoIds });
   }
 
   // User management for master

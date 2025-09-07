@@ -104,6 +104,8 @@ interface DataState {
 
   addCliente: (clienteData: Omit<Cliente, 'id'|'empresaId'|'createdAt'|'activo'>) => Cliente;
   updateCliente: (cliente: Cliente) => void;
+  deleteCliente: (clienteId: number) => Promise<void>;
+  bulkDeleteClientes: (clienteIds: number[]) => Promise<void>;
   bulkUpdateClienteStatus: (clienteIds: number[], activo: boolean) => void;
   
   addIngreso: (ingresoData: Omit<Ingreso, 'id' | 'empresaId' | 'conciliado'>) => void;
@@ -134,6 +136,8 @@ interface DataState {
   // --- Nómina Mutators ---
   addEmpleado: (empleadoData: Omit<Empleado, 'id' | 'empresaId'>) => Promise<void>;
   updateEmpleado: (empleado: Empleado) => Promise<void>;
+  deleteEmpleado: (empleadoId: number) => Promise<void>;
+  bulkDeleteEmpleados: (empleadoIds: number[]) => Promise<void>;
   addNomina: (nominaData: Omit<Nomina, 'empresaId' | 'status' | 'generadoPor' | 'fechaGeneracion'>) => void;
   auditarNomina: (nominaId: string) => void;
   contabilizarNomina: (nominaId: string) => void;
@@ -573,14 +577,52 @@ export const useDataStore = create<DataState>((set, get) => ({
       throw error;
     }
   },
-  updateCliente: (cliente) => {
+  updateCliente: async (cliente) => {
     const empresaId = useTenantStore.getState().selectedTenant?.id;
     if (!empresaId) return;
-    const index = allClientes.findIndex(c => c.id === cliente.id);
-    if (index > -1) {
-        allClientes[index] = cliente;
+    
+    try {
+      // Actualizar cliente usando API real
+      await apiClient.updateCliente(cliente.id, cliente);
+      
+      // Refrescar datos desde la base de datos
+      await get().fetchData(empresaId);
+    } catch (error) {
+      console.error('Error actualizando cliente:', error);
+      throw error;
     }
-    get().fetchData(empresaId);
+  },
+
+  deleteCliente: async (clienteId) => {
+    const empresaId = useTenantStore.getState().selectedTenant?.id;
+    if (!empresaId) return;
+    
+    try {
+      // Eliminar cliente usando API real
+      await apiClient.deleteCliente(clienteId);
+      
+      // Refrescar datos desde la base de datos
+      await get().fetchData(empresaId);
+    } catch (error) {
+      console.error('Error eliminando cliente:', error);
+      throw error;
+    }
+  },
+
+  bulkDeleteClientes: async (clienteIds) => {
+    const empresaId = useTenantStore.getState().selectedTenant?.id;
+    if (!empresaId) return;
+    
+    try {
+      // Eliminar clientes usando API real
+      await apiClient.bulkDeleteClientes(clienteIds);
+      
+      // Refrescar datos desde la base de datos
+      await get().fetchData(empresaId);
+    } catch (error) {
+      console.error('Error eliminando clientes:', error);
+      throw error;
+    }
   },
    bulkUpdateClienteStatus: (clienteIds, activo) => {
     allClientes.forEach((cliente, index) => {
@@ -802,6 +844,38 @@ export const useDataStore = create<DataState>((set, get) => ({
       await get().fetchData(empresaId);
     } catch (error) {
       console.error('Error actualizando empleado:', error);
+      throw error;
+    }
+  },
+
+  deleteEmpleado: async (empleadoId) => {
+    const empresaId = useTenantStore.getState().selectedTenant?.id;
+    if (!empresaId) return;
+    
+    try {
+      // Eliminar empleado usando API real
+      await apiClient.deleteEmpleado(empleadoId);
+      
+      // Refrescar datos desde la base de datos
+      await get().fetchData(empresaId);
+    } catch (error) {
+      console.error('Error eliminando empleado:', error);
+      throw error;
+    }
+  },
+
+  bulkDeleteEmpleados: async (empleadoIds) => {
+    const empresaId = useTenantStore.getState().selectedTenant?.id;
+    if (!empresaId) return;
+    
+    try {
+      // Eliminar empleados usando API real
+      await apiClient.bulkDeleteEmpleados(empleadoIds);
+      
+      // Refrescar datos desde la base de datos
+      await get().fetchData(empresaId);
+    } catch (error) {
+      console.error('Error eliminando empleados:', error);
       throw error;
     }
   },
