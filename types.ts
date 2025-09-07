@@ -7,6 +7,7 @@ export enum Role {
   Usuario = 'Usuario',
   GerenteRRHH = 'Gerente RRHH',
   AuditorNomina = 'Auditor de Nómina',
+  Master = 'master',
 }
 
 export interface User {

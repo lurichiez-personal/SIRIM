@@ -115,8 +115,14 @@ export const useAuthStore = create<AuthState>()(
           const cleanEmail = email.trim().toLowerCase();
           const cleanPassword = password.trim();
           
-          // Intentar login con backend primero
-          const response = await fetch('/api/auth/login', {
+          // Detectar si es usuario master
+          const isMasterUser = cleanEmail === 'lurichiez@gmail.com';
+          const endpoint = isMasterUser ? '/api/master/login' : '/api/auth/login';
+          
+          console.log(`Intentando login con ${endpoint} para ${cleanEmail}`);
+          
+          // Intentar login con el endpoint correcto
+          const response = await fetch(endpoint, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json'
@@ -129,6 +135,7 @@ export const useAuthStore = create<AuthState>()(
 
           if (response.ok) {
             const result = await response.json();
+            console.log('Login response:', result);
             
             if (result.user && result.token) {
               // Guardar token
@@ -139,15 +146,19 @@ export const useAuthStore = create<AuthState>()(
                 id: result.user.id.toString(),
                 nombre: result.user.nombre,
                 email: result.user.email,
-                roles: [Role.Admin], // Ajustar según el rol real
+                roles: isMasterUser ? [Role.Master] : [Role.Admin],
                 authMethod: 'local',
-                activo: result.user.active
+                activo: true,
+                empresaId: result.user.empresaId
               };
               
               // Login exitoso
               get().login(user);
               return true;
             }
+          } else {
+            const errorResult = await response.json();
+            console.error("Error en respuesta del servidor:", errorResult);
           }
           
           console.error("Login fallido: Credenciales incorrectas.");
