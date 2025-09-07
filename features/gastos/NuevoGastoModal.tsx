@@ -118,6 +118,7 @@ const NuevoGastoModal: React.FC<NuevoGastoModalProps> = ({ isOpen, onClose, onSa
     };
 
     const handleNcfBlur = () => {
+        if (!ncf || typeof ncf !== 'string') return;
         const cleaned = ncf.toUpperCase().replace(/^0+/, '');
         if (cleaned.startsWith('B') || cleaned.startsWith('E')) {
             setNcf(cleaned);
