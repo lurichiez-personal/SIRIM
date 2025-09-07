@@ -91,6 +91,7 @@ app.use("/api/stripe", require("./routes/stripe"));
 app.use("/api/modules", modulesRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/metas-ventas", metasVentasRoutes);
+app.use("/api/email-config", require("./routes/email-config"));
 
 // Catch all handler para React Router (SIEMPRE activo)
 app.get('*', (req, res) => {

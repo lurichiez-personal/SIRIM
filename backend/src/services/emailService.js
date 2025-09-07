@@ -1,17 +1,105 @@
 const sgMail = require('@sendgrid/mail');
+const nodemailer = require('nodemailer');
+const bcrypt = require('bcryptjs');
 const { PrismaClient } = require('@prisma/client');
 
 const prisma = new PrismaClient();
 
 class EmailService {
   constructor() {
-    // Configurar SendGrid solo si está disponible
+    // Configurar SendGrid por compatibilidad (fallback)
     if (process.env.SENDGRID_API_KEY) {
       sgMail.setApiKey(process.env.SENDGRID_API_KEY);
     }
+    
+    this.transporters = new Map();
   }
 
-  async sendEmail(to, subject, html, text = null) {
+  // Obtener configuración de correo por defecto
+  async getDefaultConfig() {
+    const config = await prisma.emailConfig.findFirst({
+      where: { isDefault: true, isActive: true }
+    });
+
+    return config;
+  }
+
+  // Crear transporter de Nodemailer basado en la configuración
+  async createTransporter(config) {
+    const transporterId = `${config.provider}_${config.id}`;
+    
+    if (this.transporters.has(transporterId)) {
+      return this.transporters.get(transporterId);
+    }
+
+    let transporter;
+
+    switch (config.provider) {
+      case 'GMAIL':
+        transporter = nodemailer.createTransporter({
+          service: 'gmail',
+          host: 'smtp.gmail.com',
+          port: 587,
+          secure: false,
+          auth: {
+            user: config.email,
+            pass: config.password // Debe ser App Password de Gmail
+          }
+        });
+        break;
+
+      case 'OUTLOOK':
+        transporter = nodemailer.createTransporter({
+          service: 'hotmail',
+          host: 'smtp-mail.outlook.com',
+          port: 587,
+          secure: false,
+          auth: {
+            user: config.email,
+            pass: config.password
+          }
+        });
+        break;
+
+      case 'OFFICE365':
+        transporter = nodemailer.createTransporter({
+          host: 'smtp.office365.com',
+          port: 587,
+          secure: false,
+          auth: {
+            user: config.email,
+            pass: config.password
+          }
+        });
+        break;
+
+      case 'SENDGRID':
+        // Para SendGrid, mantener compatibilidad con el método existente
+        return null; // Indica que debe usar el método SendGrid original
+        
+      case 'CUSTOM_SMTP':
+        transporter = nodemailer.createTransporter({
+          host: config.smtpHost,
+          port: config.smtpPort,
+          secure: config.smtpSecure,
+          auth: {
+            user: config.email,
+            pass: config.password
+          }
+        });
+        break;
+
+      default:
+        throw new Error(`Proveedor de correo no soportado: ${config.provider}`);
+    }
+
+    // Cachear el transporter
+    this.transporters.set(transporterId, transporter);
+    return transporter;
+  }
+
+  // Enviar email usando SendGrid (método original)
+  async sendEmailWithSendGrid(to, subject, html, text = null, fromEmail = null) {
     try {
       if (!process.env.SENDGRID_API_KEY) {
         console.log('SENDGRID_API_KEY no configurado - simulando envío de email:', {
@@ -21,315 +109,256 @@ class EmailService {
       }
 
       const config = await this.getPaymentConfig();
-      const fromEmail = config?.supportEmail || 'soporte@sirim.do';
+      const from = fromEmail || config?.supportEmail || 'soporte@sirim.do';
 
       const msg = {
         to,
-        from: fromEmail,
+        from,
         subject,
         html,
         text: text || this.htmlToText(html)
       };
 
       const result = await sgMail.send(msg);
-      console.log('Email enviado exitosamente:', { to, subject });
-      return { success: true, messageId: result[0]?.headers['x-message-id'] };
+      console.log('Email enviado exitosamente via SendGrid:', { to, subject });
+      
+      return { 
+        success: true, 
+        messageId: result[0]?.headers['x-message-id'],
+        provider: 'SENDGRID'
+      };
 
     } catch (error) {
-      console.error('Error enviando email:', error);
+      console.error('Error enviando email via SendGrid:', error);
+      return { success: false, error: error.message, provider: 'SENDGRID' };
+    }
+  }
+
+  // Enviar email usando Nodemailer
+  async sendEmailWithNodemailer(config, to, subject, html, text = null) {
+    try {
+      const transporter = await this.createTransporter(config);
+
+      if (!transporter) {
+        throw new Error('No se pudo crear el transporter para este proveedor');
+      }
+
+      const mailOptions = {
+        from: `${config.fromName} <${config.email}>`,
+        to,
+        subject,
+        html,
+        text: text || this.htmlToText(html),
+        replyTo: config.replyTo || config.email
+      };
+
+      const result = await transporter.sendMail(mailOptions);
+      console.log(`Email enviado exitosamente via ${config.provider}:`, { to, subject });
+      
+      // Actualizar estadísticas de éxito
+      await this.updateConfigStats(config.id, true);
+
+      return { 
+        success: true, 
+        messageId: result.messageId,
+        provider: config.provider
+      };
+
+    } catch (error) {
+      console.error(`Error enviando email via ${config.provider}:`, error);
+      
+      // Actualizar estadísticas de error
+      await this.updateConfigStats(config.id, false, error.message);
+      
+      return { 
+        success: false, 
+        error: error.message, 
+        provider: config.provider 
+      };
+    }
+  }
+
+  // Método principal para enviar email
+  async sendEmail(to, subject, html, text = null, configId = null) {
+    try {
+      let config;
+
+      if (configId) {
+        // Usar configuración específica
+        config = await prisma.emailConfig.findUnique({
+          where: { id: configId, isActive: true }
+        });
+      } else {
+        // Usar configuración por defecto
+        config = await this.getDefaultConfig();
+      }
+
+      // Si no hay configuración personalizada, usar SendGrid por defecto
+      if (!config) {
+        console.log('No hay configuración de correo personalizada, usando SendGrid por defecto');
+        return await this.sendEmailWithSendGrid(to, subject, html, text);
+      }
+
+      // Si es SendGrid, usar el método original
+      if (config.provider === 'SENDGRID') {
+        return await this.sendEmailWithSendGrid(to, subject, html, text, config.email);
+      }
+
+      // Para otros proveedores, usar Nodemailer
+      return await this.sendEmailWithNodemailer(config, to, subject, html, text);
+
+    } catch (error) {
+      console.error('Error general enviando email:', error);
       return { success: false, error: error.message };
     }
   }
 
-  async sendNewClientNotification(empresaData, userData) {
+  // Actualizar estadísticas de uso de configuración
+  async updateConfigStats(configId, success, errorMessage = null) {
     try {
-      const subject = `Nuevo Cliente Registrado - ${empresaData.nombre}`;
-      
-      const html = `
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <meta charset="utf-8">
-          <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <title>${subject}</title>
-          <style>
-            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; }
-            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-            .header { background: #2563eb; color: white; padding: 20px; text-align: center; }
-            .content { background: #f9fafb; padding: 20px; }
-            .card { background: white; padding: 20px; margin: 10px 0; border-radius: 8px; border-left: 4px solid #2563eb; }
-            .btn { display: inline-block; padding: 12px 24px; background: #2563eb; color: white; text-decoration: none; border-radius: 6px; margin: 10px 0; }
-            .footer { text-align: center; color: #666; font-size: 12px; margin-top: 20px; }
-          </style>
-        </head>
-        <body>
-          <div class="container">
-            <div class="header">
-              <h1>🎉 Nuevo Cliente en SIRIM</h1>
-            </div>
-            
-            <div class="content">
-              <div class="card">
-                <h2>Información de la Empresa</h2>
-                <p><strong>Nombre:</strong> ${empresaData.nombre}</p>
-                <p><strong>RNC:</strong> ${empresaData.rnc}</p>
-                <p><strong>Fecha de Registro:</strong> ${new Date().toLocaleDateString('es-DO')}</p>
-              </div>
-
-              <div class="card">
-                <h2>Usuario Principal</h2>
-                <p><strong>Nombre:</strong> ${userData.nombre}</p>
-                <p><strong>Email:</strong> ${userData.email}</p>
-              </div>
-
-              <div class="card">
-                <h2>Próximos Pasos</h2>
-                <p>El nuevo cliente ha sido registrado exitosamente en el sistema. Puedes:</p>
-                <ul>
-                  <li>Revisar su información en el panel master</li>
-                  <li>Contactar directamente con el cliente</li>
-                  <li>Configurar su suscripción si es necesario</li>
-                </ul>
-                
-                <a href="${process.env.FRONTEND_URL}/#/dashboard/master" class="btn">
-                  Ver Panel Master
-                </a>
-              </div>
-            </div>
-
-            <div class="footer">
-              <p>Este email fue enviado automáticamente por SIRIM</p>
-              <p>&copy; ${new Date().getFullYear()} SIRIM - Sistema Inteligente de Registros Impositivos</p>
-            </div>
-          </div>
-        </body>
-        </html>
-      `;
-
-      // Obtener email del master user
-      const masterUser = await prisma.user.findFirst({
-        where: { role: 'master' }
-      });
-
-      if (!masterUser) {
-        console.warn('No se encontró usuario master para enviar notificación');
-        return { success: false, error: 'Usuario master no encontrado' };
-      }
-
-      const result = await this.sendEmail(masterUser.email, subject, html);
-
-      // Crear notificación en base de datos
-      if (result.success) {
-        await prisma.notification.create({
+      if (success) {
+        await prisma.emailConfig.update({
+          where: { id: configId },
           data: {
-            userId: masterUser.id,
-            type: 'new_client',
-            title: 'Nuevo Cliente Registrado',
-            message: `${empresaData.nombre} (${empresaData.rnc}) se ha registrado en el sistema`,
-            data: JSON.stringify({ empresaId: empresaData.id, userEmail: userData.email }),
-            emailSent: true
+            lastUsedAt: new Date(),
+            errorCount: 0,
+            lastError: null
+          }
+        });
+      } else {
+        await prisma.emailConfig.update({
+          where: { id: configId },
+          data: {
+            errorCount: { increment: 1 },
+            lastError: errorMessage
           }
         });
       }
-
-      return result;
-
     } catch (error) {
-      console.error('Error enviando notificación de nuevo cliente:', error);
-      return { success: false, error: error.message };
+      console.error('Error actualizando estadísticas de configuración:', error);
     }
   }
 
-  async sendPaymentSuccessNotification(paymentData, empresaData) {
-    try {
-      const subject = `Pago Exitoso - ${empresaData.nombre}`;
-      
-      const html = `
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <meta charset="utf-8">
-          <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <title>${subject}</title>
-          <style>
-            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; }
-            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-            .header { background: #059669; color: white; padding: 20px; text-align: center; }
-            .content { background: #f9fafb; padding: 20px; }
-            .card { background: white; padding: 20px; margin: 10px 0; border-radius: 8px; border-left: 4px solid #059669; }
-            .amount { font-size: 24px; font-weight: bold; color: #059669; }
-            .footer { text-align: center; color: #666; font-size: 12px; margin-top: 20px; }
-          </style>
-        </head>
-        <body>
-          <div class="container">
-            <div class="header">
-              <h1>💰 Pago Recibido</h1>
-            </div>
-            
-            <div class="content">
-              <div class="card">
-                <h2>Detalles del Pago</h2>
-                <p class="amount">$${paymentData.amount} ${paymentData.currency}</p>
-                <p><strong>Empresa:</strong> ${empresaData.nombre}</p>
-                <p><strong>Método:</strong> ${paymentData.paymentMethod || 'Tarjeta'}</p>
-                <p><strong>Fecha:</strong> ${new Date(paymentData.paidAt).toLocaleDateString('es-DO')}</p>
-                <p><strong>ID de Transacción:</strong> ${paymentData.stripePaymentIntentId}</p>
-              </div>
-            </div>
-
-            <div class="footer">
-              <p>Este email fue enviado automáticamente por SIRIM</p>
-              <p>&copy; ${new Date().getFullYear()} SIRIM - Sistema Inteligente de Registros Impositivos</p>
-            </div>
-          </div>
-        </body>
-        </html>
-      `;
-
-      // Obtener email del master user
-      const masterUser = await prisma.user.findFirst({
-        where: { role: 'master' }
-      });
-
-      if (!masterUser) {
-        return { success: false, error: 'Usuario master no encontrado' };
-      }
-
-      const result = await this.sendEmail(masterUser.email, subject, html);
-
-      // Crear notificación en base de datos
-      if (result.success) {
-        await prisma.notification.create({
-          data: {
-            userId: masterUser.id,
-            type: 'payment_success',
-            title: 'Pago Recibido',
-            message: `Pago de $${paymentData.amount} ${paymentData.currency} de ${empresaData.nombre}`,
-            data: JSON.stringify({ paymentId: paymentData.id, empresaId: empresaData.id }),
-            emailSent: true
-          }
-        });
-      }
-
-      return result;
-
-    } catch (error) {
-      console.error('Error enviando notificación de pago:', error);
-      return { success: false, error: error.message };
-    }
+  // Convertir HTML a texto plano
+  htmlToText(html) {
+    return html.replace(/<[^>]*>?/gm, '').replace(/\s+/g, ' ').trim();
   }
 
-  async sendSubscriptionCanceledNotification(suscripcionData, empresaData) {
-    try {
-      const subject = `Suscripción Cancelada - ${empresaData.nombre}`;
-      
-      const html = `
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <meta charset="utf-8">
-          <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <title>${subject}</title>
-          <style>
-            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; }
-            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-            .header { background: #dc2626; color: white; padding: 20px; text-align: center; }
-            .content { background: #f9fafb; padding: 20px; }
-            .card { background: white; padding: 20px; margin: 10px 0; border-radius: 8px; border-left: 4px solid #dc2626; }
-            .footer { text-align: center; color: #666; font-size: 12px; margin-top: 20px; }
-          </style>
-        </head>
-        <body>
-          <div class="container">
-            <div class="header">
-              <h1>⚠️ Suscripción Cancelada</h1>
-            </div>
-            
-            <div class="content">
-              <div class="card">
-                <h2>Detalles de la Cancelación</h2>
-                <p><strong>Empresa:</strong> ${empresaData.nombre}</p>
-                <p><strong>RNC:</strong> ${empresaData.rnc}</p>
-                <p><strong>Plan:</strong> ${suscripcionData.plan?.name || 'N/A'}</p>
-                <p><strong>Fecha de Cancelación:</strong> ${new Date().toLocaleDateString('es-DO')}</p>
-                <p><strong>Estado:</strong> ${suscripcionData.status}</p>
-              </div>
-
-              <div class="card">
-                <h2>Acciones Recomendadas</h2>
-                <ul>
-                  <li>Contactar al cliente para entender la razón de la cancelación</li>
-                  <li>Ofrecer soporte adicional si es necesario</li>
-                  <li>Revisar los datos de facturación por posibles errores</li>
-                </ul>
-              </div>
-            </div>
-
-            <div class="footer">
-              <p>Este email fue enviado automáticamente por SIRIM</p>
-              <p>&copy; ${new Date().getFullYear()} SIRIM - Sistema Inteligente de Registros Impositivos</p>
-            </div>
-          </div>
-        </body>
-        </html>
-      `;
-
-      // Obtener email del master user
-      const masterUser = await prisma.user.findFirst({
-        where: { role: 'master' }
-      });
-
-      if (!masterUser) {
-        return { success: false, error: 'Usuario master no encontrado' };
-      }
-
-      const result = await this.sendEmail(masterUser.email, subject, html);
-
-      // Crear notificación en base de datos
-      if (result.success) {
-        await prisma.notification.create({
-          data: {
-            userId: masterUser.id,
-            type: 'subscription_canceled',
-            title: 'Suscripción Cancelada',
-            message: `${empresaData.nombre} ha cancelado su suscripción`,
-            data: JSON.stringify({ suscripcionId: suscripcionData.id, empresaId: empresaData.id }),
-            emailSent: true
-          }
-        });
-      }
-
-      return result;
-
-    } catch (error) {
-      console.error('Error enviando notificación de cancelación:', error);
-      return { success: false, error: error.message };
-    }
-  }
-
-  // Obtener configuración de pagos
+  // Obtener configuración de pagos (mantener compatibilidad)
   async getPaymentConfig() {
     try {
-      return await prisma.paymentConfig.findFirst({
-        where: { active: true }
+      const config = await prisma.paymentConfig.findFirst({
+        where: { active: true },
+        select: { supportEmail: true }
       });
+      return config;
     } catch (error) {
       console.error('Error obteniendo configuración de pagos:', error);
       return null;
     }
   }
 
-  // Convertir HTML a texto plano simple
-  htmlToText(html) {
-    return html
-      .replace(/<[^>]*>/g, '') // Remover tags HTML
-      .replace(/&nbsp;/g, ' ')
-      .replace(/&amp;/g, '&')
-      .replace(/&lt;/g, '<')
-      .replace(/&gt;/g, '>')
-      .replace(/\s+/g, ' ')
-      .trim();
+  // Enviar email de notificación específico para el sistema
+  async sendSystemNotification(type, data) {
+    try {
+      const masterEmail = 'lurichiez@gmail.com';
+      let subject, html;
+
+      switch (type) {
+        case 'new_client_registration':
+          subject = `[SIRIM] Nuevo cliente registrado: ${data.clientName}`;
+          html = `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+              <h2 style="color: #2563eb;">Nuevo Cliente Registrado</h2>
+              <p>Se ha registrado un nuevo cliente en SIRIM:</p>
+              <ul>
+                <li><strong>Empresa:</strong> ${data.clientName}</li>
+                <li><strong>Email:</strong> ${data.email}</li>
+                <li><strong>RNC:</strong> ${data.rnc}</li>
+                <li><strong>Plan:</strong> ${data.plan}</li>
+                <li><strong>Fecha:</strong> ${new Date().toLocaleDateString('es-DO')}</li>
+              </ul>
+              <p>Puedes revisar los detalles en el panel de administración de SIRIM.</p>
+            </div>
+          `;
+          break;
+
+        case 'payment_success':
+          subject = `[SIRIM] Pago exitoso: ${data.clientName}`;
+          html = `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+              <h2 style="color: #059669;">Pago Procesado Exitosamente</h2>
+              <p>Se ha procesado un pago en SIRIM:</p>
+              <ul>
+                <li><strong>Cliente:</strong> ${data.clientName}</li>
+                <li><strong>Monto:</strong> $${data.amount} ${data.currency}</li>
+                <li><strong>Plan:</strong> ${data.plan}</li>
+                <li><strong>Fecha:</strong> ${new Date().toLocaleDateString('es-DO')}</li>
+              </ul>
+            </div>
+          `;
+          break;
+
+        case 'payment_failed':
+          subject = `[SIRIM] Fallo en el pago: ${data.clientName}`;
+          html = `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+              <h2 style="color: #dc2626;">Fallo en el Pago</h2>
+              <p>Ha ocurrido un error en el procesamiento de pago:</p>
+              <ul>
+                <li><strong>Cliente:</strong> ${data.clientName}</li>
+                <li><strong>Monto:</strong> $${data.amount} ${data.currency}</li>
+                <li><strong>Plan:</strong> ${data.plan}</li>
+                <li><strong>Error:</strong> ${data.error}</li>
+                <li><strong>Fecha:</strong> ${new Date().toLocaleDateString('es-DO')}</li>
+              </ul>
+              <p>Es recomendable contactar al cliente para resolver este inconveniente.</p>
+            </div>
+          `;
+          break;
+
+        default:
+          throw new Error(`Tipo de notificación no soportado: ${type}`);
+      }
+
+      return await this.sendEmail(masterEmail, subject, html);
+
+    } catch (error) {
+      console.error('Error enviando notificación del sistema:', error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  // Probar configuración de correo
+  async testEmailConfig(configId, testEmail = null) {
+    try {
+      const config = await prisma.emailConfig.findUnique({
+        where: { id: configId }
+      });
+
+      if (!config) {
+        throw new Error('Configuración de correo no encontrada');
+      }
+
+      const recipient = testEmail || config.email;
+      const subject = 'Prueba de Configuración de Correo - SIRIM';
+      const html = `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2 style="color: #2563eb;">Prueba de Correo Exitosa</h2>
+          <p>Esta es una prueba de la configuración de correo de SIRIM.</p>
+          <p><strong>Proveedor:</strong> ${config.provider}</p>
+          <p><strong>Email configurado:</strong> ${config.email}</p>
+          <p><strong>Fecha de prueba:</strong> ${new Date().toLocaleDateString('es-DO')}</p>
+          <p>Si recibiste este correo, la configuración está funcionando correctamente.</p>
+        </div>
+      `;
+
+      return await this.sendEmail(recipient, subject, html, null, configId);
+
+    } catch (error) {
+      console.error('Error probando configuración de correo:', error);
+      return { success: false, error: error.message };
+    }
   }
 }
 
