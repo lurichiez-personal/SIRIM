@@ -14,8 +14,16 @@ const upload = multer({
   storage: storage,
   fileFilter: (req, file, cb) => {
     console.log('Archivo recibido:', file.originalname, 'MIME:', file.mimetype);
-    // Temporalmente permitir todos los archivos para testing
-    cb(null, true);
+    if (file.mimetype === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' || 
+        file.mimetype === 'application/vnd.ms-excel' ||
+        file.mimetype === 'application/octet-stream' || // Para archivos Excel sin MIME detectado
+        file.originalname.endsWith('.xlsx') || 
+        file.originalname.endsWith('.xls')) {
+      cb(null, true);
+    } else {
+      console.log('Archivo rechazado - MIME no válido:', file.mimetype);
+      cb(new Error('Solo se permiten archivos Excel (.xlsx, .xls)'));
+    }
   },
   limits: {
     fileSize: 10 * 1024 * 1024 // 10MB límite
