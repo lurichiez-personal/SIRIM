@@ -400,8 +400,8 @@ if (typeof window !== 'undefined') {
         return false;
       }
       
-      // Usuario Master específico
-      if (tokenPayload.email === 'lurichiez@gmail.com' || tokenPayload.role === 'master') {
+      // Usuario Master específico - solo aceptar el email correcto del master
+      if (tokenPayload.email === 'lurichiez@gmail.com') {
         const masterUser: User = {
           id: tokenPayload.sub?.toString() || '1',
           nombre: tokenPayload.nombre || 'Luis Richards',
@@ -450,7 +450,12 @@ if (typeof window !== 'undefined') {
     if (attempts < 5) {
       setTimeout(tryInitialize, attempts * 200);
     } else {
-      console.log('⚠️ Inicialización fallida después de 5 intentos');
+      console.log('⚠️ Inicialización fallida después de 5 intentos - limpiando token inválido');
+      localStorage.removeItem('token');
+      // Redirigir al login si estamos en una ruta protegida
+      if (window.location.hash !== '#/login' && window.location.hash !== '#/') {
+        window.location.hash = '#/login';
+      }
     }
   };
 

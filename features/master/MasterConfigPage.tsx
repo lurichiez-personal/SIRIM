@@ -40,6 +40,16 @@ interface MasterConfig {
     enableSmsNotifications: boolean;
   };
   
+  // Configuración de Stripe
+  stripe: {
+    publishableKey: string;
+    secretKey: string;
+    webhookSecret: string;
+    enablePayments: boolean;
+    currency: string;
+    enabled: boolean;
+  };
+
   // Configuración general
   general: {
     appName: string;
@@ -69,6 +79,14 @@ const MasterConfigPage: React.FC = () => {
       enableEmailNotifications: true,
       enableSmsNotifications: false
     },
+    stripe: {
+      publishableKey: '',
+      secretKey: '',
+      webhookSecret: '',
+      enablePayments: false,
+      currency: 'usd',
+      enabled: false
+    },
     general: {
       appName: 'SIRIM',
       supportPhone: '(809) 000-0000',
@@ -79,7 +97,7 @@ const MasterConfigPage: React.FC = () => {
   });
   
   const [loading, setLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState<'pricing' | 'notifications' | 'general'>('pricing');
+  const [activeTab, setActiveTab] = useState<'pricing' | 'notifications' | 'stripe' | 'general'>('pricing');
 
   // Solo permitir acceso al usuario master
   if (!user || user.email !== 'lurichiez@gmail.com') {
