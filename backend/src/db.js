@@ -1,12 +1,19 @@
 // src/db.js - Configuración robusta de Prisma Client
 const { PrismaClient } = require('@prisma/client');
 
-// Configuración robusta del cliente Prisma
+// Configuración robusta del cliente Prisma con pool explícito
 const prisma = new PrismaClient({
   datasources: {
     db: {
       url: process.env.DATABASE_URL,
     },
+  },
+  // CRITICAL FIX: Explicit connection pool configuration
+  // Development: 10 connections, Production: 20 connections
+  connectionLimit: parseInt(process.env.CONNECTION_POOL_SIZE || '10'),
+  transactionOptions: {
+    isolationLevel: 'ReadCommitted',
+    timeout: parseInt(process.env.CONNECTION_TIMEOUT_MS || '20000'),
   },
   log: [
     {

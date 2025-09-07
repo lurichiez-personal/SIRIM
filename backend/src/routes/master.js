@@ -15,7 +15,7 @@ const verifyToken = (req, res, next) => {
   }
 
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'sirim-secret-key');
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
     req.user = decoded;
     next();
   } catch (error) {
@@ -75,7 +75,7 @@ router.post("/login", async (req, res, next) => {
         roles: [user.role],
         nombre: user.nombre
       }, 
-      process.env.JWT_SECRET || 'sirim-secret-key', 
+      process.env.JWT_SECRET, 
       { expiresIn: "7d" }
     );
     
