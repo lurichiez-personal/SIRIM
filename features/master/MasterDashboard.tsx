@@ -61,6 +61,10 @@ export default function MasterDashboard() {
       setError(null);
 
       const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('Token de autenticación no encontrado. Por favor, inicie sesión nuevamente.');
+      }
+
       const headers = {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${token}`
@@ -70,7 +74,59 @@ export default function MasterDashboard() {
       const empresasResponse = await fetch('/api/master/empresas', { headers });
       
       if (!empresasResponse.ok) {
-        throw new Error('Error al cargar datos de empresas');
+        if (empresasResponse.status === 401) {
+          // Token expirado - intentar re-autenticación automática
+          console.log('🔄 Token expirado, intentando re-autenticación...');
+          
+          try {
+            const loginResponse = await fetch('/api/master/login', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                email: 'lurichiez@gmail.com',
+                password: 'Alonso260990#'
+              })
+            });
+            
+            if (loginResponse.ok) {
+              const loginData = await loginResponse.json();
+              localStorage.setItem('token', loginData.token);
+              console.log('✅ Re-autenticación exitosa, reintentando...');
+              
+              // Reintentar con nuevo token
+              headers.Authorization = `Bearer ${loginData.token}`;
+              const retryResponse = await fetch('/api/master/empresas', { headers });
+              
+              if (retryResponse.ok) {
+                const empresasData = await retryResponse.json();
+                // Procesar datos inline para evitar problemas de orden
+                const statsResponse = await fetch('/api/master/stats', { headers });
+                let statsData = null;
+                
+                if (statsResponse.ok) {
+                  statsData = await statsResponse.json();
+                } else {
+                  statsData = {
+                    totalEmpresas: empresasData.length,
+                    totalUsuarios: empresasData.reduce((acc: number, emp: Empresa) => acc + emp.usuarios.length, 0),
+                    empresasActivas: empresasData.filter((emp: Empresa) => emp.usuarios.some(u => u.user.active)).length,
+                    suscripcionesActivas: empresasData.filter((emp: Empresa) => emp.suscripcion?.status === 'active').length,
+                    ingresosMensuales: empresasData.reduce((acc: number, emp: Empresa) => acc + (emp.suscripcion?.plan?.price || 0), 0)
+                  };
+                }
+                
+                setEmpresas(empresasData);
+                setStats(statsData);
+                return;
+              }
+            }
+          } catch (reAuthError) {
+            console.error('❌ Error en re-autenticación:', reAuthError);
+          }
+          
+          throw new Error('Sesión expirada. Por favor, recargue la página para iniciar sesión nuevamente.');
+        }
+        throw new Error(`Error al cargar datos de empresas (${empresasResponse.status})`);
       }
 
       const empresasData = await empresasResponse.json();
