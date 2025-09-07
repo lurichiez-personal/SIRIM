@@ -176,6 +176,166 @@ router.get('/empresas', verifyToken, verifyMaster, async (req, res) => {
 });
 
 // Ver estadísticas del sistema (solo master)
+// Gestión de usuarios para empresas (solo master)
+router.get('/empresa/:empresaId/usuarios', verifyToken, verifyMaster, async (req, res) => {
+  try {
+    const empresaId = parseInt(req.params.empresaId);
+    
+    const usuarios = await prisma.userEmpresa.findMany({
+      where: { empresaId },
+      include: {
+        user: {
+          select: {
+            id: true,
+            email: true,
+            nombre: true,
+            role: true,
+            active: true,
+            emailVerified: true,
+            createdAt: true
+          }
+        }
+      }
+    });
+
+    res.json(usuarios);
+  } catch (error) {
+    console.error('Error obteniendo usuarios de empresa:', error);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+});
+
+// Crear usuario para una empresa específica (solo master)
+router.post('/empresa/:empresaId/usuarios', verifyToken, verifyMaster, async (req, res) => {
+  try {
+    const empresaId = parseInt(req.params.empresaId);
+    requireFields(req.body, ["nombre", "email", "password", "companyRole"]);
+    
+    const { nombre, email, password, companyRole, globalRole = "client" } = req.body;
+    
+    // Verificar si el email ya existe
+    const existingUser = await prisma.user.findUnique({ 
+      where: { email: email.toLowerCase() } 
+    });
+    
+    let userId;
+    
+    if (existingUser) {
+      // Usuario existe, solo crear relación con empresa
+      const existingRelation = await prisma.userEmpresa.findFirst({
+        where: { 
+          userId: existingUser.id, 
+          empresaId 
+        }
+      });
+      
+      if (existingRelation) {
+        return res.status(409).json({ error: 'El usuario ya pertenece a esta empresa' });
+      }
+      
+      userId = existingUser.id;
+    } else {
+      // Crear nuevo usuario
+      const hashedPassword = await bcrypt.hash(password, 10);
+      const newUser = await prisma.user.create({
+        data: {
+          email: email.toLowerCase(),
+          password: hashedPassword,
+          nombre,
+          role: globalRole,
+          active: true,
+          emailVerified: false
+        }
+      });
+      userId = newUser.id;
+    }
+    
+    // Crear relación usuario-empresa
+    const userEmpresa = await prisma.userEmpresa.create({
+      data: {
+        userId,
+        empresaId,
+        role: companyRole,
+        active: true
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            email: true,
+            nombre: true,
+            role: true,
+            active: true,
+            emailVerified: true,
+            createdAt: true
+          }
+        }
+      }
+    });
+    
+    res.status(201).json(userEmpresa);
+    
+  } catch (error) {
+    console.error('Error creando usuario para empresa:', error);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+});
+
+// Actualizar rol de usuario en empresa (solo master)
+router.put('/empresa/:empresaId/usuarios/:userId', verifyToken, verifyMaster, async (req, res) => {
+  try {
+    const empresaId = parseInt(req.params.empresaId);
+    const userId = parseInt(req.params.userId);
+    const { companyRole, active } = req.body;
+    
+    const userEmpresa = await prisma.userEmpresa.updateMany({
+      where: { 
+        userId, 
+        empresaId 
+      },
+      data: {
+        ...(companyRole && { role: companyRole }),
+        ...(active !== undefined && { active })
+      }
+    });
+    
+    if (userEmpresa.count === 0) {
+      return res.status(404).json({ error: 'Usuario no encontrado en esta empresa' });
+    }
+    
+    res.json({ message: 'Usuario actualizado exitosamente' });
+    
+  } catch (error) {
+    console.error('Error actualizando usuario de empresa:', error);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+});
+
+// Eliminar usuario de empresa (solo master)
+router.delete('/empresa/:empresaId/usuarios/:userId', verifyToken, verifyMaster, async (req, res) => {
+  try {
+    const empresaId = parseInt(req.params.empresaId);
+    const userId = parseInt(req.params.userId);
+    
+    const result = await prisma.userEmpresa.deleteMany({
+      where: { 
+        userId, 
+        empresaId 
+      }
+    });
+    
+    if (result.count === 0) {
+      return res.status(404).json({ error: 'Usuario no encontrado en esta empresa' });
+    }
+    
+    res.json({ message: 'Usuario eliminado de la empresa exitosamente' });
+    
+  } catch (error) {
+    console.error('Error eliminando usuario de empresa:', error);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+});
+
 router.get('/stats', verifyToken, verifyMaster, async (req, res) => {
   try {
     const [
