@@ -134,6 +134,45 @@ router.get('/empresas', verifyToken, verifyMaster, async (req, res) => {
       }
     });
 
+    // Obtener los planes y agregar la información del plan a cada suscripción
+    for (let empresa of empresas) {
+      if (empresa.suscripcion && empresa.suscripcion.planId) {
+        try {
+          console.log('🔍 Buscando plan para empresa:', empresa.nombre, 'planId:', empresa.suscripcion.planId);
+          
+          const plan = await prisma.$queryRaw`
+            SELECT id, name, price, currency, "planType", "billingCycle"
+            FROM subscription_plans 
+            WHERE id = ${empresa.suscripcion.planId}
+          `;
+          
+          console.log('📊 Plan encontrado:', plan);
+          
+          if (plan && plan.length > 0) {
+            empresa.suscripcion.plan = plan[0];
+            console.log('✅ Plan agregado a suscripción:', plan[0]);
+          } else {
+            console.log('⚠️ No se encontró plan, usando datos por defecto');
+            empresa.suscripcion.plan = {
+              id: empresa.suscripcion.planId,
+              name: 'Plan Básico',
+              price: 49.00,
+              currency: 'USD'
+            };
+          }
+        } catch (planError) {
+          console.error('❌ Error obteniendo plan:', planError);
+          // Si hay error obteniendo el plan, al menos poner datos por defecto
+          empresa.suscripcion.plan = {
+            id: empresa.suscripcion.planId,
+            name: 'Plan Básico',
+            price: 49.00,
+            currency: 'USD'
+          };
+        }
+      }
+    }
+
     res.json(empresas);
 
   } catch (error) {
