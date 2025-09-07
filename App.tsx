@@ -75,6 +75,18 @@ function App(): React.ReactNode {
         
         {/* Auth Routes */}
         <Route path="/login" element={isAuthenticated ? <Navigate to="/dashboard" /> : <LoginPage />} />
+        
+        {/* Master Dashboard Route */}
+        <Route 
+          path="/master" 
+          element={
+            <ProtectedRoute>
+              <React.Suspense fallback={<div>Cargando...</div>}>
+                <MasterDashboardLazy />
+              </React.Suspense>
+            </ProtectedRoute>
+          } 
+        />
         <Route path="/auth/microsoft/callback" element={<LazyMicrosoftCallbackPage />} />
         
         {/* Client Portal Routes */}

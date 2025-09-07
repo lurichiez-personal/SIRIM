@@ -20,6 +20,7 @@ const defaultPermissions: RolePermissions = {
         Permission.GESTIONAR_DESVINCULACIONES, Permission.VER_HISTORIAL_DESVINCULACIONES, 
         Permission.GESTIONAR_CONTABILIDAD, Permission.GESTIONAR_CATALOGO_CUENTAS, Permission.VER_REPORTES_FINANCIEROS,
     ],
+    [Role.Master]: Object.values(Permission), // Master User has access to EVERYTHING
     [Role.Contador]: Object.values(Permission), // Contador (Master User) can do everything
     [Role.Operaciones]: [
         Permission.VER_DASHBOARD, Permission.GESTIONAR_CLIENTES, Permission.GESTIONAR_FACTURAS,
