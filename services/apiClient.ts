@@ -3,7 +3,7 @@
 
 import { useAuthStore } from '../stores/useAuthStore';
 
-const API_BASE = 'http://localhost:3001/api';
+const API_BASE = '/api';
 
 interface ApiResponse<T> {
   data?: T;

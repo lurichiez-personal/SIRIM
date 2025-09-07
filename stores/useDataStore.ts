@@ -174,11 +174,11 @@ export const useDataStore = create<DataState>((set, get) => ({
 
       // Update store with real API data
       set({
-        clientes: clientesRes.rows || [],
-        facturas: facturasRes.rows || [],
-        items: itemsRes.rows || [],
-        gastos: gastosRes.rows || [],
-        empleados: empleadosRes.rows || [],
+        clientes: (clientesRes.rows as Cliente[]) || [],
+        facturas: (facturasRes.rows as Factura[]) || [],
+        items: (itemsRes.rows as Item[]) || [],
+        gastos: (gastosRes.rows as Gasto[]) || [],
+        empleados: (empleadosRes.rows as Empleado[]) || [],
         // For now, keep mock data for features not yet migrated
         cotizaciones: [...allCotizaciones.filter(c => c.empresaId === empresaId)],
         notas: [...allNotas.filter(n => n.empresaId === empresaId)],
