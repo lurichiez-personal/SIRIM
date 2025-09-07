@@ -62,8 +62,8 @@ const NavItemLink: React.FC<{ item: Omit<NavItem, 'permission'>, isSubmenu?: boo
     const { closeSidebar } = useUIStore();
     const isMobile = useMediaQuery('(max-width: 768px)');
     
-    const navLinkClasses = `flex items-center w-full px-4 py-3 text-secondary-100 hover:bg-primary-700 rounded-lg transition-colors duration-200 ${isSubmenu ? 'pl-11' : ''}`;
-    const activeNavLinkClasses = 'bg-primary-900 font-semibold';
+    const navLinkClasses = `flex items-center w-full px-4 py-3 text-blue-100 hover:bg-primary-800 rounded-lg transition-colors duration-200 ${isSubmenu ? 'pl-11' : ''}`;
+    const activeNavLinkClasses = 'bg-primary-700 font-semibold text-white';
     
     const handleClick = () => {
         if (isMobile) {
@@ -98,7 +98,7 @@ const Sidebar: React.FC = () => {
   }
   
   return (
-    <aside className={`absolute md:relative inset-y-0 left-0 w-64 bg-primary flex flex-col p-4 text-white transform ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0 transition-transform duration-300 ease-in-out z-40`}>
+    <aside className={`absolute md:relative inset-y-0 left-0 w-64 bg-primary-900 flex flex-col p-4 text-white transform ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0 transition-transform duration-300 ease-in-out z-40`}>
       <div className="flex items-center justify-center py-4 mb-6">
         <LogoIcon className="h-8 w-8 mr-2 text-white" />
         <span className="text-2xl font-bold tracking-wider">SIRIM</span>
@@ -108,7 +108,7 @@ const Sidebar: React.FC = () => {
           <Can key={item.to} I={item.permission}>
             {item.children ? (
                 <div>
-                    <button onClick={() => toggleSubmenu(item.to)} className="flex items-center justify-between w-full px-4 py-3 text-secondary-100 hover:bg-primary-700 rounded-lg transition-colors duration-200">
+                    <button onClick={() => toggleSubmenu(item.to)} className="flex items-center justify-between w-full px-4 py-3 text-blue-100 hover:bg-primary-800 rounded-lg transition-colors duration-200">
                         <div className="flex items-center">
                             <item.icon className="h-5 w-5 mr-3" />
                             <span>{item.label}</span>
@@ -129,11 +129,11 @@ const Sidebar: React.FC = () => {
         
         {/* Panel Master - Solo para lurichiez@gmail.com */}
         {user?.email === 'lurichiez@gmail.com' && (
-          <div className="mt-4 pt-4 border-t border-primary-600">
+          <div className="mt-4 pt-4 border-t border-primary-700">
             <NavLink
               to="/dashboard/master"
               className={({ isActive }) =>
-                `flex items-center px-4 py-3 text-secondary-100 hover:bg-primary-700 rounded-lg transition-colors duration-200 ${
+                `flex items-center px-4 py-3 text-blue-100 hover:bg-primary-800 rounded-lg transition-colors duration-200 ${
                   isActive ? 'bg-primary-700 text-white' : ''
                 }`
               }
@@ -144,7 +144,7 @@ const Sidebar: React.FC = () => {
           </div>
         )}
       </nav>
-      <div className="mt-auto text-center text-xs text-primary-200">
+      <div className="mt-auto text-center text-xs text-blue-300">
         <p>&copy; {new Date().getFullYear()} SIRIM</p>
         <p>Todos los derechos reservados.</p>
       </div>
