@@ -1,6 +1,6 @@
 
 import { create } from 'zustand';
-import { Empresa, Role } from '../types';
+import { Empresa } from '../types';
 import { useAuthStore } from './useAuthStore';
 import { useDataStore } from './useDataStore';
 
@@ -21,14 +21,7 @@ const fetchTenantsFromApi = async (userId: string | undefined): Promise<Empresa[
     console.log(`Fetching tenants for user ${userId}`);
     
     try {
-        // Detectar si es usuario master y usar endpoint correcto
-        const user = useAuthStore.getState().user;
-        const isMasterUser = user?.email === 'lurichiez@gmail.com' && user?.roles?.includes(Role.Master);
-        const endpoint = isMasterUser ? '/api/master/empresas' : '/api/empresas';
-        
-        console.log(`Using endpoint: ${endpoint} for ${isMasterUser ? 'master' : 'regular'} user`);
-        
-        const response = await fetch(endpoint, {
+        const response = await fetch('/api/empresas', {
             headers: {
                 'Authorization': `Bearer ${localStorage.getItem('token')}`
             }
