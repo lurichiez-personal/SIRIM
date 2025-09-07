@@ -3,7 +3,7 @@ const express = require('express');
 const multer = require('multer');
 const XLSX = require('xlsx');
 const { PrismaClient } = require('@prisma/client');
-const { verifyToken } = require('../middleware/auth');
+const { authRequired } = require('../middleware/auth');
 
 const router = express.Router();
 const prisma = new PrismaClient();
@@ -49,7 +49,7 @@ function parseNumber(value) {
 }
 
 // POST /api/bulk/gastos - Carga masiva de gastos
-router.post('/gastos', verifyToken, upload.single('file'), async (req, res) => {
+router.post('/gastos', authRequired, upload.single('file'), async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ error: 'No se recibió archivo' });
@@ -127,7 +127,7 @@ router.post('/gastos', verifyToken, upload.single('file'), async (req, res) => {
 });
 
 // POST /api/bulk/ingresos - Carga masiva de ingresos
-router.post('/ingresos', verifyToken, upload.single('file'), async (req, res) => {
+router.post('/ingresos', authRequired, upload.single('file'), async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ error: 'No se recibió archivo' });
@@ -201,7 +201,7 @@ router.post('/ingresos', verifyToken, upload.single('file'), async (req, res) =>
 });
 
 // POST /api/bulk/empleados - Carga masiva de empleados
-router.post('/empleados', verifyToken, upload.single('file'), async (req, res) => {
+router.post('/empleados', authRequired, upload.single('file'), async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ error: 'No se recibió archivo' });
@@ -267,7 +267,7 @@ router.post('/empleados', verifyToken, upload.single('file'), async (req, res) =
 });
 
 // POST /api/bulk/pagos-empleados - Carga masiva de pagos a empleados (nómina)
-router.post('/pagos-empleados', verifyToken, upload.single('file'), async (req, res) => {
+router.post('/pagos-empleados', authRequired, upload.single('file'), async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ error: 'No se recibió archivo' });
