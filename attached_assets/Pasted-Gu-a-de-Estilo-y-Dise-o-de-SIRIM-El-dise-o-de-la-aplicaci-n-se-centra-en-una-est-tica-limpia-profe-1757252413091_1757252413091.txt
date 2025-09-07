@@ -1,0 +1,37 @@
+Guía de Estilo y Diseño de SIRIM
+El diseño de la aplicación se centra en una estética limpia, profesional y funcional, típica de las aplicaciones SaaS (Software as a Service) modernas. El objetivo es presentar información financiera de manera clara y facilitar la interacción del usuario.
+1. Paleta de Colores
+La paleta está definida directamente en index.html dentro de la configuración de Tailwind CSS. Se basa en dos colores principales con sus respectivas tonalidades para crear jerarquía y consistencia.
+Color Primario (Azul Corporativo):
+Se utiliza para elementos de marca, acciones principales, enlaces, estados activos y el fondo de la barra lateral (sidebar). Transmite confianza, profesionalismo y seguridad.
+Principal (primary): #005A9C
+Usos: Botones principales, íconos activos, enlaces, fondo de la barra lateral, color de acento en gráficos.
+Gama de Tonalidades: Desde #E6F0F6 (muy claro) hasta #00234D (muy oscuro), permitiendo variaciones para fondos (hover), bordes y texto sobre fondos de color.
+Color Secundario (Escala de Grises):
+Funciona como la base neutra de la aplicación. Se usa para textos, fondos, bordes y elementos de UI secundarios para no competir con el color primario.
+Principal (secondary): #4A5568
+Usos:
+Fondos: El fondo general del <body> es bg-secondary-50 (#F7FAFC), un gris muy claro. El área de contenido principal dentro del layout usa bg-secondary-100 (#EDF2F7). Esta ligera diferencia crea una sutil sensación de profundidad.
+Textos: La mayoría del texto usa tonalidades como text-secondary-800 (#1A202C) para un alto contraste y text-secondary-600 (#4A5568) para texto secundario.
+Bordes y Divisores: border-secondary-200 (#E2E8F0) se usa comúnmente para separar elementos sin crear distracciones visuales.
+Colores Semánticos (de Estado):
+Además de la paleta principal, la aplicación utiliza colores convencionales para comunicar estados al usuario:
+Verde (green): Para éxito, confirmaciones y valores positivos (ej. "Pagada", beneficios).
+Rojo (red): Para errores, alertas, acciones destructivas y valores negativos (ej. "Vencida", gastos).
+Amarillo (yellow): Para advertencias o estados intermedios (ej. "Pagada Parcialmente", "Pendiente").
+Azul (blue): Para información o estados neutrales (ej. "Emitida").
+2. Layout y Componentes (El "Demás")
+Estructura General: La aplicación utiliza un diseño de dashboard clásico y muy funcional:
+Una barra lateral (Sidebar) fija a la izquierda (con fondo bg-primary).
+Un encabezado (Header) en la parte superior.
+El área de contenido principal que ocupa el resto del espacio.
+Es responsivo, adaptándose a pantallas de escritorio y móviles.
+Fondo (Background): Como se mencionó, se usa un fondo de gris muy claro y en capas (#F7FAFC y #EDF2F7), lo que hace que los elementos de contenido (que suelen tener fondo blanco) resalten de forma suave y profesional.
+Componentes de UI: El diseño es modular y se basa en componentes reutilizables:
+Tarjetas (Card): El elemento principal para agrupar información. Tienen fondo blanco (bg-white), esquinas redondeadas (rounded-lg) y una sombra sutil (shadow-md) para darles elevación y separar visualmente los bloques de contenido.
+Botones (Button): Con estilos claros para acciones primarias, secundarias y de peligro.
+Iconografía: Se utiliza un set de iconos SVG consistentes (components/icons/Icons.tsx) para reforzar visualmente las acciones y opciones de menú, mejorando la usabilidad.
+Tipografía:
+Fuente: Se utiliza la pila de fuentes sans-serif por defecto de Tailwind CSS, que es moderna y de alta legibilidad (generalmente Segoe UI en Windows, San Francisco en Apple, y Roboto en Android/Linux).
+Jerarquía: El tamaño y el grosor de la fuente se utilizan para crear una jerarquía clara (ej. text-3xl font-bold para títulos de página, text-lg font-semibold para títulos de tarjetas).
+En resumen, el diseño es minimalista, centrado en la usabilidad y con una paleta de colores corporativa y profesional, ideal para una herramienta financiera que busca ser confiable y fácil de usar.
