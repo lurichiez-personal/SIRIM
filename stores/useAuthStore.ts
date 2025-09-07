@@ -33,7 +33,11 @@ export const useAuthStore = create<AuthState>()(
 
       login: (user: User) => {
         set({ isAuthenticated: true, user });
-        useTenantStore.getState().fetchAvailableTenants();
+        console.log('Usuario logueado:', user);
+        // Retraso para asegurar que el estado esté actualizado
+        setTimeout(() => {
+          useTenantStore.getState().fetchAvailableTenants();
+        }, 200);
       },
       logout: () => {
         set({ isAuthenticated: false, user: null });
@@ -157,6 +161,13 @@ export const useAuthStore = create<AuthState>()(
               
               // Login exitoso
               get().login(user);
+              
+              // Pequeño delay para asegurar que el estado esté establecido
+              setTimeout(() => {
+                console.log('Forzando carga de empresas después del login');
+                useTenantStore.getState().fetchAvailableTenants();
+              }, 300);
+              
               return true;
             }
           } else {
@@ -343,3 +354,49 @@ export const useAuthStore = create<AuthState>()(
     }
   )
 );
+
+// Inicialización automática del usuario Master
+if (typeof window !== 'undefined') {
+  const initializeMasterUser = () => {
+    const storedToken = localStorage.getItem('token');
+    if (storedToken) {
+      try {
+        const tokenPayload = JSON.parse(atob(storedToken.split('.')[1]));
+        
+        if (tokenPayload.exp * 1000 > Date.now()) {
+          // Usuario Master específico
+          if (tokenPayload.email === 'lurichiez@gmail.com' || tokenPayload.role === 'master') {
+            const masterUser: User = {
+              id: tokenPayload.sub?.toString() || '1',
+              nombre: tokenPayload.nombre || 'Luis Richards',
+              email: 'lurichiez@gmail.com',
+              roles: [Role.Master],
+              authMethod: 'local',
+              activo: true,
+              empresaId: undefined
+            };
+            
+            console.log('🔑 Inicializando usuario master automáticamente');
+            useAuthStore.setState({ user: masterUser, isAuthenticated: true });
+            
+            // Cargar empresas con delay
+            setTimeout(() => {
+              console.log('🏢 Cargando empresas para usuario master');
+              useTenantStore.getState().fetchAvailableTenants();
+            }, 800);
+          }
+        } else {
+          console.log('⚠️ Token expirado, limpiando localStorage');
+          localStorage.removeItem('token');
+        }
+      } catch (error) {
+        console.error('❌ Error decodificando token:', error);
+        localStorage.removeItem('token');
+      }
+    }
+  };
+
+  // Ejecutar inmediatamente y en el próximo tick
+  initializeMasterUser();
+  setTimeout(initializeMasterUser, 100);
+}

@@ -20,20 +20,30 @@ interface TenantState {
 const fetchTenantsFromApi = async (userId: string | undefined): Promise<Empresa[]> => {
     console.log(`Fetching tenants for user ${userId}`);
     
+    const token = localStorage.getItem('token');
+    if (!token) {
+        console.error('No hay token disponible para obtener empresas');
+        return [];
+    }
+    
     try {
         const response = await fetch('/api/empresas', {
             headers: {
-                'Authorization': `Bearer ${localStorage.getItem('token')}`
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
             }
         });
         
         if (response.ok) {
             const empresas = await response.json();
+            console.log('Empresas obtenidas exitosamente:', empresas.length);
             return empresas;
+        } else {
+            const errorText = await response.text();
+            console.error('Error obteniendo empresas:', response.status, errorText);
+            return [];
         }
         
-        console.error('Error obteniendo empresas:', response.statusText);
-        return [];
     } catch (error) {
         console.error('Error de conexión obteniendo empresas:', error);
         return [];
