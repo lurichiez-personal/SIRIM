@@ -68,9 +68,11 @@ router.post("/login", async (req, res, next) => {
     
     const token = jwt.sign(
       { 
+        sub: user.id,
         userId: user.id,
         email: user.email, 
         role: user.role,
+        roles: [user.role],
         nombre: user.nombre
       }, 
       process.env.JWT_SECRET || 'sirim-secret-key', 
