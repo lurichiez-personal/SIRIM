@@ -7,7 +7,6 @@ import { useDataStore } from './useDataStore';
 interface TenantState {
   selectedTenant: Empresa | null;
   availableTenants: Empresa[];
-  isLoadingTenants: boolean;
   setTenant: (tenantId: number) => void;
   fetchAvailableTenants: () => void;
   getTenantById: (tenantId: number) => Empresa | undefined;
@@ -19,6 +18,8 @@ interface TenantState {
 
 // Función para obtener empresas desde la base de datos
 const fetchTenantsFromApi = async (userId: string | undefined): Promise<Empresa[]> => {
+    console.log(`Fetching tenants for user ${userId}`);
+    
     try {
         const response = await fetch('/api/empresas', {
             headers: {
@@ -43,7 +44,6 @@ const fetchTenantsFromApi = async (userId: string | undefined): Promise<Empresa[
 export const useTenantStore = create<TenantState>((set, get) => ({
   selectedTenant: null,
   availableTenants: [], // Las empresas se cargan dinámicamente desde la BD
-  isLoadingTenants: false,
   setTenant: (tenantId: number) => {
     const { availableTenants } = get();
     const newTenant = availableTenants.find(t => t.id === tenantId) || null;
@@ -51,36 +51,26 @@ export const useTenantStore = create<TenantState>((set, get) => ({
     if (newTenant) {
         useDataStore.getState().fetchData(newTenant.id);
     }
+    console.log(`Tenant cambiado a: ${newTenant?.nombre}`);
   },
   fetchAvailableTenants: async () => {
-    const { isLoadingTenants, availableTenants } = get();
+    const user = useAuthStore.getState().user;
+    const tenants = await fetchTenantsFromApi(user?.id);
     
-    // Evitar llamadas concurrentes
-    if (isLoadingTenants) return;
+    // Actualizar la lista de tenants disponibles
+    set({ availableTenants: tenants });
     
-    // Si ya tenemos datos y no ha pasado mucho tiempo, no recargar
-    if (availableTenants.length > 0) return;
-    
-    set({ isLoadingTenants: true });
-    
-    try {
-      const user = useAuthStore.getState().user;
-      const tenants = await fetchTenantsFromApi(user?.id);
-      
-      // Actualizar la lista de tenants disponibles
-      set({ availableTenants: tenants });
-      
-      if (user && tenants.length > 0) {
-          const currentSelected = get().selectedTenant;
-          // Si no hay selección, establecer un default (sin fetchData para evitar loops)
-          if (!currentSelected) {
-              const defaultTenantId = user.empresaId || tenants[0].id;
-              const defaultTenant = tenants.find(t => t.id === defaultTenantId);
-              set({ selectedTenant: defaultTenant });
-          }
-      }
-    } finally {
-      set({ isLoadingTenants: false });
+    if (user && tenants.length > 0) {
+        const currentSelected = get().selectedTenant;
+        // Si no hay selección o la selección actual no está en la lista, establecer un default
+        if (!currentSelected || !tenants.some(t => t.id === currentSelected.id)) {
+            const defaultTenantId = user.empresaId || tenants[0].id;
+            const defaultTenant = tenants.find(t => t.id === defaultTenantId);
+            set({ selectedTenant: defaultTenant });
+            if (defaultTenant) {
+                useDataStore.getState().fetchData(defaultTenant.id);
+            }
+        }
     }
   },
   getTenantById: (tenantId: number) => {

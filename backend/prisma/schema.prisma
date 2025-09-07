@@ -37,9 +37,6 @@ model Empresa {
   metasVentas   MetaVentas[]
   usuarios      UserEmpresa[]
   suscripcion   Suscripcion?
-  customization CustomizationSettings?
-  cuentas       CuentaContable[]
-  taxRates      TaxRates?
 }
 
 model Cliente {
@@ -523,56 +520,6 @@ model Notification {
   @@index([type])
   @@index([read])
   @@index([createdAt])
-}
-
-// Configuraciones de personalización por empresa
-model CustomizationSettings {
-  id          Int     @id @default(autoincrement())
-  empresaId   Int     @unique
-  logoUrl     String?
-  accentColor String  @default("#005A9C")
-  footerText  String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  
-  empresa     Empresa @relation(fields: [empresaId], references: [id], onDelete: Cascade)
-  
-  @@index([empresaId])
-}
-
-// Catálogo de cuentas contables
-model CuentaContable {
-  id                  String  @id // e.g., '1101-01'
-  empresaId          Int
-  nombre             String
-  tipo               String  // 'Activo', 'Pasivo', 'Capital', 'Ingreso', 'Costo', 'Gasto'
-  permiteMovimientos Boolean
-  padreId            String?
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
-  
-  empresa            Empresa @relation(fields: [empresaId], references: [id], onDelete: Cascade)
-  padre              CuentaContable? @relation("CuentaHijos", fields: [padreId], references: [id])
-  hijos              CuentaContable[] @relation("CuentaHijos")
-  
-  @@index([empresaId])
-  @@index([padreId])
-  @@index([tipo])
-}
-
-// Tasas de impuestos por empresa
-model TaxRates {
-  id        Int     @id @default(autoincrement())
-  empresaId Int     @unique
-  itbis     Decimal @db.Decimal(5, 4) @default(0.18) // 18%
-  isc       Decimal @db.Decimal(5, 4) @default(0.16) // 16%
-  propina   Decimal @db.Decimal(5, 4) @default(0.10) // 10%
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  
-  empresa   Empresa @relation(fields: [empresaId], references: [id], onDelete: Cascade)
-  
-  @@index([empresaId])
 }
 
 // ---------- MODELOS DE NEGOCIO PRINCIPALES ----------
