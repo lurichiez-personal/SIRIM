@@ -182,7 +182,22 @@ export const useDataStore = create<DataState>((set, get) => ({
         apiClient.getNotas(empresaId)
       ]);
 
-      console.log(`Data loaded: ${clientesRes.rows?.length || 0} clients, ${facturasRes.rows?.length || 0} invoices, ${itemsRes.rows?.length || 0} items, ${gastosRes.rows?.length || 0} expenses, ${ingresosRes.rows?.length || 0} payments, ${cotizacionesRes.rows?.length || 0} quotes, ${nominasRes.rows?.length || 0} payrolls`);
+      // Update store with real API data
+      set({
+        clientes: clientesRes.rows || [],
+        facturas: facturasRes.rows || [],
+        items: itemsRes.rows || [],
+        gastos: gastosRes.rows || [],
+        empleados: empleadosRes.rows || [],
+        ingresos: ingresosRes.rows || [],
+        cotizaciones: cotizacionesRes.rows || [],
+        nominas: nominasRes.rows || [],
+        asientosContables: asientosRes.rows || [],
+        notas: notasRes.rows || [],
+        // Keep some mock data for features still in development
+        facturasRecurrentes: [...allFacturasRecurrentes.filter(fr => fr.empresaId === empresaId)],
+        desvinculaciones: [...allDesvinculaciones.filter(d => d.empresaId === empresaId)],
+      });
 
       console.log(`Data loaded: ${clientesRes.rows?.length || 0} clients, ${facturasRes.rows?.length || 0} invoices, ${itemsRes.rows?.length || 0} items, ${gastosRes.rows?.length || 0} expenses, ${ingresosRes.rows?.length || 0} payments, ${cotizacionesRes.rows?.length || 0} quotes, ${nominasRes.rows?.length || 0} payrolls`);
     } catch (error) {
