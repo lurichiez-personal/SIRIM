@@ -109,10 +109,10 @@ interface DataState {
   addIngreso: (ingresoData: Omit<Ingreso, 'id' | 'empresaId' | 'conciliado'>) => void;
   getFacturasParaPago: () => Factura[];
 
-  addItem: (itemData: Omit<Item, 'id' | 'empresaId'>) => void;
+  addItem: (itemData: Omit<Item, 'id' | 'empresaId'>) => Promise<void>;
   updateItem: (item: Item) => void;
 
-  addGasto: (gastoData: Omit<Gasto, 'id' | 'empresaId' | 'conciliado'>) => void;
+  addGasto: (gastoData: Omit<Gasto, 'id' | 'empresaId' | 'conciliado'>) => Promise<void>;
   updateGasto: (gasto: Gasto) => void;
   bulkDeleteGastos: (gastoIds: number[]) => void;
 
@@ -132,8 +132,8 @@ interface DataState {
   setConciliadoStatus: (recordType: 'factura' | 'gasto' | 'ingreso', recordId: number, status: boolean) => void;
 
   // --- Nómina Mutators ---
-  addEmpleado: (empleadoData: Omit<Empleado, 'id' | 'empresaId'>) => void;
-  updateEmpleado: (empleado: Empleado) => void;
+  addEmpleado: (empleadoData: Omit<Empleado, 'id' | 'empresaId'>) => Promise<void>;
+  updateEmpleado: (empleado: Empleado) => Promise<void>;
   addNomina: (nominaData: Omit<Nomina, 'empresaId' | 'status' | 'generadoPor' | 'fechaGeneracion'>) => void;
   auditarNomina: (nominaId: string) => void;
   contabilizarNomina: (nominaId: string) => void;
@@ -634,12 +634,21 @@ export const useDataStore = create<DataState>((set, get) => ({
     return get().facturas.filter(f => f.estado !== FacturaEstado.Anulada && f.estado !== FacturaEstado.Pagada);
   },
 
-  addItem: (itemData) => {
+  addItem: async (itemData) => {
     const empresaId = useTenantStore.getState().selectedTenant?.id;
     if (!empresaId) return;
-    const newItem: Item = { ...itemData, id: Date.now(), empresaId };
-    allItems.unshift(newItem);
-    get().fetchData(empresaId);
+    
+    try {
+      // Crear item en la base de datos usando API real
+      const itemConEmpresa = { ...itemData, empresaId };
+      await apiClient.createItem(itemConEmpresa);
+      
+      // Refrescar datos desde la base de datos
+      await get().fetchData(empresaId);
+    } catch (error) {
+      console.error('Error creando item:', error);
+      throw error;
+    }
   },
   updateItem: (item) => {
     const empresaId = useTenantStore.getState().selectedTenant?.id;
@@ -652,18 +661,21 @@ export const useDataStore = create<DataState>((set, get) => ({
     useNotificationStore.getState().checkSystemAlerts(empresaId);
   },
 
-  addGasto: (gastoData) => {
+  addGasto: async (gastoData) => {
     const empresaId = useTenantStore.getState().selectedTenant?.id;
     if (!empresaId) return;
-    const newGasto: Gasto = { ...gastoData, id: Date.now(), empresaId, conciliado: false, comments: [], auditLog: [] };
-
-    const asiento = generarAsientoGasto(newGasto);
-    newGasto.asientoId = asiento.id;
-    allAsientosContables.unshift(asiento);
-
-    get().addAuditLog('gasto', newGasto.id, `registró y contabilizó el gasto.`);
-    allGastos.unshift(newGasto);
-    get().fetchData(empresaId);
+    
+    try {
+      // Crear gasto en la base de datos usando API real
+      const gastoConEmpresa = { ...gastoData, empresaId };
+      await apiClient.createGasto(gastoConEmpresa);
+      
+      // Refrescar datos desde la base de datos
+      await get().fetchData(empresaId);
+    } catch (error) {
+      console.error('Error creando gasto:', error);
+      throw error;
+    }
   },
   updateGasto: (gasto) => {
     const empresaId = useTenantStore.getState().selectedTenant?.id;
@@ -766,21 +778,36 @@ export const useDataStore = create<DataState>((set, get) => ({
     get().fetchData(empresaId);
   },
   // --- Nómina Mutators ---
-  addEmpleado: (empleadoData) => {
+  addEmpleado: async (empleadoData) => {
     const empresaId = useTenantStore.getState().selectedTenant?.id;
     if (!empresaId) return;
-    const newEmpleado: Empleado = { ...empleadoData, id: Date.now(), empresaId };
-    allEmpleados.unshift(newEmpleado);
-    get().fetchData(empresaId);
-  },
-  updateEmpleado: (empleado) => {
-    const empresaId = useTenantStore.getState().selectedTenant?.id;
-    if (!empresaId) return;
-    const index = allEmpleados.findIndex(e => e.id === empleado.id);
-    if (index > -1) {
-        allEmpleados[index] = empleado;
+    
+    try {
+      // Crear empleado en la base de datos usando API real
+      const empleadoConEmpresa = { ...empleadoData, empresaId };
+      await apiClient.createEmpleado(empleadoConEmpresa);
+      
+      // Refrescar datos desde la base de datos para obtener el ID real
+      await get().fetchData(empresaId);
+    } catch (error) {
+      console.error('Error creando empleado:', error);
+      throw error;
     }
-    get().fetchData(empresaId);
+  },
+  updateEmpleado: async (empleado) => {
+    const empresaId = useTenantStore.getState().selectedTenant?.id;
+    if (!empresaId) return;
+    
+    try {
+      // Actualizar empleado en la base de datos usando API real
+      await apiClient.updateEmpleado(empleado.id, empleado);
+      
+      // Refrescar datos desde la base de datos para obtener datos actualizados
+      await get().fetchData(empresaId);
+    } catch (error) {
+      console.error('Error actualizando empleado:', error);
+      throw error;
+    }
   },
   addNomina: (nominaData) => {
     const empresaId = useTenantStore.getState().selectedTenant?.id;
