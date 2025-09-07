@@ -50,10 +50,6 @@ outputType = "webview"
 localPort = 3001
 externalPort = 3001
 
-[[ports]]
-localPort = 5000
-externalPort = 80
-
 [deployment]
 deploymentTarget = "autoscale"
 run = ["bash", "-c", "NODE_ENV=production PORT=80 cd backend && npm start"]
