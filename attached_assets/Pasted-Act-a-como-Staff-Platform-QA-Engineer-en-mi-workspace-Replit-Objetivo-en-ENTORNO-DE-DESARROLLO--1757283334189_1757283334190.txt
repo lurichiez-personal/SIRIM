@@ -1,0 +1,119 @@
+Actúa como Staff Platform+QA Engineer en mi workspace Replit. Objetivo: en **ENTORNO DE DESARROLLO** corregir **todos** los fallos identificados (críticos, altos, medios y bajos) y dejar la app **lista para deploy** (“prod‑ready”) con evidencia reproducible, sin modificar el frontend. 
+
+### Entornos y Paridad (OBLIGATORIO)
+- Trabaja **solo** contra **DESARROLLO**:
+  - Repo: {REPO_URL}
+  - Rama dev: {BRANCH_OR_TAG_DEV}
+  - Backend DEV base URL: {BACKEND_BASE_URL_DEV}  // puede ser http://localhost:3001 si aplica
+  - Frontend DEV base URL: {FRONTEND_BASE_URL_DEV}
+  - Var de entorno BD DEV: {ENV_DB_URL_VAR_DEV} (usa gestor de secretos; nunca imprimas valores)
+- **Prohibido** usar PROD o secretos de PROD.
+- **Paridad dev→prod**:
+  - Igualar **nombres** de variables y **flags** a los de prod (valores distintos, nombres iguales).
+  - Generar `paridad_entornos.md` comparando config dev vs. prod-objetivo (tokens, pool, timeouts, CORS, seguridad). Si faltan datos de prod, **define defaults “prod‑like”** y documenta.
+  - Entregar `docker-compose.dev.yml` y `docker-compose.prod.example.yml` (o IaC equivalente) manteniendo las mismas claves de entorno.
+
+### Cláusula de INMUTABILIDAD del FRONTEND (OBLIGATORIO)
+- **Frontend = SOLO LECTURA**. No modificar:
+  - Código fuente, estilos/temas/colores, layout/HTML/JSX, assets, build config, feature flags visuales.
+- **Pruebas de caja negra solamente** para UI. 
+- En cada pass, genera `integridad_frontend_pass_{N}.md` con `git diff` vacío o checksums.
+- Cualquier mejora visual se lista en `ui_changes_sugeridos.md` **sin** aplicar cambios.
+
+### Seguridad inmediata
+- Detecta credenciales/tokens expuestos en auditorías previas y **rotación requerida** (sin valores) en `security_hotfixes.md`. 
+- En pruebas, usa **variables de entorno** y **masking** en logs. Nunca vuelvas a imprimir tokens.
+
+### Lista de Correcciones Obligatorias (DEV, pensando en PROD)
+1) **XSS almacenado (CRÍTICO)**  
+   - Backend: sanitización de entrada + validación de esquema; codificación de salida. 
+   - Añade **CSP** restrictiva vía headers desde backend (sin tocar front).
+   - Pruebas: payloads `<script>`, `javascript:`, atributos `on*`. 
+   - Entregables: PR `dev/fix-xss-*`, tests de unidad/integración, evidencia antes/después.
+
+2) **Concurrencia y pool de BD (CRÍTICO)**  
+   - Configura pool/timeout/retry/backoff “prod‑like” en dev. 
+   - Pruebas de carga con perfiles reproducibles (p.ej., Artillery/k6): 
+     - Objetivo p95 < {P95_MS} ms en endpoints críticos bajo {CARGA_NORMAL} y < {P95_PEAK_MS} ms bajo {CARGA_PICO}.
+   - Entregables: PR `dev/fix-db-pool-*`, `load_before_after.md`.
+
+3) **Errores estandarizados en JSON (ALTO)**  
+   - Middleware de errores → JSON `{error:{code,message,details}}` (sin HTML).
+   - Actualiza OpenAPI (códigos/cuerpos de error). 
+   - Pruebas forcibles 4xx/5xx. 
+   - Entregables: PR `dev/fix-error-json-*`, `openapi.json` actualizado, tests.
+
+4) **Desajustes de esquema (ALTO)**  
+   - Alinear tipos/nullable/FKs/enums **BD ↔ modelos ↔ contratos API**. 
+   - Migraciones **solo en DEV** (con backup de dev). 
+   - Entregables: PR `dev/fix-schema-sync-*`, migraciones, tests de integración.
+
+5) **Paginación por cursor en listados críticos (MEDIO)**  
+   - Implementar cursor-based pagination (p.ej., en “Gasto” u otros listados grandes).
+   - Tests: consistencia, no duplicados, forward/back bajo concurrencia.
+   - Entregables: PR `dev/feat-cursor-pagination-*`, tests y doc.
+
+6) **Autenticación/roles coherente (MEDIO)**  
+   - Corregir desajuste `roles → role` si existe y revisar policies por `empresaId`.
+   - Matrix de permisos con pruebas de integración.
+   - Entregables: PR `dev/fix-auth-schema-*`, tests.
+
+7) **Observabilidad mínima viable (MEDIO)**  
+   - `request-id`, logging estructurado y métricas (latencia, error rate) por endpoint.
+   - Entregables: PR `dev/feat-observability-*`, ejemplos de logs/metricas.
+
+8) **N+1 e índices (MEJORA)**  
+   - Eliminar N+1 en ORM/queries, crear índices compuestos donde aplique (adjunta `EXPLAIN`).
+   - Entregables: PR `dev/fix-nplus1-indexes-*`, `explain_before_after.md`.
+
+### Criterios de Aceptación “Prod‑Ready” (DoD)
+- **Funcionalidad**: 0 issues **críticos/altos** abiertos; todos los flujos de negocio E2E pasan en dev.
+- **Contratos**: OpenAPI sincronizado; validación de request/response en todas las rutas.
+- **Calidad**: Cobertura ≥95% líneas y ≥90% ramas global; módulos críticos al 100% líneas.
+- **Performance**: p95 según budgets definidos; error rate <1% en carga pico definida.
+- **Seguridad**: XSS mitigado; headers de seguridad activos; sin secretos en logs.
+- **Observabilidad**: request-id y métricas operativas básicas integradas.
+- **Frontend**: evidencia de **cero cambios**.
+- **Paridad**: `paridad_entornos.md` aprobada (nombres de env/flags iguales a prod-objetivo).
+
+### Proceso en 5 Pasos (dev‑first, con gates)
+**Pass 1 – Topología, Paridad y Configuración DEV**  
+- Inventario de módulos y endpoints (ruta → controlador → servicio → DAO → tablas).  
+- Verificación de variables/flags dev “prod‑like”.  
+- Salida: `pass_1_findings.md`, `paridad_entornos.md`, `integridad_frontend_pass_1.md`.
+
+**Pass 2 – Contratos y Esquemas (DEV)**  
+- Generar/actualizar `openapi.json`; validar request/response vs. BD/modelos.  
+- Salida: `pass_2_findings.md`, `openapi.json`.
+
+**Pass 3 – Conectividad BD y Performance base (DEV)**  
+- Pool/timeout/retry; EXPLAIN en consultas críticas; N+1 e índices.  
+- Salida: `pass_3_findings.md`, `perf_pass_3.md`.
+
+**Pass 4 – Endpoints, Auth/Autz y Fixes**  
+- Ejecutar batería de pruebas por endpoint (válidos/ inválidos/errores).  
+- Aplicar **todos** los fixes (XSS, errores JSON, esquema, auth, N+1).  
+- Salida: `pass_4_findings.md`, PRs `dev/*` con planes de rollback.
+
+**Pass 5 – E2E (caja negra) y Carga (DEV)**  
+- E2E sobre **frontend dev** contra **backend dev** (sin alterar UI).  
+- Carga con perfiles reproducibles, reportando p50/p95/p99 y error rate.  
+- Salida: `e2e_results.md`, `load_results.md`, `coverage_report.html`, `integridad_frontend_pass_5.md`.
+
+> **Gate:** No declares “LISTO PARA PROMOVER” hasta cumplir DoD y cerrar **todos** los fallos críticos/altos.
+
+### Evidencia y Trazabilidad
+- Carpeta de reportes: `/reports/dev_audit/` con todos los artefactos (`pass_*_findings.md`, `openapi.json`, `coverage_report.html`, `e2e_results.md`, `load_results.md`, `perf_*`, `explain_*`, `paridad_entornos.md`, `integridad_frontend_pass_*.md`, `ui_changes_sugeridos.md`, `security_hotfixes.md`).
+- `evidencia_comandos.md`: comandos exactos (curl/artillery/k6/etc.), parámetros y *raw outputs* (secretos enmascarados).
+
+### Checklist de Promoción (generar como `promocion_a_prod_checklist.md`)
+- Variables/flags iguales en nombres; valores ajustados a prod.
+- Migraciones generadas y probadas en dev.
+- Presupuestos de performance alcanzados en dev con margen ≥20%.
+- Runbook de despliegue + plan de rollback.
+- Observabilidad mínima configurada.
+
+### Inicio
+1) Ejecuta **Pass 1** ahora en **{BACKEND_BASE_URL_DEV}** y **{FRONTEND_BASE_URL_DEV}**. 
+2) Entrega `pass_1_findings.md`, `paridad_entornos.md`, `integridad_frontend_pass_1.md`. 
+3) Luego avanza con los fixes por PR temático (`dev/fix-*`) y la batería de pruebas completa.
