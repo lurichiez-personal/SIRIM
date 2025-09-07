@@ -42,13 +42,24 @@ const NuevoItemModal: React.FC<NuevoItemModalProps> = ({ isOpen, onClose, onSave
     const validate = () => {
         const newErrors: any = {};
         if (!nombre.trim()) newErrors.nombre = 'El nombre es obligatorio.';
-        if (parseFloat(precio) <= 0 || isNaN(parseFloat(precio))) newErrors.precio = 'El precio debe ser un número mayor a cero.';
-        if (!noManejaStock && (parseInt(cantidadDisponible) < 0 || isNaN(parseInt(cantidadDisponible)))) {
-            newErrors.cantidad = 'La cantidad debe ser un número igual o mayor a cero.';
+        
+        const precioNum = parseFloat(precio || '0');
+        if (precioNum <= 0 || isNaN(precioNum)) {
+            newErrors.precio = 'El precio debe ser un número mayor a cero.';
         }
-        if (!noManejaStock && (parseFloat(costo) < 0 || isNaN(parseFloat(costo)))) {
-            newErrors.costo = 'El costo debe ser un número igual o mayor a cero.';
+        
+        if (!noManejaStock) {
+            const cantidadNum = parseInt(cantidadDisponible || '0', 10);
+            if (cantidadNum < 0 || isNaN(cantidadNum)) {
+                newErrors.cantidad = 'La cantidad debe ser un número igual o mayor a cero.';
+            }
+            
+            const costoNum = parseFloat(costo || '0');
+            if (costoNum < 0 || isNaN(costoNum)) {
+                newErrors.costo = 'El costo debe ser un número igual o mayor a cero.';
+            }
         }
+        
         setErrors(newErrors);
         return Object.keys(newErrors).length === 0;
     };
@@ -61,9 +72,9 @@ const NuevoItemModal: React.FC<NuevoItemModalProps> = ({ isOpen, onClose, onSave
             codigo,
             nombre,
             descripcion,
-            precio: parseFloat(precio),
-            costo: noManejaStock ? undefined : parseFloat(costo),
-            cantidadDisponible: noManejaStock ? undefined : parseInt(cantidadDisponible)
+            precio: parseFloat(precio || '0'),
+            costo: noManejaStock ? undefined : parseFloat(costo || '0'),
+            cantidadDisponible: noManejaStock ? undefined : parseInt(cantidadDisponible || '0', 10)
         });
         resetForm();
         onClose();
