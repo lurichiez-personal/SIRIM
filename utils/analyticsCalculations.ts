@@ -238,7 +238,7 @@ const getPreviousPeriodCustomers = (facturas: Factura[], currentStart: Date): nu
 
 const calculateCashConversionCycle = (facturas: Factura[], ingresos: Ingreso[]): number => {
   // Simplified calculation: average days to collect payment
-  const paidInvoices = facturas.filter(f => f.estado === FacturaEstado.PagadaCompleta);
+  const paidInvoices = facturas.filter(f => f.estado === FacturaEstado.Pagada);
   
   if (paidInvoices.length === 0) return 30; // Default assumption
   
