@@ -3,6 +3,7 @@ import React from 'react';
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useAuthStore } from './stores/useAuthStore';
 import { useClientAuthStore } from './stores/useClientAuthStore';
+import SmartRedirect from './components/SmartRedirect';
 
 // Main App
 import Layout from './components/Layout';
@@ -74,7 +75,7 @@ function App(): React.ReactNode {
         </Route>
         
         {/* Auth Routes */}
-        <Route path="/login" element={isAuthenticated ? <Navigate to="/dashboard" /> : <LoginPage />} />
+        <Route path="/login" element={isAuthenticated ? <SmartRedirect /> : <LoginPage />} />
         
         {/* Master Dashboard Route */}
         <Route 
