@@ -1,0 +1,111 @@
+Actúa como Staff Platform+QA Engineer dentro de mi workspace en Replit. Objetivo: verificar y corregir que **todos los módulos** de mi app envían/reciben datos correctamente a la **base de datos de PRODUCCIÓN**, que **todos los endpoints** están conectados y operativos, y que **todas las funcionalidades** del sistema cumplen criterios verificables. Debes ejecutar **5 ciclos de auditoría con pruebas** antes de declarar “LISTO”.
+
+### Alcance y restricciones (OBLIGATORIO)
+- Trabaja **exclusivamente** contra **PRODUCCIÓN**:
+  - Repositorio principal: {REPO_URL}
+  - Rama/tag de prod: {BRANCH_OR_TAG_PROD}
+  - Backend prod base URL: {BACKEND_BASE_URL_PROD}
+  - Frontend prod base URL: {FRONTEND_BASE_URL_PROD}
+  - Variable de entorno con cadena de conexión BD prod (nunca en texto claro): {ENV_DB_URL_VAR}
+- **Prohibido** tocar entornos de dev/staging.
+
+#### Cláusula de INMUTABILIDAD del FRONTEND (OBLIGATORIO)
+- **Frontend es de SOLO LECTURA.** No realizar **ningún** cambio en:
+  - Código fuente del frontend (componentes, páginas, templates, hooks).
+  - Estilos (CSS, SCSS, Tailwind, variables de tema, tokens de diseño).
+  - Layout/estructura (HTML/JSX/templating), iconos, imágenes, fuentes, assets estáticos.
+  - Configuración de build/deploy que afecte apariencia o comportamiento visual.
+  - Variables de entorno que alteren tema, branding, “feature flags” visuales o configuración de UI.
+- **Prohibido**:
+  - Añadir `data-testid` u otros *test hooks* al código del front.
+  - Inyectar scripts/estilos en tiempo de ejecución, modificar el DOM, o aplicar *overrides* de CSS.
+  - Ejecutar *builds* o *deploys* que cambien artefactos del front.
+- **Modo de prueba para frontend**: únicamente **pruebas de caja negra** (E2E) desde el exterior usando la URL de producción.
+- **Integridad**: antes y después de cada pass, verificar `git diff` (o checksums) del directorio de frontend: debe permanecer **sin cambios**. Incluir evidencia en el reporte.
+- Si un hallazgo exige cambio de UI, **solo** documentar con detalle (archivo, componente, línea sugerida) en `ui_changes_sugeridos.md`. **No** abrir PRs ni aplicar fixes de frontend.
+
+#### Escrituras en PRODUCCIÓN (controles)
+1) Antes de cualquier operación que modifique datos, **crear/verificar snapshot/backup** restaurable y registrar identificador.
+2) Ejecutar primero en **modo seguro**: lecturas, pruebas idempotentes y “dry-run” (`X-Dry-Run: true` o `dry_run=1`). Si no existe dry-run, usar canarios reversibles y/o transacciones con **ROLLBACK** cuando aplique.
+3) Requiere mi confirmación literal: **AUTORIZO ESCRITURAS EN PRODUCCIÓN: {VENTANA_UTC}**. Sin esto, no se realizan escrituras.
+4) Incluir **plan de rollback probado** y ventana de mantenimiento en el reporte previo a ejecutar.
+
+#### Trazabilidad
+- Genera artefactos en `/reports/prod_audit/`:
+  - `pass_{N}_findings.md`, `pass_{N}_fixes.md`, `coverage_pass_{N}.html`,
+    `e2e_pass_{N}.md`, `perf_pass_{N}.md`, `rollback_plan_pass_{N}.md`,
+    `integridad_frontend_pass_{N}.md`, `ui_changes_sugeridos.md` (acumulativo).
+
+### Criterios de Aceptación (DoD) para declarar “LISTO”
+1) **Conectividad y wiring**: cada endpoint documentado tiene mapeo 1:1 con su controlador/servicio/DAO y acceso a BD prod correcto; middlewares y auth/authz verificados.
+2) **Contratos de datos**: esquemas request/response validados (OpenAPI/JSON Schema, Pydantic/Zod/…); 0 desviaciones críticas.
+3) **Base de datos**:
+   - Pooling, timeouts, retries definidos; 0 fugas de conexión.
+   - Consultas críticas sin N+1 y con índices adecuados (adjunta EXPLAIN).
+   - Migraciones reconciliadas; estado “up-to-date”.
+4) **Pruebas**:
+   - Unitarias: ≥95% líneas y ≥90% ramas global; módulos críticos al 100% líneas.
+   - Integración/API: casos por endpoint y método, códigos esperados, validación de contratos.
+   - E2E (caja negra) sobre **frontend prod** contra **backend prod**; 0 fallos bloqueantes/altos. **Sin** modificar el front.
+5) **Rendimiento/Confiabilidad**:
+   - p95 de endpoints críticos < {P95_MS} ms bajo {CARGA_SIMULADA}.
+   - 0 errores 5xx durante las ventanas de auditoría.
+6) **Seguridad básica**: auth, CORS, validación de entrada, cabeceras seguras; sin secretos en logs.
+7) **Integridad visual**:
+   - Dif de artefactos del frontend = vacío.
+   - Comparativa de **snapshots visuales no intrusiva** (capturas de pantallas clave) solo para evidencia; sin alterar estilos ni DOM. Cualquier delta ≥ {UMBRAL_PIXELS}% se reporta pero **no** se corrige aquí.
+
+### Plan de 5 Auditorías (iterativo con fixes entre rondas)
+**Pass 1 – Topología y Configuración de Producción**
+- Detecta stack (lenguajes, frameworks, ORM, colas, storage).
+- Inventario de módulos y endpoints (mapa: ruta → controlador → servicio → DAO → tablas).
+- Verifica variables de entorno de **producción**.
+- **Integridad Frontend**: tomar `git status/diff` o checksums del directorio frontend y guardar en `integridad_frontend_pass_1.md`.
+- Salida: `pass_1_findings.md` + diagrama de dependencias.
+
+**Pass 2 – Contratos y Esquema de Datos**
+- Extrae/genera OpenAPI/Swagger.
+- Valida request/response de cada endpoint vs esquemas y BD (tipos, nulos, FKs, enums).
+- Salida: `pass_2_findings.md` + `openapi.json` actualizado.
+
+**Pass 3 – Conectividad BD y Operaciones (lecturas seguras)**
+- Pruebas de conectividad, pooling, timeouts, retries en PROD. Lecturas reales idempotentes.
+- EXPLAIN/ANALYZE (si permitido), N+1, recomendaciones de índices.
+- Salida: `pass_3_findings.md` + `perf_pass_3.md`.
+
+**Pass 4 – Endpoints, Autorización y Flujos**
+- Para **cada endpoint**: método, payloads válidos/ inválidos, códigos esperados, autorización y side-effects.
+- Escrituras **solo** con mi autorización literal “AUTORIZO ESCRITURAS EN PRODUCCIÓN: {VENTANA_UTC}”.
+- Salida: `pass_4_findings.md` + suite de integración (colección o tests automatizados).
+
+**Pass 5 – E2E (Caja Negra), Rendimiento y Observabilidad**
+- E2E del user journey principal usando **frontend prod** (sin modificarlo) contra **backend prod**.
+- Pruebas de carga ligeras en ventana segura; captura p95/p99 y error rate.
+- Snapshots visuales **solo como evidencia**; no se cambia UI. Reportar difs.
+- Verifica logs estructurados y correlación de request-id.
+- Salida: `e2e_pass_5.md`, `perf_pass_5.md`, `coverage_pass_5.html`,
+  `integridad_frontend_pass_5.md`.
+
+**Tras cada pass**
+- Aplicar fixes **solo** en backend/infra si son seguros (PRs `audit/fix-pass-{N}`) con descripción, riesgo y rollback. **Frontend: NO cambios; solo reportes.**
+- No avanzar si hay issues **bloqueantes** abiertos.
+
+### Tareas Técnicas Concretas
+1) **Route map**: método, path, controlador, servicio, DAO, tablas afectadas.
+2) **Wiring y BD**: validar que cada módulo se conecta a BD de prod, sin endpoints huérfanos.
+3) **Contratos**: sincronizar OpenAPI ↔ código; validar esquemas.
+4) **Pruebas**: crear/actualizar unitarias, integración y E2E (caja negra). Reportar cobertura.
+5) **BD**: tests de transacción, idempotencia, concurrencia; revisión de índices.
+6) **Seguridad y cabeceras**: CSP, HSTS, X-Content-Type-Options, saneamiento entradas, CORS.
+7) **Observabilidad**: request-id, métricas (latencia, tasa de error), logs estructurados.
+8) **Integridad Frontend**: evidenciar que no hubo cambios (diff/checksums). Documentar sugerencias en `ui_changes_sugeridos.md`.
+
+### Puertas de salida (gates)
+- No declares “LISTO” hasta completar los **5 passes** y cumplir el **DoD**.
+- Si se detecta necesidad de cambio en UI, **NO** modificar: documentar y detenerse en ese punto del frente visual.
+
+### Información a solicitar si falta
+- `{ENV_DB_URL_VAR}`, `{BACKEND_BASE_URL_PROD}`, `{FRONTEND_BASE_URL_PROD}`, `{BRANCH_OR_TAG_PROD}` y credenciales en el gestor de secretos.
+- Ventana de cambio `{VENTANA_UTC}` para operaciones con potenciales escrituras.
+
+Comienza ahora con **Pass 1**, generando `pass_1_findings.md`, el diagrama de dependencias y `integridad_frontend_pass_1.md`. Recuerda: **Frontend inmutable**.
