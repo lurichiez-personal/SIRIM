@@ -1,9 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
-import Input from '../../components/ui/Input';
-import Label from '../../components/ui/Label';
-import { CheckIcon, XMarkIcon, EnvelopeIcon, CogIcon, TrashIcon, EyeIcon, EyeSlashIcon } from '../../components/icons/Icons';
+import { CheckIcon, XMarkIcon, TrashIcon } from '../../components/icons/Icons';
 import { apiClient } from '../../services/apiClient';
 
 interface EmailConfig {
@@ -159,10 +157,11 @@ const EmailConfigPage: React.FC = () => {
         testEmail: 'lurichiez@gmail.com'
       });
       
-      if (result.data.success) {
+      const response = result.data as { success: boolean; error?: string };
+      if (response.success) {
         alert('✅ Correo de prueba enviado exitosamente');
       } else {
-        alert(`❌ Error enviando correo: ${result.data.error}`);
+        alert(`❌ Error enviando correo: ${response.error}`);
       }
     } catch (error) {
       console.error('Error probando configuración:', error);
@@ -216,7 +215,7 @@ const EmailConfigPage: React.FC = () => {
           onClick={() => setShowForm(true)}
           className="flex items-center gap-2"
         >
-          <EnvelopeIcon className="h-4 w-4" />
+          📧
           Nueva Configuración
         </Button>
       </div>
@@ -312,7 +311,7 @@ const EmailConfigPage: React.FC = () => {
                     onClick={() => handleEdit(config)}
                     className="px-2"
                   >
-                    <CogIcon className="h-3 w-3" />
+                    ⚙️
                   </Button>
                   
                   {!config.isDefault && (
@@ -356,18 +355,24 @@ const EmailConfigPage: React.FC = () => {
             <form onSubmit={handleSubmit} className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                  <Label htmlFor="name">Nombre de la configuración</Label>
-                  <Input
+                  <label htmlFor="name" className="block text-sm font-medium text-secondary-700 mb-1">
+                    Nombre de la configuración
+                  </label>
+                  <input
                     id="name"
+                    type="text"
                     value={form.name}
                     onChange={(e) => setForm({...form, name: e.target.value})}
                     placeholder="Ej: Gmail Principal"
                     required
+                    className="w-full px-3 py-2 border border-secondary-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
                   />
                 </div>
 
                 <div>
-                  <Label htmlFor="provider">Proveedor de correo</Label>
+                  <label htmlFor="provider" className="block text-sm font-medium text-secondary-700 mb-1">
+                    Proveedor de correo
+                  </label>
                   <select
                     id="provider"
                     value={form.provider}
@@ -387,14 +392,17 @@ const EmailConfigPage: React.FC = () => {
                 </div>
 
                 <div>
-                  <Label htmlFor="email">Email</Label>
-                  <Input
+                  <label htmlFor="email" className="block text-sm font-medium text-secondary-700 mb-1">
+                    Email
+                  </label>
+                  <input
                     id="email"
                     type="email"
                     value={form.email}
                     onChange={(e) => setForm({...form, email: e.target.value})}
                     required
-                    disabled // Solo permite el email del master
+                    disabled
+                    className="w-full px-3 py-2 border border-secondary-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary bg-secondary-100"
                   />
                   <p className="text-sm text-secondary-600 mt-1">
                     Solo se permite el email del usuario master
@@ -402,47 +410,55 @@ const EmailConfigPage: React.FC = () => {
                 </div>
 
                 <div>
-                  <Label htmlFor="password">
+                  <label htmlFor="password" className="block text-sm font-medium text-secondary-700 mb-1">
                     {form.provider === 'SENDGRID' ? 'API Key' : 'Contraseña / App Password'}
-                  </Label>
+                  </label>
                   <div className="relative">
-                    <Input
+                    <input
                       id="password"
                       type={showPassword ? 'text' : 'password'}
                       value={form.password}
                       onChange={(e) => setForm({...form, password: e.target.value})}
                       required={!editingConfig}
                       placeholder={editingConfig ? 'Dejar vacío para no cambiar' : ''}
+                      className="w-full px-3 py-2 border border-secondary-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary pr-10"
                     />
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-secondary-500"
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-secondary-500 hover:text-secondary-700"
                     >
-                      {showPassword ? <EyeSlashIcon className="h-4 w-4" /> : <EyeIcon className="h-4 w-4" />}
+                      {showPassword ? '🙈' : '👁️'}
                     </button>
                   </div>
                 </div>
 
                 <div>
-                  <Label htmlFor="fromName">Nombre del remitente</Label>
-                  <Input
+                  <label htmlFor="fromName" className="block text-sm font-medium text-secondary-700 mb-1">
+                    Nombre del remitente
+                  </label>
+                  <input
                     id="fromName"
+                    type="text"
                     value={form.fromName}
                     onChange={(e) => setForm({...form, fromName: e.target.value})}
                     placeholder="SIRIM"
                     required
+                    className="w-full px-3 py-2 border border-secondary-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
                   />
                 </div>
 
                 <div>
-                  <Label htmlFor="replyTo">Email de respuesta (opcional)</Label>
-                  <Input
+                  <label htmlFor="replyTo" className="block text-sm font-medium text-secondary-700 mb-1">
+                    Email de respuesta (opcional)
+                  </label>
+                  <input
                     id="replyTo"
                     type="email"
                     value={form.replyTo}
                     onChange={(e) => setForm({...form, replyTo: e.target.value})}
                     placeholder="Dejar vacío para usar el email principal"
+                    className="w-full px-3 py-2 border border-secondary-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
                   />
                 </div>
               </div>
@@ -455,9 +471,9 @@ const EmailConfigPage: React.FC = () => {
                   onChange={(e) => setForm({...form, isDefault: e.target.checked})}
                   className="rounded"
                 />
-                <Label htmlFor="isDefault">
+                <label htmlFor="isDefault" className="text-sm text-secondary-700">
                   Establecer como configuración predeterminada
-                </Label>
+                </label>
               </div>
 
               <div className="flex gap-3 pt-6 border-t">
