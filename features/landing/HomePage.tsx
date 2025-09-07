@@ -1,11 +1,8 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import Button from '../../components/ui/Button';
-import { useMarketingStore } from '../../stores/useMarketingStore';
 
 const HomePage: React.FC = () => {
-    const { landingImageUrl } = useMarketingStore();
-
     return (
         <>
             <div className="relative isolate overflow-hidden bg-white">
@@ -35,11 +32,7 @@ const HomePage: React.FC = () => {
                     </div>
                      <div className="mt-16 flow-root sm:mt-24">
                         <div className="-m-2 rounded-xl bg-secondary-900/5 p-2 ring-1 ring-inset ring-secondary-900/10 lg:-m-4 lg:rounded-2xl lg:p-4">
-                            {landingImageUrl ? (
-                                <img src={landingImageUrl} alt="App screenshot of an accounting dashboard with charts" width="2432" height="1442" className="rounded-md shadow-2xl ring-1 ring-secondary-900/10" />
-                            ) : (
-                                <div className="aspect-video w-full bg-secondary-200 animate-pulse rounded-md"></div>
-                            )}
+                            <img src="https://images.unsplash.com/photo-1634733591032-3a53b624c25f?q=80&w=2574&auto=format&fit=crop" alt="App screenshot of an accounting dashboard with charts" width="2432" height="1442" className="rounded-md shadow-2xl ring-1 ring-secondary-900/10" />
                         </div>
                     </div>
                 </div>
