@@ -26,14 +26,14 @@ const NuevoItemModal: React.FC<NuevoItemModalProps> = ({ isOpen, onClose, onSave
 
     useEffect(() => {
         if (isOpen && itemParaEditar) {
-            setCodigo(itemParaEditar.codigo);
-            setNombre(itemParaEditar.nombre);
+            setCodigo(itemParaEditar.codigo || '');
+            setNombre(itemParaEditar.nombre || '');
             setDescripcion(itemParaEditar.descripcion || '');
-            setPrecio(itemParaEditar.precio.toString());
-            setCosto(itemParaEditar.costo?.toString() || '');
+            setPrecio(itemParaEditar.precio ? itemParaEditar.precio.toString() : '');
+            setCosto(itemParaEditar.costo ? itemParaEditar.costo.toString() : '');
             const stock = itemParaEditar.cantidadDisponible;
-            setNoManejaStock(stock === undefined);
-            setCantidadDisponible(stock === undefined ? '' : stock.toString());
+            setNoManejaStock(stock === undefined || stock === null);
+            setCantidadDisponible(stock === undefined || stock === null ? '' : stock.toString());
         } else {
             resetForm();
         }

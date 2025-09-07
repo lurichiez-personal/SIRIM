@@ -127,6 +127,27 @@ class ApiClient {
   async updateEmpleado(empleadoId: number, empleadoData: any) {
     return this.put(`/empleados/${empleadoId}`, empleadoData);
   }
+
+  // User management for master
+  async getMasterEmpresas() {
+    return this.get('/master/empresas');
+  }
+
+  async getEmpresaUsers(empresaId: number) {
+    return this.get(`/master/empresa/${empresaId}/usuarios`);
+  }
+
+  async createEmpresaUser(empresaId: number, userData: any) {
+    return this.post(`/master/empresa/${empresaId}/usuarios`, userData);
+  }
+
+  async updateEmpresaUser(empresaId: number, userId: number, userData: any) {
+    return this.put(`/master/empresa/${empresaId}/usuarios/${userId}`, userData);
+  }
+
+  async deleteEmpresaUser(empresaId: number, userId: number) {
+    return this.delete(`/master/empresa/${empresaId}/usuarios/${userId}`);
+  }
 }
 
 export const apiClient = new ApiClient();

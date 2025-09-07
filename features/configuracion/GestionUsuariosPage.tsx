@@ -7,19 +7,44 @@ import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/Ca
 import Button from '../../components/ui/Button';
 import { PlusIcon } from '../../components/icons/Icons';
 import NuevoUsuarioModal from './NuevoUsuarioModal';
+import { apiClient } from '../../services/apiClient';
 
 const GestionUsuariosPage: React.FC = () => {
     const { selectedTenant } = useTenantStore();
-    const { users, getUsersForTenant, addUser, updateUser } = useAuthStore();
-    const [tenantUsers, setTenantUsers] = useState<User[]>([]);
+    const { user } = useAuthStore();
+    const [tenantUsers, setTenantUsers] = useState<any[]>([]);
     const [isModalOpen, setIsModalOpen] = useState(false);
-    const [userToEdit, setUserToEdit] = useState<User | null>(null);
+    const [userToEdit, setUserToEdit] = useState<any | null>(null);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
-        if (selectedTenant) {
-            setTenantUsers(getUsersForTenant(selectedTenant.id));
+        if (selectedTenant && user?.roles?.includes('master')) {
+            loadTenantUsers();
         }
-    }, [selectedTenant, users, getUsersForTenant]);
+    }, [selectedTenant, user]);
+
+    const loadTenantUsers = async () => {
+        if (!selectedTenant) return;
+        
+        try {
+            setLoading(true);
+            setError(null);
+            const response = await apiClient.getEmpresaUsers(selectedTenant.id);
+            
+            if (response.error) {
+                throw new Error(response.error);
+            }
+            
+            setTenantUsers(response || []);
+        } catch (err) {
+            console.error('Error cargando usuarios:', err);
+            setError(err instanceof Error ? err.message : 'Error desconocido');
+            setTenantUsers([]);
+        } finally {
+            setLoading(false);
+        }
+    };
 
     const handleSaveUser = (userData: Omit<User, 'id'> | User) => {
         if ('id' in userData) {
