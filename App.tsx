@@ -47,8 +47,9 @@ import {
   withLazyLoading
 } from './components/LazyComponents';
 
-// Master Dashboard - solo importación directa ya que no está en LazyComponents
+// Master Dashboard - importación directa ya que no está en LazyComponents
 const MasterDashboardLazy = React.lazy(() => import('./features/master/MasterDashboard'));
+const MasterConfigPageLazy = React.lazy(() => import('./features/master/MasterConfigPage'));
 
 // Client Portal
 import ClientPortalLayout from './features/portal/ClientPortalLayout';
@@ -77,17 +78,9 @@ function App(): React.ReactNode {
         {/* Auth Routes */}
         <Route path="/login" element={isAuthenticated ? <SmartRedirect /> : <LoginPage />} />
         
-        {/* Master Dashboard Route */}
-        <Route 
-          path="/master" 
-          element={
-            <ProtectedRoute>
-              <React.Suspense fallback={<div>Cargando...</div>}>
-                <MasterDashboardLazy />
-              </React.Suspense>
-            </ProtectedRoute>
-          } 
-        />
+        {/* Master Redirect Route - redirect to dashboard/master */}
+        <Route path="/master" element={<Navigate to="/dashboard/master" />} />
+        
         <Route path="/auth/microsoft/callback" element={<LazyMicrosoftCallbackPage />} />
         
         {/* Client Portal Routes */}
@@ -145,7 +138,9 @@ function App(): React.ReactNode {
                   <Route path="configuracion/microsoft" element={<LazyMicrosoftConfigPage />} />
                   <Route path="configuracion/metas-ventas" element={<LazyMetasVentasPage />} />
                   <Route path="billing" element={<LazyBillingPage />} />
-                  <Route path="master" element={<MasterDashboardLazy />} />
+                  {/* Master Routes */}
+                  <Route path="master" element={<React.Suspense fallback={<div>Cargando...</div>}><MasterDashboardLazy /></React.Suspense>} />
+                  <Route path="master/config" element={<React.Suspense fallback={<div>Cargando...</div>}><MasterConfigPageLazy /></React.Suspense>} />
                   <Route path="*" element={<Navigate to="/dashboard" />} />
                 </Routes>
               </Layout>

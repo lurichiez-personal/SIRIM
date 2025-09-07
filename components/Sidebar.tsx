@@ -58,6 +58,12 @@ const navItems: NavItem[] = [
   { to: '/dashboard/configuracion', label: 'Configuración', icon: ConfiguracionIcon, permission: Permission.GESTIONAR_CONFIGURACION_EMPRESA },
 ];
 
+// Elementos específicos para usuario master
+const masterNavItems: NavItem[] = [
+  { to: '/dashboard/master', label: '👑 Panel Master', icon: DashboardIcon, permission: Permission.GESTIONAR_EMPRESAS },
+  { to: '/dashboard/master/config', label: '⚙️ Config Master', icon: ConfiguracionIcon, permission: Permission.GESTIONAR_EMPRESAS },
+];
+
 const NavItemLink: React.FC<{ item: Omit<NavItem, 'permission'>, isSubmenu?: boolean }> = ({ item, isSubmenu = false }) => {
     const { closeSidebar } = useUIStore();
     const isMobile = useMediaQuery('(max-width: 768px)');
@@ -130,16 +136,32 @@ const Sidebar: React.FC = () => {
         {/* Panel Master - Solo para lurichiez@gmail.com */}
         {user?.email === 'lurichiez@gmail.com' && (
           <div className="mt-4 pt-4 border-t border-primary-600">
+            <div className="mb-2">
+              <p className="text-xs font-semibold text-primary-300 uppercase tracking-wider px-4 py-1">
+                👑 Master Panel
+              </p>
+            </div>
             <NavLink
               to="/dashboard/master"
               className={({ isActive }) =>
                 `flex items-center px-4 py-3 text-secondary-100 hover:bg-primary-700 rounded-lg transition-colors duration-200 ${
-                  isActive ? 'bg-primary-700 text-white' : ''
+                  isActive ? 'bg-primary-900 font-semibold' : ''
+                }`
+              }
+            >
+              <DashboardIcon className="h-5 w-5 mr-3" />
+              <span>Panel Master</span>
+            </NavLink>
+            <NavLink
+              to="/dashboard/master/config"
+              className={({ isActive }) =>
+                `flex items-center px-4 py-3 text-secondary-100 hover:bg-primary-700 rounded-lg transition-colors duration-200 ${
+                  isActive ? 'bg-primary-900 font-semibold' : ''
                 }`
               }
             >
               <ConfiguracionIcon className="h-5 w-5 mr-3" />
-              <span className="font-semibold">Panel Master</span>
+              <span>Configuración Master</span>
             </NavLink>
           </div>
         )}
