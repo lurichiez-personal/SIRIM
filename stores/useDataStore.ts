@@ -102,7 +102,7 @@ interface DataState {
   updateFacturaStatus: (facturaId: number, status: FacturaEstado) => void;
   bulkUpdateFacturaStatus: (facturaIds: number[], status: FacturaEstado) => void;
 
-  addCliente: (clienteData: Omit<Cliente, 'id'|'empresaId'|'createdAt'|'activo'>) => Promise<Cliente>;
+  addCliente: (clienteData: Omit<Cliente, 'id'|'empresaId'|'createdAt'|'activo'>) => Cliente;
   updateCliente: (cliente: Cliente) => void;
   bulkUpdateClienteStatus: (clienteIds: number[], activo: boolean) => void;
   
@@ -163,28 +163,25 @@ export const useDataStore = create<DataState>((set, get) => ({
         facturasRes,
         itemsRes,
         gastosRes,
-        empleadosRes,
-        cotizacionesRes,
-        notasRes
+        empleadosRes
       ] = await Promise.all([
         apiClient.getClientes(empresaId),
         apiClient.getFacturas(empresaId),
         apiClient.getItems(empresaId),
         apiClient.getGastos(empresaId),
-        apiClient.getEmpleados(empresaId),
-        apiClient.getCotizaciones(empresaId),
-        apiClient.getNotas(empresaId)
+        apiClient.getEmpleados(empresaId)
       ]);
 
       // Update store with real API data
       set({
-        clientes: (clientesRes.rows as Cliente[]) || [],
-        facturas: (facturasRes.rows as Factura[]) || [],
-        items: (itemsRes.rows as Item[]) || [],
-        gastos: (gastosRes.rows as Gasto[]) || [],
-        empleados: (empleadosRes.rows as Empleado[]) || [],
-        cotizaciones: (cotizacionesRes.rows as Cotizacion[]) || [],
-        notas: (notasRes.rows as NotaCreditoDebito[]) || [],
+        clientes: clientesRes.rows || [],
+        facturas: facturasRes.rows || [],
+        items: itemsRes.rows || [],
+        gastos: gastosRes.rows || [],
+        empleados: empleadosRes.rows || [],
+        // For now, keep mock data for features not yet migrated
+        cotizaciones: [...allCotizaciones.filter(c => c.empresaId === empresaId)],
+        notas: [...allNotas.filter(n => n.empresaId === empresaId)],
         ingresos: [...allIngresos.filter(i => i.empresaId === empresaId)],
         facturasRecurrentes: [...allFacturasRecurrentes.filter(fr => fr.empresaId === empresaId)],
         nominas: [...allNominas.filter(n => n.empresaId === empresaId)],
@@ -192,7 +189,7 @@ export const useDataStore = create<DataState>((set, get) => ({
         asientosContables: [...allAsientosContables.filter(a => a.empresaId === empresaId)],
       });
 
-      console.log(`Data loaded: ${clientesRes.rows?.length || 0} clients, ${facturasRes.rows?.length || 0} invoices, ${itemsRes.rows?.length || 0} items, ${gastosRes.rows?.length || 0} expenses, ${cotizacionesRes.rows?.length || 0} quotes, ${notasRes.rows?.length || 0} notes`);
+      console.log(`Data loaded: ${clientesRes.rows?.length || 0} clients, ${facturasRes.rows?.length || 0} invoices, ${itemsRes.rows?.length || 0} items, ${gastosRes.rows?.length || 0} expenses`);
     } catch (error) {
       console.error('Error fetching data:', error);
       // Fallback to mock data if API fails
@@ -555,7 +552,7 @@ export const useDataStore = create<DataState>((set, get) => ({
     facturaIds.forEach(id => get().updateFacturaStatus(id, status));
   },
 
-  addCliente: async (clienteData): Promise<Cliente> => {
+  addCliente: async (clienteData) => {
     const empresaId = useTenantStore.getState().selectedTenant?.id;
     if (!empresaId) throw new Error("No tenant selected");
     
@@ -570,7 +567,7 @@ export const useDataStore = create<DataState>((set, get) => ({
       
       // Refresh data from API
       await get().fetchData(empresaId);
-      return response.data as Cliente;
+      return response.data;
     } catch (error) {
       console.error('Error adding cliente:', error);
       // Fallback to mock data behavior
