@@ -23,7 +23,7 @@ export const generarVoucherPago = (empleadoNomina: NominaEmpleado, periodo: stri
         <head>
             <meta charset="UTF-8">
             <title>Volante de Pago - ${empleadoNomina.nombre}</title>
-            <script src="https://cdn.tailwindcss.com"></script>
+            <link rel="stylesheet" href="/index.css">
         </head>
         <body class="font-sans p-8">
             <div class="max-w-3xl mx-auto border rounded-lg p-6">
