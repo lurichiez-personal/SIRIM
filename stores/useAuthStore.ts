@@ -145,8 +145,18 @@ export const useAuthStore = create<AuthState>()(
             console.log('Login response:', result);
             
             if (result.user && result.token) {
-              // Guardar token
+              console.log('✅ Login exitoso, guardando token...');
+              
+              // Guardar token ANTES de cualquier otra operación
               localStorage.setItem('token', result.token);
+              
+              // Verificar que se guardó correctamente
+              const verifyToken = localStorage.getItem('token');
+              if (!verifyToken) {
+                console.error('❌ Error: Token no se guardó en localStorage');
+                return false;
+              }
+              console.log('✅ Token guardado correctamente');
               
               // Crear objeto de usuario
               const user: User = {
@@ -159,14 +169,21 @@ export const useAuthStore = create<AuthState>()(
                 empresaId: result.user.empresaId
               };
               
-              // Login exitoso
+              console.log('✅ Usuario creado:', user);
+              
+              // Login exitoso - actualizar estado
               get().login(user);
               
-              // Pequeño delay para asegurar que el estado esté establecido
+              // Carga de empresas con verificación de token
               setTimeout(() => {
-                console.log('Forzando carga de empresas después del login');
-                useTenantStore.getState().fetchAvailableTenants();
-              }, 300);
+                const tokenForApi = localStorage.getItem('token');
+                if (tokenForApi) {
+                  console.log('✅ Token disponible para API, cargando empresas...');
+                  useTenantStore.getState().fetchAvailableTenants();
+                } else {
+                  console.error('❌ Token no disponible para cargar empresas');
+                }
+              }, 500);
               
               return true;
             }
@@ -355,48 +372,81 @@ export const useAuthStore = create<AuthState>()(
   )
 );
 
-// Inicialización automática del usuario Master
+// Inicialización robusta del usuario Master
 if (typeof window !== 'undefined') {
   const initializeMasterUser = () => {
+    console.log('🔍 Verificando token almacenado...');
     const storedToken = localStorage.getItem('token');
-    if (storedToken) {
-      try {
-        const tokenPayload = JSON.parse(atob(storedToken.split('.')[1]));
-        
-        if (tokenPayload.exp * 1000 > Date.now()) {
-          // Usuario Master específico
-          if (tokenPayload.email === 'lurichiez@gmail.com' || tokenPayload.role === 'master') {
-            const masterUser: User = {
-              id: tokenPayload.sub?.toString() || '1',
-              nombre: tokenPayload.nombre || 'Luis Richards',
-              email: 'lurichiez@gmail.com',
-              roles: [Role.Master],
-              authMethod: 'local',
-              activo: true,
-              empresaId: undefined
-            };
-            
-            console.log('🔑 Inicializando usuario master automáticamente');
-            useAuthStore.setState({ user: masterUser, isAuthenticated: true });
-            
-            // Cargar empresas con delay
-            setTimeout(() => {
-              console.log('🏢 Cargando empresas para usuario master');
-              useTenantStore.getState().fetchAvailableTenants();
-            }, 800);
-          }
-        } else {
-          console.log('⚠️ Token expirado, limpiando localStorage');
-          localStorage.removeItem('token');
-        }
-      } catch (error) {
-        console.error('❌ Error decodificando token:', error);
+    
+    if (!storedToken) {
+      console.log('❌ No hay token almacenado');
+      return false;
+    }
+    
+    try {
+      const tokenPayload = JSON.parse(atob(storedToken.split('.')[1]));
+      console.log('🔍 Token decodificado:', { email: tokenPayload.email, role: tokenPayload.role, exp: new Date(tokenPayload.exp * 1000) });
+      
+      if (tokenPayload.exp * 1000 <= Date.now()) {
+        console.log('⚠️ Token expirado, limpiando');
         localStorage.removeItem('token');
+        return false;
       }
+      
+      // Usuario Master específico
+      if (tokenPayload.email === 'lurichiez@gmail.com' || tokenPayload.role === 'master') {
+        const masterUser: User = {
+          id: tokenPayload.sub?.toString() || '1',
+          nombre: tokenPayload.nombre || 'Luis Richards',
+          email: 'lurichiez@gmail.com',
+          roles: [Role.Master],
+          authMethod: 'local',
+          activo: true,
+          empresaId: undefined
+        };
+        
+        console.log('✅ Inicializando usuario master:', masterUser);
+        useAuthStore.setState({ user: masterUser, isAuthenticated: true });
+        
+        // Verificar que el token sigue ahí y luego cargar empresas
+        setTimeout(() => {
+          const tokenCheck = localStorage.getItem('token');
+          if (tokenCheck) {
+            console.log('✅ Token verificado, cargando empresas...');
+            useTenantStore.getState().fetchAvailableTenants();
+          } else {
+            console.error('❌ Token desapareció después de la inicialización');
+          }
+        }, 1000);
+        
+        return true;
+      }
+    } catch (error) {
+      console.error('❌ Error decodificando token:', error);
+      localStorage.removeItem('token');
+    }
+    
+    return false;
+  };
+
+  // Intentar inicialización con reintentos
+  let attempts = 0;
+  const tryInitialize = () => {
+    attempts++;
+    console.log(`🚀 Intento de inicialización #${attempts}`);
+    
+    if (initializeMasterUser()) {
+      console.log('✅ Inicialización exitosa');
+      return;
+    }
+    
+    if (attempts < 5) {
+      setTimeout(tryInitialize, attempts * 200);
+    } else {
+      console.log('⚠️ Inicialización fallida después de 5 intentos');
     }
   };
 
-  // Ejecutar inmediatamente y en el próximo tick
-  initializeMasterUser();
-  setTimeout(initializeMasterUser, 100);
+  // Iniciar el proceso
+  tryInitialize();
 }
