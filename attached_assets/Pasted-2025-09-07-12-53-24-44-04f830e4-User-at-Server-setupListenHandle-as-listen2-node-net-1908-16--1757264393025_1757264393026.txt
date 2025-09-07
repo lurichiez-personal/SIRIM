@@ -1,0 +1,140 @@
+2025-09-07 12:53:24.44
+04f830e4
+User
+at Server.setupListenHandle [as _listen2] (node:net:1908:16)
+2025-09-07 12:53:24.44
+04f830e4
+User
+at listenInCluster (node:net:1965:12)
+2025-09-07 12:53:24.44
+04f830e4
+User
+at doListen (node:net:2139:7)
+2025-09-07 12:53:24.44
+04f830e4
+User
+at process.processTicksAndRejections (node:internal/process/task_queues:83:21) {
+2025-09-07 12:53:24.44
+04f830e4
+User
+code: 'EADDRINUSE',
+2025-09-07 12:53:24.44
+04f830e4
+User
+errno: -98,
+2025-09-07 12:53:24.44
+04f830e4
+User
+syscall: 'listen',
+2025-09-07 12:53:24.44
+04f830e4
+User
+address: '0.0.0.0',
+2025-09-07 12:53:24.44
+04f830e4
+User
+port: 5000
+2025-09-07 12:53:24.44
+04f830e4
+User
+}
+2025-09-07 12:54:02.26
+04f830e4
+User
+4:54:02 PM [vite] http proxy error: /api/empresas
+2025-09-07 12:54:02.26
+04f830e4
+User
+AggregateError [ECONNREFUSED]:
+2025-09-07 12:54:02.26
+04f830e4
+User
+at internalConnectMultiple (node:net:1122:18)
+2025-09-07 12:54:02.26
+04f830e4
+User
+at afterConnectMultiple (node:net:1689:7)
+2025-09-07 12:54:09.49
+04f830e4
+User
+4:54:09 PM [vite] http proxy error: /api/master/empresas
+2025-09-07 12:54:09.49
+04f830e4
+User
+AggregateError [ECONNREFUSED]:
+2025-09-07 12:54:09.49
+04f830e4
+User
+at internalConnectMultiple (node:net:1122:18)
+2025-09-07 12:54:09.49
+04f830e4
+User
+at afterConnectMultiple (node:net:1689:7)
+2025-09-07 12:54:11.24
+04f830e4
+User
+4:54:11 PM [vite] http proxy error: /api/master/empresas
+2025-09-07 12:54:11.24
+04f830e4
+User
+AggregateError [ECONNREFUSED]:
+2025-09-07 12:54:11.24
+04f830e4
+User
+at internalConnectMultiple (node:net:1122:18)
+2025-09-07 12:54:11.24
+04f830e4
+User
+at afterConnectMultiple (node:net:1689:7)
+2025-09-07 12:54:12.27
+04f830e4
+User
+4:54:12 PM [vite] http proxy error: /api/master/empresas
+2025-09-07 12:54:12.27
+04f830e4
+User
+AggregateError [ECONNREFUSED]:
+2025-09-07 12:54:12.27
+04f830e4
+User
+at internalConnectMultiple (node:net:1122:18)
+2025-09-07 12:54:12.27
+04f830e4
+User
+at afterConnectMultiple (node:net:1689:7)
+2025-09-07 12:54:19.48
+04f830e4
+User
+4:54:19 PM [vite] http proxy error: /api/master/empresas
+2025-09-07 12:54:19.48
+04f830e4
+User
+AggregateError [ECONNREFUSED]:
+2025-09-07 12:54:19.48
+04f830e4
+User
+at internalConnectMultiple (node:net:1122:18)
+2025-09-07 12:54:19.48
+04f830e4
+User
+at afterConnectMultiple (node:net:1689:7)
+2025-09-07 12:54:21.41
+04f830e4
+User
+4:54:21 PM [vite] http proxy error: /api/master/empresas
+2025-09-07 12:54:21.41
+04f830e4
+User
+AggregateError [ECONNREFUSED]:
+2025-09-07 12:54:21.41
+04f830e4
+User
+at internalConnectMultiple (node:net:1122:18)
+2025-09-07 12:54:21.41
+04f830e4
+User
+at afterConnectMultiple (node:net:1689:7)
+2025-09-07 12:54:26.78
+04f830e4
+User
+4:54:26 PM [vite] http proxy error: /api/empresas

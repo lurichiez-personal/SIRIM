@@ -40,7 +40,7 @@ const RegistroPage: React.FC = () => {
     setLoading(true);
     
     // Simple validation
-    if (Object.values(formData).some(val => val.trim() === '')) {
+    if (Object.values(formData).some((val: string) => val.trim() === '')) {
         setError('Todos los campos son obligatorios.');
         setLoading(false);
         return;
