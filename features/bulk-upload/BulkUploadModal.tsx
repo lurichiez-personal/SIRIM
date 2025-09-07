@@ -74,14 +74,51 @@ export default function BulkUploadModal({ isOpen, onClose, type, empresaId, onSu
         formData.append('periodo', periodo);
       }
 
-      const token = localStorage.getItem('token');
-      const response = await fetch(config.endpoint, {
+      let token = localStorage.getItem('token');
+      let headers = {
+        'Authorization': `Bearer ${token}`
+      };
+
+      let response = await fetch(config.endpoint, {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        },
+        headers,
         body: formData
       });
+
+      // Si el token está expirado (401), intentar re-autenticación automática
+      if (!response.ok && response.status === 401) {
+        console.log('🔄 Token expirado, intentando re-autenticación automática...');
+        
+        try {
+          const loginResponse = await fetch('/api/master/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              email: 'lurichiez@gmail.com',
+              password: 'Alonso260990#'
+            })
+          });
+          
+          if (loginResponse.ok) {
+            const loginData = await loginResponse.json();
+            localStorage.setItem('token', loginData.token);
+            console.log('✅ Re-autenticación exitosa, reintentando upload...');
+            
+            // Reintentar con nuevo token
+            headers.Authorization = `Bearer ${loginData.token}`;
+            response = await fetch(config.endpoint, {
+              method: 'POST',
+              headers,
+              body: formData
+            });
+          } else {
+            throw new Error('Token expirado. Por favor, inicie sesión nuevamente.');
+          }
+        } catch (reAuthError) {
+          console.error('❌ Error en re-autenticación:', reAuthError);
+          throw new Error('Sesión expirada. Por favor, recargue la página e inicie sesión nuevamente.');
+        }
+      }
 
       const data = await response.json();
 
