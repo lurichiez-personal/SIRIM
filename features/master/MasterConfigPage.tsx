@@ -155,6 +155,7 @@ const MasterConfigPage: React.FC = () => {
           {[
             { key: 'pricing', label: 'Precios', icon: ReceiptPercentIcon },
             { key: 'notifications', label: 'Notificaciones', icon: ConfiguracionIcon },
+            { key: 'stripe', label: 'Stripe / Pagos', icon: ReceiptPercentIcon },
             { key: 'general', label: 'General', icon: ConfiguracionIcon }
           ].map(tab => (
             <button
@@ -385,6 +386,130 @@ const MasterConfigPage: React.FC = () => {
             </CardContent>
           </Card>
         </div>
+      )}
+
+      {/* Stripe Tab */}
+      {activeTab === 'stripe' && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Configuración de Stripe / Pagos</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div className="grid grid-cols-1 gap-6">
+              <div className="flex items-center justify-between p-4 border rounded-lg">
+                <div>
+                  <h3 className="font-medium">Activar Pagos con Stripe</h3>
+                  <p className="text-sm text-gray-500">Habilitar procesamiento de pagos y suscripciones</p>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    className="sr-only peer"
+                    checked={config.stripe.enabled}
+                    onChange={(e) => setConfig(prev => ({
+                      ...prev,
+                      stripe: { ...prev.stripe, enabled: e.target.checked }
+                    }))}
+                  />
+                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                </label>
+              </div>
+
+              {config.stripe.enabled && (
+                <>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Stripe Publishable Key</label>
+                      <input
+                        type="text"
+                        placeholder="pk_test_..."
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        value={config.stripe.publishableKey}
+                        onChange={(e) => setConfig(prev => ({
+                          ...prev,
+                          stripe: { ...prev.stripe, publishableKey: e.target.value }
+                        }))}
+                      />
+                      <p className="text-xs text-gray-500 mt-1">Clave pública para el frontend</p>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Stripe Secret Key</label>
+                      <input
+                        type="password"
+                        placeholder="sk_test_..."
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        value={config.stripe.secretKey}
+                        onChange={(e) => setConfig(prev => ({
+                          ...prev,
+                          stripe: { ...prev.stripe, secretKey: e.target.value }
+                        }))}
+                      />
+                      <p className="text-xs text-gray-500 mt-1">Clave secreta para el backend (se guardará como variable de entorno)</p>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Webhook Secret</label>
+                    <input
+                      type="password"
+                      placeholder="whsec_..."
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      value={config.stripe.webhookSecret}
+                      onChange={(e) => setConfig(prev => ({
+                        ...prev,
+                        stripe: { ...prev.stripe, webhookSecret: e.target.value }
+                      }))}
+                    />
+                    <p className="text-xs text-gray-500 mt-1">Secret para validar webhooks de Stripe</p>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Moneda</label>
+                      <select
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        value={config.stripe.currency}
+                        onChange={(e) => setConfig(prev => ({
+                          ...prev,
+                          stripe: { ...prev.stripe, currency: e.target.value }
+                        }))}
+                      >
+                        <option value="usd">USD - Dólar Americano</option>
+                        <option value="dop">DOP - Peso Dominicano</option>
+                      </select>
+                    </div>
+
+                    <div className="flex items-center space-x-4">
+                      <label className="flex items-center">
+                        <input
+                          type="checkbox"
+                          className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                          checked={config.stripe.enablePayments}
+                          onChange={(e) => setConfig(prev => ({
+                            ...prev,
+                            stripe: { ...prev.stripe, enablePayments: e.target.checked }
+                          }))}
+                        />
+                        <span className="ml-2 text-sm text-gray-700">Habilitar Pagos</span>
+                      </label>
+                    </div>
+                  </div>
+
+                  <div className="bg-blue-50 border border-blue-200 rounded-md p-4">
+                    <h4 className="font-medium text-blue-800 mb-2">Instrucciones:</h4>
+                    <ol className="text-sm text-blue-700 space-y-1">
+                      <li>1. Crea una cuenta en <a href="https://stripe.com" target="_blank" className="underline">stripe.com</a></li>
+                      <li>2. Ve al Dashboard → Desarrolladores → Claves API</li>
+                      <li>3. Copia la clave publicable (pk_test_) y secreta (sk_test_)</li>
+                      <li>4. Para webhooks: Desarrolladores → Webhooks → Agregar endpoint</li>
+                    </ol>
+                  </div>
+                </>
+              )}
+            </div>
+          </CardContent>
+        </Card>
       )}
 
       {/* General Tab */}
