@@ -81,7 +81,7 @@ const NuevoUsuarioModal: React.FC<NuevoUsuarioModalProps> = ({ isOpen, onClose, 
         const baseData = {
             nombre: finalNombre,
             email: finalEmail,
-            roles: Array.from(roles),
+            roles: Array.from(roles) as Role[],
             activo,
         };
 

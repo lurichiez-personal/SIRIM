@@ -19,7 +19,7 @@ const GestionUsuariosPage: React.FC = () => {
     const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
-        if (selectedTenant && (user?.roles?.includes('master') || user?.roles?.includes('Master'))) {
+        if (selectedTenant && user?.roles?.includes(Role.Master)) {
             loadTenantUsers();
         }
     }, [selectedTenant, user]);
