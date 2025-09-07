@@ -655,20 +655,38 @@ export const useDataStore = create<DataState>((set, get) => ({
       throw error;
     }
   },
-  updateGasto: (gasto) => {
+  updateGasto: async (gasto) => {
     const empresaId = useTenantStore.getState().selectedTenant?.id;
     if (!empresaId) return;
-    const index = allGastos.findIndex(g => g.id === gasto.id);
-    if (index > -1) {
-        allGastos[index] = gasto;
-        get().addAuditLog('gasto', gasto.id, `actualizó el gasto.`);
+    
+    try {
+      // Actualizar gasto usando API real
+      await apiClient.updateGasto(gasto.id, gasto);
+      
+      // Agregar log de auditoría
+      get().addAuditLog('gasto', gasto.id, `actualizó el gasto.`);
+      
+      // Refrescar datos desde la base de datos
+      await get().fetchData(empresaId);
+    } catch (error) {
+      console.error('Error actualizando gasto:', error);
+      throw error;
     }
-    get().fetchData(empresaId);
   },
-  bulkDeleteGastos: (gastoIds) => {
-    allGastos = allGastos.filter(g => !gastoIds.includes(g.id));
+  bulkDeleteGastos: async (gastoIds) => {
     const empresaId = useTenantStore.getState().selectedTenant?.id;
-    if (empresaId) get().fetchData(empresaId);
+    if (!empresaId) return;
+    
+    try {
+      // Eliminar gastos usando API real
+      await apiClient.bulkDeleteGastos(gastoIds);
+      
+      // Refrescar datos desde la base de datos
+      await get().fetchData(empresaId);
+    } catch (error) {
+      console.error('Error eliminando gastos:', error);
+      throw error;
+    }
   },
 
   addCotizacion: (cotizacionData) => {

@@ -116,6 +116,14 @@ class ApiClient {
     return this.put(`/gastos/${gastoId}`, gastoData);
   }
 
+  async deleteGasto(gastoId: number) {
+    return this.delete(`/gastos/${gastoId}`);
+  }
+
+  async bulkDeleteGastos(gastoIds: number[]) {
+    return this.delete('/gastos', { ids: gastoIds });
+  }
+
   async getEmpleados(empresaId: number, params?: any) {
     return this.get('/empleados', { empresaId, ...params });
   }
