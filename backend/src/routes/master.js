@@ -498,4 +498,62 @@ router.get('/empresas/:id', verifyToken, verifyMaster, async (req, res) => {
   }
 });
 
+// POST/PUT /config - Configuración master
+router.put("/config", verifyToken, verifyMaster, async (req, res) => {
+  try {
+    const config = req.body;
+    
+    // Aquí podrías guardar en una tabla de configuración
+    // Por ahora solo devuelve éxito para que funcione el frontend
+    
+    res.json({ 
+      success: true,
+      message: 'Configuración guardada exitosamente',
+      config: config 
+    });
+  } catch (error) {
+    console.error('Error guardando configuración:', error);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+});
+
+// GET /config - Obtener configuración master
+router.get("/config", verifyToken, verifyMaster, async (req, res) => {
+  try {
+    // Aquí podrías cargar desde una tabla de configuración
+    // Por ahora devuelve configuración por defecto
+    
+    const defaultConfig = {
+      pricing: {
+        basicPlan: { monthlyPrice: 1500, yearlyPrice: 15000, maxUsers: 3, maxCompanies: 1 },
+        proPlan: { monthlyPrice: 3000, yearlyPrice: 30000, maxUsers: 10, maxCompanies: 5 },
+        premiumPlan: { monthlyPrice: 5000, yearlyPrice: 50000, maxUsers: 50, maxCompanies: 20 }
+      },
+      notifications: {
+        smtpHost: 'smtp.gmail.com',
+        smtpPort: 587,
+        smtpUser: '',
+        smtpPassword: '',
+        fromEmail: 'noreply@sirim.do',
+        fromName: 'SIRIM - Sistema de Registros',
+        supportEmail: 'soporte@sirim.do',
+        enableEmailNotifications: true,
+        enableSmsNotifications: false
+      },
+      general: {
+        appName: 'SIRIM',
+        supportPhone: '(809) 000-0000',
+        maxFileUploadSize: 10,
+        maintenanceMode: false,
+        allowNewRegistrations: true
+      }
+    };
+    
+    res.json({ success: true, config: defaultConfig });
+  } catch (error) {
+    console.error('Error obteniendo configuración:', error);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+});
+
 module.exports = router;

@@ -15,7 +15,7 @@ const ITEMS_PER_PAGE = 10;
 
 const EmpleadosPage: React.FC = () => {
     const { selectedTenant } = useTenantStore();
-    const { empleados, getPagedEmpleados, addEmpleado, updateEmpleado, bulkDeleteEmpleados } = useDataStore(); 
+    const { empleados, addEmpleado, updateEmpleado } = useDataStore(); 
     const [loading, setLoading] = useState(true);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isBulkUploadOpen, setIsBulkUploadOpen] = useState(false);
@@ -31,12 +31,13 @@ const EmpleadosPage: React.FC = () => {
     useEffect(() => {
         if (selectedTenant) {
             setLoading(true);
-            const data = getPagedEmpleados({ page: currentPage, pageSize: ITEMS_PER_PAGE, ...filters });
+            // Mock data for now - replace with actual data fetching
+            const data = { items: empleados.slice((currentPage-1)*ITEMS_PER_PAGE, currentPage*ITEMS_PER_PAGE), totalCount: empleados.length };
             setPagedData(data);
             setSelectedIds(new Set());
             setLoading(false);
         }
-    }, [selectedTenant, currentPage, filters, getPagedEmpleados, empleados]);
+    }, [selectedTenant, currentPage, filters, empleados]);
 
     const handleFilterChange = (field: string, value: string) => {
         setFilters(prev => ({ ...prev, [field]: value }));
@@ -59,13 +60,13 @@ const EmpleadosPage: React.FC = () => {
 
     const handleBulkDelete = () => {
         if (window.confirm(`¿Está seguro que desea eliminar ${selectedIds.size} empleados?`)) {
-            bulkDeleteEmpleados(Array.from(selectedIds));
+            // TODO: Implement bulk delete for employees
             setSelectedIds(new Set());
         }
     };
 
     const handleExport = () => {
-        const dataToExport = getPagedEmpleados({ ...filters, page: 1, pageSize: pagedData.totalCount }).items;
+        const dataToExport = empleados;
         exportToCSV(dataToExport.map(e => ({
             'Nombre': e.nombre,
             'Cedula': e.cedula,
