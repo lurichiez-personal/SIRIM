@@ -188,6 +188,37 @@ class ApiClient {
   async createAsiento(asientoData: any) {
     return this.post('/asientos', asientoData);
   }
+
+  // Settings
+  async getSettings(empresaId: number) {
+    return this.get('/settings', { empresaId });
+  }
+
+  async updateSettings(settingsData: any) {
+    return this.post('/settings', settingsData);
+  }
+
+  // Tax Rates
+  async getTaxRates(empresaId: number) {
+    return this.get('/tax-rates', { empresaId });
+  }
+
+  async updateTaxRates(taxRatesData: any) {
+    return this.post('/tax-rates', taxRatesData);
+  }
+
+  // Chart of Accounts
+  async getCuentas(empresaId: number) {
+    return this.get('/cuentas', { empresaId });
+  }
+
+  async createCuenta(cuentaData: any) {
+    return this.post('/cuentas', cuentaData);
+  }
+
+  async updateCuenta(cuentaId: string, cuentaData: any) {
+    return this.put(`/cuentas/${cuentaId}`, cuentaData);
+  }
 }
 
 export const apiClient = new ApiClient();

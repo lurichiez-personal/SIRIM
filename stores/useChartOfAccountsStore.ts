@@ -1,13 +1,18 @@
 import { create } from 'zustand';
 import { CuentaContable } from '../types';
+import { apiClient } from '../services/apiClient';
 
 interface ChartOfAccountsState {
-  cuentas: CuentaContable[];
-  getCuentaById: (id: string) => CuentaContable | undefined;
+  cuentasByCompany: { [empresaId: number]: CuentaContable[] };
+  getCuentaById: (empresaId: number, id: string) => CuentaContable | undefined;
+  getCuentasForTenant: (empresaId: number) => CuentaContable[];
+  fetchCuentas: (empresaId: number) => Promise<void>;
+  addCuenta: (empresaId: number, cuentaData: Omit<CuentaContable, 'empresaId'>) => Promise<void>;
+  updateCuenta: (empresaId: number, cuentaId: string, cuentaData: Partial<CuentaContable>) => Promise<void>;
 }
 
-// Catálogo de Cuentas estándar simplificado para República Dominicana
-const catalogoCuentas: CuentaContable[] = [
+// Catálogo de Cuentas estándar simplificado para República Dominicana (como fallback)
+const catalogoCuentasDefault: Omit<CuentaContable, 'empresaId'>[] = [
     // Activos
     { id: '1', nombre: 'Activos', tipo: 'Activo', permiteMovimientos: false },
     { id: '11', nombre: 'Activos Corrientes', tipo: 'Activo', permiteMovimientos: false, padreId: '1' },
@@ -67,6 +72,104 @@ const catalogoCuentas: CuentaContable[] = [
 ];
 
 export const useChartOfAccountsStore = create<ChartOfAccountsState>((set, get) => ({
-    cuentas: catalogoCuentas,
-    getCuentaById: (id) => get().cuentas.find(c => c.id === id),
+  cuentasByCompany: {},
+  
+  fetchCuentas: async (empresaId) => {
+    try {
+      const response = await apiClient.getCuentas(empresaId);
+      if (response.rows && response.rows.length > 0) {
+        set(state => ({
+          cuentasByCompany: {
+            ...state.cuentasByCompany,
+            [empresaId]: response.rows
+          }
+        }));
+      } else {
+        // Initialize with default chart if none exists
+        const defaultCuentas = catalogoCuentasDefault.map(cuenta => ({ ...cuenta, empresaId }));
+        
+        // Try to create default accounts
+        try {
+          for (const cuenta of defaultCuentas) {
+            await apiClient.createCuenta(cuenta);
+          }
+          // Fetch again to get the created accounts
+          const newResponse = await apiClient.getCuentas(empresaId);
+          if (newResponse.rows) {
+            set(state => ({
+              cuentasByCompany: {
+                ...state.cuentasByCompany,
+                [empresaId]: newResponse.rows
+              }
+            }));
+          }
+        } catch (error) {
+          console.error('Error creating default accounts:', error);
+          // Fallback to local default
+          set(state => ({
+            cuentasByCompany: {
+              ...state.cuentasByCompany,
+              [empresaId]: defaultCuentas
+            }
+          }));
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching chart of accounts:', error);
+      // Fallback to default
+      const defaultCuentas = catalogoCuentasDefault.map(cuenta => ({ ...cuenta, empresaId }));
+      set(state => ({
+        cuentasByCompany: {
+          ...state.cuentasByCompany,
+          [empresaId]: defaultCuentas
+        }
+      }));
+    }
+  },
+  
+  getCuentasForTenant: (empresaId) => {
+    return get().cuentasByCompany[empresaId] || [];
+  },
+  
+  getCuentaById: (empresaId, id) => {
+    const cuentas = get().cuentasByCompany[empresaId] || [];
+    return cuentas.find(c => c.id === id);
+  },
+  
+  addCuenta: async (empresaId, cuentaData) => {
+    try {
+      const newCuentaData = { ...cuentaData, empresaId };
+      const response = await apiClient.createCuenta(newCuentaData);
+      
+      if (response.data) {
+        set(state => ({
+          cuentasByCompany: {
+            ...state.cuentasByCompany,
+            [empresaId]: [...(state.cuentasByCompany[empresaId] || []), response.data]
+          }
+        }));
+      }
+    } catch (error) {
+      console.error('Error adding cuenta:', error);
+    }
+  },
+  
+  updateCuenta: async (empresaId, cuentaId, cuentaData) => {
+    try {
+      const response = await apiClient.updateCuenta(cuentaId, cuentaData);
+      
+      if (response.data) {
+        set(state => ({
+          cuentasByCompany: {
+            ...state.cuentasByCompany,
+            [empresaId]: (state.cuentasByCompany[empresaId] || []).map(cuenta => 
+              cuenta.id === cuentaId ? response.data : cuenta
+            )
+          }
+        }));
+      }
+    } catch (error) {
+      console.error('Error updating cuenta:', error);
+    }
+  }
 }));

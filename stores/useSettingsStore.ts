@@ -1,34 +1,74 @@
 
 import { create } from 'zustand';
 import { CustomizationSettings } from '../types';
+import { apiClient } from '../services/apiClient';
 
 interface SettingsState {
   settings: { [empresaId: number]: CustomizationSettings };
   getSettingsForTenant: (empresaId: number) => CustomizationSettings;
-  updateSettings: (empresaId: number, newSettings: Partial<CustomizationSettings>) => void;
+  updateSettings: (empresaId: number, newSettings: Partial<CustomizationSettings>) => Promise<void>;
+  fetchSettings: (empresaId: number) => Promise<void>;
 }
 
-const mockSettings: { [empresaId: number]: CustomizationSettings } = {
-    1: { empresaId: 1, accentColor: '#005A9C', footerText: 'Gracias por preferir a Empresa A S.R.L.' },
-    2: { empresaId: 2, accentColor: '#38A169', footerText: 'Consultores B & Asociados - Su éxito es nuestro compromiso.'},
-};
+const defaultSettings = { accentColor: '#005A9C' };
 
 export const useSettingsStore = create<SettingsState>((set, get) => ({
-  settings: mockSettings,
+  settings: {},
+  
+  fetchSettings: async (empresaId) => {
+    try {
+      const response = await apiClient.get('/settings', { empresaId });
+      if (response.data) {
+        set(state => ({
+          settings: {
+            ...state.settings,
+            [empresaId]: response.data
+          }
+        }));
+      }
+    } catch (error) {
+      console.error('Error fetching settings:', error);
+      // Set default if not found
+      set(state => ({
+        settings: {
+          ...state.settings,
+          [empresaId]: { empresaId, ...defaultSettings }
+        }
+      }));
+    }
+  },
+  
   getSettingsForTenant: (empresaId) => {
     const allSettings = get().settings;
-    return allSettings[empresaId] || { empresaId, accentColor: '#005A9C' };
+    return allSettings[empresaId] || { empresaId, ...defaultSettings };
   },
-  updateSettings: (empresaId, newSettings) => {
-    set(state => ({
-      settings: {
-        ...state.settings,
-        [empresaId]: {
-          ...state.settings[empresaId],
-          ...newSettings,
-          empresaId,
-        }
+  
+  updateSettings: async (empresaId, newSettings) => {
+    try {
+      const settingsData = { empresaId, ...newSettings };
+      const response = await apiClient.post('/settings', settingsData);
+      
+      if (response.data) {
+        set(state => ({
+          settings: {
+            ...state.settings,
+            [empresaId]: response.data
+          }
+        }));
       }
-    }));
+    } catch (error) {
+      console.error('Error updating settings:', error);
+      // Update locally as fallback
+      set(state => ({
+        settings: {
+          ...state.settings,
+          [empresaId]: {
+            ...state.settings[empresaId],
+            ...newSettings,
+            empresaId,
+          }
+        }
+      }));
+    }
   }
 }));
