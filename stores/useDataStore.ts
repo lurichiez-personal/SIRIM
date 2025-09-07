@@ -163,13 +163,17 @@ export const useDataStore = create<DataState>((set, get) => ({
         facturasRes,
         itemsRes,
         gastosRes,
-        empleadosRes
+        empleadosRes,
+        cotizacionesRes,
+        notasRes
       ] = await Promise.all([
         apiClient.getClientes(empresaId),
         apiClient.getFacturas(empresaId),
         apiClient.getItems(empresaId),
         apiClient.getGastos(empresaId),
-        apiClient.getEmpleados(empresaId)
+        apiClient.getEmpleados(empresaId),
+        apiClient.getCotizaciones(empresaId),
+        apiClient.getNotas(empresaId)
       ]);
 
       // Update store with real API data
@@ -179,9 +183,8 @@ export const useDataStore = create<DataState>((set, get) => ({
         items: (itemsRes.rows as Item[]) || [],
         gastos: (gastosRes.rows as Gasto[]) || [],
         empleados: (empleadosRes.rows as Empleado[]) || [],
-        // For now, keep mock data for features not yet migrated
-        cotizaciones: [...allCotizaciones.filter(c => c.empresaId === empresaId)],
-        notas: [...allNotas.filter(n => n.empresaId === empresaId)],
+        cotizaciones: (cotizacionesRes.rows as Cotizacion[]) || [],
+        notas: (notasRes.rows as NotaCreditoDebito[]) || [],
         ingresos: [...allIngresos.filter(i => i.empresaId === empresaId)],
         facturasRecurrentes: [...allFacturasRecurrentes.filter(fr => fr.empresaId === empresaId)],
         nominas: [...allNominas.filter(n => n.empresaId === empresaId)],
@@ -189,7 +192,7 @@ export const useDataStore = create<DataState>((set, get) => ({
         asientosContables: [...allAsientosContables.filter(a => a.empresaId === empresaId)],
       });
 
-      console.log(`Data loaded: ${clientesRes.rows?.length || 0} clients, ${facturasRes.rows?.length || 0} invoices, ${itemsRes.rows?.length || 0} items, ${gastosRes.rows?.length || 0} expenses`);
+      console.log(`Data loaded: ${clientesRes.rows?.length || 0} clients, ${facturasRes.rows?.length || 0} invoices, ${itemsRes.rows?.length || 0} items, ${gastosRes.rows?.length || 0} expenses, ${cotizacionesRes.rows?.length || 0} quotes, ${notasRes.rows?.length || 0} notes`);
     } catch (error) {
       console.error('Error fetching data:', error);
       // Fallback to mock data if API fails

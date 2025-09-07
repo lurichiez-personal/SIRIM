@@ -131,6 +131,48 @@ class ApiClient {
   async updateEmpleado(empleadoId: number, empleadoData: any) {
     return this.put(`/empleados/${empleadoId}`, empleadoData);
   }
+
+  // Cotizaciones API
+  async getCotizaciones(empresaId: number, params?: any) {
+    return this.get('/cotizaciones', { empresaId, ...params });
+  }
+
+  async getCotizacion(id: number, empresaId: number) {
+    return this.get(`/cotizaciones/${id}`, { empresaId });
+  }
+
+  async createCotizacion(data: any) {
+    return this.post('/cotizaciones', data);
+  }
+
+  async updateCotizacion(id: number, data: any) {
+    return this.put(`/cotizaciones/${id}`, data);
+  }
+
+  async deleteCotizacion(id: number, empresaId: number) {
+    return this.delete(`/cotizaciones/${id}?empresaId=${empresaId}`);
+  }
+
+  // Notas de Crédito/Débito API
+  async getNotas(empresaId: number, params?: any) {
+    return this.get('/notas', { empresaId, ...params });
+  }
+
+  async getNota(id: number, empresaId: number) {
+    return this.get(`/notas/${id}`, { empresaId });
+  }
+
+  async createNota(data: any) {
+    return this.post('/notas', data);
+  }
+
+  async updateNota(id: number, data: any) {
+    return this.put(`/notas/${id}`, data);
+  }
+
+  async deleteNota(id: number, empresaId: number) {
+    return this.delete(`/notas/${id}?empresaId=${empresaId}`);
+  }
 }
 
 export const apiClient = new ApiClient();

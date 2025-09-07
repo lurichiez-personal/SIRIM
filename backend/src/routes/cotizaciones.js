@@ -1,5 +1,5 @@
 const express = require('express');
-const { prisma } = require('../db');
+const prisma = require('../db');
 const { buildPaging } = require('../utils/pagination');
 const router = express.Router();
 
