@@ -127,6 +127,67 @@ class ApiClient {
   async updateEmpleado(empleadoId: number, empleadoData: any) {
     return this.put(`/empleados/${empleadoId}`, empleadoData);
   }
+
+  // Ingresos
+  async getIngresos(empresaId: number, params?: any) {
+    return this.get('/ingresos', { empresaId, ...params });
+  }
+
+  async createIngreso(ingresoData: any) {
+    return this.post('/ingresos', ingresoData);
+  }
+
+  async updateIngreso(ingresoId: number, ingresoData: any) {
+    return this.put(`/ingresos/${ingresoId}`, ingresoData);
+  }
+
+  // Cotizaciones
+  async getCotizaciones(empresaId: number, params?: any) {
+    return this.get('/cotizaciones', { empresaId, ...params });
+  }
+
+  async createCotizacion(cotizacionData: any) {
+    return this.post('/cotizaciones', cotizacionData);
+  }
+
+  async updateCotizacion(cotizacionId: number, cotizacionData: any) {
+    return this.put(`/cotizaciones/${cotizacionId}`, cotizacionData);
+  }
+
+  // Nominas
+  async getNominas(empresaId: number, params?: any) {
+    return this.get('/nominas', { empresaId, ...params });
+  }
+
+  async createNomina(nominaData: any) {
+    return this.post('/nominas', nominaData);
+  }
+
+  async auditarNomina(nominaId: string) {
+    return this.put(`/nominas/${nominaId}/auditar`, {});
+  }
+
+  async contabilizarNomina(nominaId: string) {
+    return this.put(`/nominas/${nominaId}/contabilizar`, {});
+  }
+
+  // Notas Credito/Debito
+  async getNotas(empresaId: number, params?: any) {
+    return this.get('/notas', { empresaId, ...params });
+  }
+
+  async createNota(notaData: any) {
+    return this.post('/notas', notaData);
+  }
+
+  // Asientos Contables
+  async getAsientos(empresaId: number, params?: any) {
+    return this.get('/asientos', { empresaId, ...params });
+  }
+
+  async createAsiento(asientoData: any) {
+    return this.post('/asientos', asientoData);
+  }
 }
 
 export const apiClient = new ApiClient();
