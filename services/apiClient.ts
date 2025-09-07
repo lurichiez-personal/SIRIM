@@ -3,7 +3,11 @@
 
 import { useAuthStore } from '../stores/useAuthStore';
 
-const API_BASE = 'http://localhost:3001/api';
+// Dynamic API base - use relative URLs in production, localhost in development
+const isReplit = typeof window !== 'undefined' && window.location.hostname.includes('replit');
+const API_BASE = isReplit 
+  ? `${window.location.protocol}//${window.location.hostname}:3001/api`
+  : 'http://localhost:3001/api';
 
 interface ApiResponse<T> {
   data?: T;
