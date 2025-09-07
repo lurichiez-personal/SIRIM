@@ -1,0 +1,825 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "SIRIM API",
+    "description": "Sistema Inteligente de Registros Impositivos - Complete REST API for Dominican Republic tax and accounting management",
+    "version": "1.0.0",
+    "contact": {
+      "name": "SIRIM Development Team",
+      "email": "dev@sirim.com"
+    }
+  },
+  "servers": [
+    {
+      "url": "http://localhost:3001/api",
+      "description": "Development server"
+    },
+    {
+      "url": "https://api.sirim.com/api",
+      "description": "Production server (template)"
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    },
+    "schemas": {
+      "Error": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "string",
+            "description": "Error message"
+          }
+        }
+      },
+      "PaginatedResponse": {
+        "type": "object",
+        "properties": {
+          "page": {
+            "type": "integer",
+            "example": 1
+          },
+          "pageSize": {
+            "type": "integer",
+            "example": 10
+          },
+          "total": {
+            "type": "integer",
+            "example": 100
+          },
+          "rows": {
+            "type": "array",
+            "items": {}
+          }
+        }
+      },
+      "Cliente": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "example": 1
+          },
+          "empresaId": {
+            "type": "integer",
+            "example": 15
+          },
+          "nombre": {
+            "type": "string",
+            "example": "Cliente Test"
+          },
+          "rnc": {
+            "type": "string",
+            "nullable": true,
+            "example": "123456789"
+          },
+          "email": {
+            "type": "string",
+            "nullable": true,
+            "example": "cliente@test.com"
+          },
+          "telefono": {
+            "type": "string",
+            "nullable": true,
+            "example": "809-123-4567"
+          },
+          "direccion": {
+            "type": "string",
+            "nullable": true,
+            "example": "Santo Domingo, DN"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "Gasto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "example": 1
+          },
+          "empresaId": {
+            "type": "integer",
+            "example": 15
+          },
+          "proveedorNombre": {
+            "type": "string",
+            "example": "Proveedor Test"
+          },
+          "rncProveedor": {
+            "type": "string",
+            "nullable": true,
+            "example": "987654321"
+          },
+          "categoriaGasto": {
+            "type": "string",
+            "nullable": true,
+            "example": "Oficina"
+          },
+          "fecha": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "subtotal": {
+            "type": "string",
+            "example": "1000.00"
+          },
+          "itbis": {
+            "type": "string",
+            "example": "180.00"
+          },
+          "isc": {
+            "type": "string",
+            "nullable": true
+          },
+          "propinaLegal": {
+            "type": "string",
+            "nullable": true
+          },
+          "monto": {
+            "type": "string",
+            "example": "1180.00"
+          },
+          "ncf": {
+            "type": "string",
+            "nullable": true,
+            "example": "B0100000001"
+          },
+          "descripcion": {
+            "type": "string",
+            "example": "Compra de suministros"
+          },
+          "conciliado": {
+            "type": "boolean",
+            "example": false
+          },
+          "aplicaITBIS": {
+            "type": "boolean",
+            "example": true
+          },
+          "metodoPago": {
+            "type": "string",
+            "example": "Efectivo"
+          },
+          "comments": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          },
+          "auditLog": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "User": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "example": 1
+          },
+          "email": {
+            "type": "string",
+            "example": "usuario@test.com"
+          },
+          "nombre": {
+            "type": "string",
+            "example": "Usuario Test"
+          },
+          "role": {
+            "type": "string",
+            "example": "client",
+            "description": "SCHEMA MISMATCH: Code uses 'roles' array but DB expects 'role' string"
+          },
+          "empresaId": {
+            "type": "integer",
+            "nullable": true,
+            "example": 15
+          },
+          "active": {
+            "type": "boolean",
+            "example": true
+          }
+        }
+      },
+      "LoginRequest": {
+        "type": "object",
+        "required": ["email", "password"],
+        "properties": {
+          "email": {
+            "type": "string",
+            "example": "usuario@test.com"
+          },
+          "password": {
+            "type": "string",
+            "example": "password123"
+          }
+        }
+      },
+      "LoginResponse": {
+        "type": "object",
+        "properties": {
+          "token": {
+            "type": "string",
+            "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+          },
+          "user": {
+            "$ref": "#/components/schemas/User"
+          }
+        }
+      }
+    }
+  },
+  "security": [
+    {
+      "bearerAuth": []
+    }
+  ],
+  "paths": {
+    "/health": {
+      "get": {
+        "tags": ["System"],
+        "summary": "Health check endpoint",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "System is healthy",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "ts": {
+                      "type": "string",
+                      "format": "date-time"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/login": {
+      "post": {
+        "tags": ["Authentication"],
+        "summary": "User login",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Login successful",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LoginResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/register": {
+      "post": {
+        "tags": ["Authentication"],
+        "summary": "User registration - HAS SCHEMA MISMATCH",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["nombre", "email", "password"],
+                "properties": {
+                  "nombre": {
+                    "type": "string",
+                    "example": "Usuario Nuevo"
+                  },
+                  "email": {
+                    "type": "string",
+                    "example": "nuevo@test.com"
+                  },
+                  "password": {
+                    "type": "string",
+                    "example": "password123"
+                  },
+                  "empresaId": {
+                    "type": "integer",
+                    "example": 15
+                  },
+                  "roles": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "example": ["Admin"],
+                    "description": "CRITICAL: Schema mismatch - DB expects 'role' string, not 'roles' array"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "User registered successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/User"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation error or schema mismatch",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Email already registered",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/master/login": {
+      "post": {
+        "tags": ["Master Admin"],
+        "summary": "Master user login",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Master login successful",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LoginResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid master credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/master/stats": {
+      "get": {
+        "tags": ["Master Admin"],
+        "summary": "Get system statistics",
+        "responses": {
+          "200": {
+            "description": "System statistics",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "totalEmpresas": {
+                      "type": "integer",
+                      "example": 3
+                    },
+                    "totalUsuarios": {
+                      "type": "integer",
+                      "example": 3
+                    },
+                    "empresasActivas": {
+                      "type": "integer",
+                      "example": 0
+                    },
+                    "suscripcionesActivas": {
+                      "type": "integer",
+                      "example": 0
+                    },
+                    "ingresosMensuales": {
+                      "type": "number",
+                      "example": 0
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Access denied - Master only",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/clientes": {
+      "get": {
+        "tags": ["Clientes"],
+        "summary": "List clients with pagination and search",
+        "parameters": [
+          {
+            "name": "empresaId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "example": 15
+            },
+            "description": "Company ID filter"
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "example": "test"
+            },
+            "description": "Search in name and RNC"
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": ["todos", "activo", "inactivo"]
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 1
+            }
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 10
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated list of clients",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/PaginatedResponse"
+                    },
+                    {
+                      "properties": {
+                        "rows": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/Cliente"
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": ["Clientes"],
+        "summary": "Create new client",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["nombre"],
+                "properties": {
+                  "empresaId": {
+                    "type": "integer",
+                    "example": 15
+                  },
+                  "nombre": {
+                    "type": "string",
+                    "example": "Cliente Nuevo"
+                  },
+                  "rnc": {
+                    "type": "string",
+                    "example": "123456789"
+                  },
+                  "email": {
+                    "type": "string",
+                    "example": "cliente@test.com"
+                  },
+                  "telefono": {
+                    "type": "string",
+                    "example": "809-123-4567"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Client created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Cliente"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation error - missing required fields",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/gastos": {
+      "get": {
+        "tags": ["Gastos"],
+        "summary": "List expenses with pagination and search - PRIMARY DATA MODULE",
+        "parameters": [
+          {
+            "name": "empresaId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "example": 15
+            }
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Search in provider name and NCF"
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 1
+            }
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 10
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated list of expenses",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/PaginatedResponse"
+                    },
+                    {
+                      "properties": {
+                        "rows": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/Gasto"
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": ["Gastos"],
+        "summary": "Create new expense",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["fecha", "subtotal", "itbis", "monto", "descripcion"],
+                "properties": {
+                  "empresaId": {
+                    "type": "integer",
+                    "example": 15
+                  },
+                  "proveedorNombre": {
+                    "type": "string",
+                    "example": "Proveedor Test"
+                  },
+                  "rncProveedor": {
+                    "type": "string",
+                    "example": "987654321"
+                  },
+                  "categoriaGasto": {
+                    "type": "string",
+                    "example": "Oficina"
+                  },
+                  "fecha": {
+                    "type": "string",
+                    "format": "date",
+                    "example": "2025-09-07"
+                  },
+                  "subtotal": {
+                    "type": "string",
+                    "example": "1000.00"
+                  },
+                  "itbis": {
+                    "type": "string",
+                    "example": "180.00"
+                  },
+                  "isc": {
+                    "type": "string",
+                    "nullable": true
+                  },
+                  "propinaLegal": {
+                    "type": "string",
+                    "nullable": true
+                  },
+                  "monto": {
+                    "type": "string",
+                    "example": "1180.00"
+                  },
+                  "ncf": {
+                    "type": "string",
+                    "example": "B0100000001"
+                  },
+                  "descripcion": {
+                    "type": "string",
+                    "example": "Compra de suministros"
+                  },
+                  "aplicaITBIS": {
+                    "type": "boolean",
+                    "example": true
+                  },
+                  "metodoPago": {
+                    "type": "string",
+                    "example": "Efectivo"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Expense created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Gasto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation error - missing required fields",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "tags": [
+    {
+      "name": "System",
+      "description": "System health and monitoring endpoints"
+    },
+    {
+      "name": "Authentication",
+      "description": "User authentication endpoints - HAS SCHEMA MISMATCH"
+    },
+    {
+      "name": "Master Admin",
+      "description": "Master administrator endpoints"
+    },
+    {
+      "name": "Clientes",
+      "description": "Customer management endpoints"
+    },
+    {
+      "name": "Gastos",
+      "description": "Expense management endpoints - PRIMARY DATA MODULE (99% of records)"
+    }
+  ]
+}
