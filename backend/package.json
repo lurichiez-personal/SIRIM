@@ -8,7 +8,9 @@
 "start": "node src/index.js",
 "build": "prisma generate",
 "db:push": "prisma db push",
-"postinstall": "prisma generate"
+"postinstall": "prisma generate",
+"seed:master": "node src/seed-master.js",
+"deploy:init": "prisma db push && node src/seed-master.js"
 },
 "dependencies": {
 "@prisma/client": "^5.17.0",
