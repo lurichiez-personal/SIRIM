@@ -616,3 +616,156 @@ model Gasto {
   @@index([empresaId])
   @@index([fecha])
 }
+
+model Ingreso {
+  id              Int      @id @default(autoincrement())
+  empresaId       Int
+  clienteNombre   String?
+  rncCliente      String?
+  categoriaIngreso String?
+  fecha           DateTime
+  subtotal        Decimal  @db.Decimal(12, 2)
+  itbis           Decimal  @db.Decimal(12, 2)
+  isc             Decimal? @db.Decimal(12, 2)
+  propinaLegal    Decimal? @db.Decimal(12, 2)
+  monto           Decimal  @db.Decimal(12, 2)
+  ncf             String?
+  descripcion     String
+  conciliado      Boolean  @default(false)
+  aplicaITBIS     Boolean  @default(true)
+  metodoCobro     String?
+  comments        Json     @default("[]")
+  auditLog        Json     @default("[]")
+  asientoId       String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([empresaId])
+  @@index([fecha])
+}
+
+model Cotizacion {
+  id                  Int      @id @default(autoincrement())
+  empresaId           Int
+  clienteId           Int
+  clienteNombre       String
+  fecha               DateTime
+  validaHasta         DateTime?
+  subtotal            Decimal  @db.Decimal(12, 2)
+  descuentoPorcentaje Decimal? @db.Decimal(5, 2)
+  montoDescuento      Decimal? @db.Decimal(12, 2)
+  aplicaITBIS         Boolean  @default(true)
+  itbis               Decimal  @db.Decimal(12, 2)
+  aplicaISC           Boolean  @default(false)
+  isc                 Decimal? @db.Decimal(12, 2)
+  aplicaPropina       Boolean  @default(false)
+  propinaLegal        Decimal? @db.Decimal(12, 2)
+  montoTotal          Decimal  @db.Decimal(12, 2)
+  estado              String   @default("Pendiente") // "Pendiente", "Aceptada", "Rechazada", "Facturada"
+  comments            Json     @default("[]")
+  auditLog            Json     @default("[]")
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  items CotizacionItem[]
+
+  @@index([empresaId])
+  @@index([clienteId])
+  @@index([fecha])
+  @@index([estado])
+}
+
+model CotizacionItem {
+  id             Int        @id @default(autoincrement())
+  cotizacionId   Int
+  cotizacion     Cotizacion @relation(fields: [cotizacionId], references: [id], onDelete: Cascade)
+  itemId         Int?
+  codigo         String
+  descripcion    String
+  cantidad       Decimal    @db.Decimal(12, 4)
+  precioUnitario Decimal    @db.Decimal(12, 2)
+  subtotal       Decimal    @db.Decimal(12, 2)
+
+  @@index([cotizacionId])
+}
+
+model NotaCreditoDebito {
+  id           Int      @id @default(autoincrement())
+  empresaId    Int
+  clienteId    Int
+  facturaId    Int?     // Factura de referencia (opcional)
+  tipo         String   // "credito" o "debito"
+  fecha        DateTime
+  subtotal     Decimal  @db.Decimal(12, 2)
+  aplicaITBIS  Boolean  @default(true)
+  itbis        Decimal  @db.Decimal(12, 2)
+  montoTotal   Decimal  @db.Decimal(12, 2)
+  ncf          String?
+  motivo       String
+  descripcion  String
+  estado       String   @default("Emitida")
+  comments     Json     @default("[]")
+  auditLog     Json     @default("[]")
+  asientoId    String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([empresaId])
+  @@index([clienteId])
+  @@index([facturaId])
+  @@index([fecha])
+  @@index([tipo])
+}
+
+// ---------- CONFIGURACIÓN DE CORREO ----------
+
+enum EmailProvider {
+  GMAIL
+  OUTLOOK
+  OFFICE365
+  SENDGRID
+  CUSTOM_SMTP
+}
+
+model EmailConfig {
+  id           Int           @id @default(autoincrement())
+  name         String        // Nombre descriptivo de la configuración
+  provider     EmailProvider
+  isDefault    Boolean       @default(false) // Solo una configuración puede ser default
+  isActive     Boolean       @default(true)
+  
+  // Configuración SMTP general
+  smtpHost     String?
+  smtpPort     Int?
+  smtpSecure   Boolean       @default(true) // TLS/SSL
+  
+  // Credenciales de autenticación
+  email        String        // Email del remitente
+  password     String?       // Password o App Password (encriptado)
+  clientId     String?       // Para OAuth (Gmail, Office365)
+  clientSecret String?       // Para OAuth
+  accessToken  String?       // Token de acceso OAuth
+  refreshToken String?       // Token de refresco OAuth
+  
+  // SendGrid específico
+  apiKey       String?       // API Key para SendGrid
+  
+  // Configuración adicional
+  fromName     String        @default("SIRIM") // Nombre del remitente
+  replyTo      String?       // Email de respuesta
+  templates    Json?         // Templates de correo personalizados
+  settings     Json?         // Configuraciones específicas del proveedor
+  
+  // Metadatos
+  lastUsedAt   DateTime?
+  errorCount   Int           @default(0)
+  lastError    String?
+  
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  @@unique([email, provider])
+  @@index([isDefault])
+  @@index([isActive])
+  @@map("email_configs")
+}
