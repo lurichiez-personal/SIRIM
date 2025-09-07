@@ -16,7 +16,7 @@ const { skip, take, page, pageSize } = buildPaging(req);
 const where = { empresaId };
 const [total, rows] = await Promise.all([
 prisma.ingreso.count({ where }),
-prisma.ingreso.findMany({ where, skip, take, orderBy: { fecha: "desc" }, include: { cliente: true } })
+prisma.ingreso.findMany({ where, skip, take, orderBy: { fecha: "desc" } })
 ]);
 res.json({ page, pageSize, total, rows });
 } catch (e) { next(e); }

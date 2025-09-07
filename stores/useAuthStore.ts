@@ -121,6 +121,9 @@ export const useAuthStore = create<AuthState>()(
           
           console.log(`Intentando login con ${endpoint} para ${cleanEmail}`);
           
+          // Limpiar token anterior del localStorage
+          localStorage.removeItem('token');
+          
           // Intentar login con el endpoint correcto
           const response = await fetch(endpoint, {
             method: 'POST',
