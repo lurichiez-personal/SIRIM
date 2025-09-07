@@ -116,15 +116,14 @@ router.get('/empresas', verifyToken, verifyMaster, async (req, res) => {
             }
           }
         },
-        suscripcion: {
-          include: {
-            plan: true
-          }
-        },
+        suscripcion: true,
         _count: {
           select: {
             clientes: true,
-            empleados: true
+            empleados: true,
+            recurrencias: true,
+            nominas: true,
+            usuarios: true
           }
         }
       },

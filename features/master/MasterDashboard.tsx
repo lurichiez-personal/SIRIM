@@ -60,8 +60,10 @@ export default function MasterDashboard() {
       setLoading(true);
       setError(null);
 
+      const token = localStorage.getItem('token');
       const headers = {
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
       };
 
       // Obtener empresas reales desde el backend
