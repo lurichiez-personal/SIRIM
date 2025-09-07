@@ -3,7 +3,11 @@
 
 import { useAuthStore } from '../stores/useAuthStore';
 
-const API_BASE = 'http://localhost:3001/api';
+// Dynamic API base - use relative URLs in production, localhost in development
+const isReplit = typeof window !== 'undefined' && window.location.hostname.includes('replit');
+const API_BASE = isReplit 
+  ? `${window.location.protocol}//${window.location.hostname}:3001/api`
+  : 'http://localhost:3001/api';
 
 interface ApiResponse<T> {
   data?: T;
@@ -126,6 +130,48 @@ class ApiClient {
 
   async updateEmpleado(empleadoId: number, empleadoData: any) {
     return this.put(`/empleados/${empleadoId}`, empleadoData);
+  }
+
+  // Cotizaciones API
+  async getCotizaciones(empresaId: number, params?: any) {
+    return this.get('/cotizaciones', { empresaId, ...params });
+  }
+
+  async getCotizacion(id: number, empresaId: number) {
+    return this.get(`/cotizaciones/${id}`, { empresaId });
+  }
+
+  async createCotizacion(data: any) {
+    return this.post('/cotizaciones', data);
+  }
+
+  async updateCotizacion(id: number, data: any) {
+    return this.put(`/cotizaciones/${id}`, data);
+  }
+
+  async deleteCotizacion(id: number, empresaId: number) {
+    return this.delete(`/cotizaciones/${id}?empresaId=${empresaId}`);
+  }
+
+  // Notas de Crédito/Débito API
+  async getNotas(empresaId: number, params?: any) {
+    return this.get('/notas', { empresaId, ...params });
+  }
+
+  async getNota(id: number, empresaId: number) {
+    return this.get(`/notas/${id}`, { empresaId });
+  }
+
+  async createNota(data: any) {
+    return this.post('/notas', data);
+  }
+
+  async updateNota(id: number, data: any) {
+    return this.put(`/notas/${id}`, data);
+  }
+
+  async deleteNota(id: number, empresaId: number) {
+    return this.delete(`/notas/${id}?empresaId=${empresaId}`);
   }
 }
 

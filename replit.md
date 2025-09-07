@@ -11,6 +11,13 @@ SIRIM is a comprehensive web-based tax and accounting management system specific
 - **Data cleaning policy**: NEVER clean operational data (gastos, ventas, contabilidad, facturas, clientes, empleados, etc.) unless explicitly requested. All client-entered data must be preserved during improvements
 - **Development approach**: Make improvements incrementally without affecting existing functionality or data
 
+## Critical Frontend Development Rules
+
+- **NEVER modify frontend elements that remove visual objects**: No visual component, button, form field, or interface element should be removed or hidden without explicit user request
+- **Only modify frontend when ADDING new visual objects**: Frontend changes are restricted to adding new features, components, or visual elements only
+- **ALWAYS ask before frontend configuration changes**: Never implement frontend configurations or modifications without detailing exactly what will be changed and getting user approval first
+- **Preserve all existing UI/UX**: All current visual elements, layouts, styling, and user interface components must remain intact during any modification
+
 ## System Architecture
 
 ### Frontend Architecture
