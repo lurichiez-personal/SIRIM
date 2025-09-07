@@ -32,12 +32,19 @@ export const useAuthStore = create<AuthState>()(
       users: [], // Los usuarios se cargan dinámicamente desde la BD
 
       login: (user: User) => {
+        console.log('🔑 Ejecutando login para usuario:', user);
         set({ isAuthenticated: true, user });
-        console.log('Usuario logueado:', user);
-        // Retraso para asegurar que el estado esté actualizado
-        setTimeout(() => {
-          useTenantStore.getState().fetchAvailableTenants();
-        }, 200);
+        
+        // Verificar que el token esté presente antes de cargar empresas
+        const currentToken = localStorage.getItem('token');
+        if (currentToken) {
+          console.log('✅ Token presente al hacer login, cargando empresas...');
+          setTimeout(() => {
+            useTenantStore.getState().fetchAvailableTenants();
+          }, 300);
+        } else {
+          console.error('❌ Token no presente al hacer login');
+        }
       },
       logout: () => {
         set({ isAuthenticated: false, user: null });
