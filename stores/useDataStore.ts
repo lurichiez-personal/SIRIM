@@ -570,18 +570,7 @@ export const useDataStore = create<DataState>((set, get) => ({
       return response.data;
     } catch (error) {
       console.error('Error adding cliente:', error);
-      // Fallback to mock data behavior
-      const newCliente: Cliente = {
-          id: Date.now(),
-          empresaId,
-          createdAt: new Date().toISOString(),
-          activo: true,
-          estadoDGII: 'NO VERIFICADO', // Default value
-          ...clienteData,
-      };
-      allClientes.unshift(newCliente);
-      get().fetchData(empresaId);
-      return newCliente;
+      throw error;
     }
   },
   updateCliente: (cliente) => {
@@ -603,32 +592,21 @@ export const useDataStore = create<DataState>((set, get) => ({
     if (empresaId) get().fetchData(empresaId);
   },
   
-  addIngreso: (ingresoData) => {
+  addIngreso: async (ingresoData) => {
     const empresaId = useTenantStore.getState().selectedTenant?.id;
     if (!empresaId) return;
-
-    const newIngreso: Ingreso = { ...ingresoData, id: Date.now(), empresaId, conciliado: false };
     
-    const asiento = generarAsientoIngreso(newIngreso);
-    newIngreso.asientoId = asiento.id;
-    allAsientosContables.unshift(asiento);
-
-    allIngresos.unshift(newIngreso);
-    
-    // Update invoice status
-    const facturaIndex = allFacturas.findIndex(f => f.id === ingresoData.facturaId);
-    if (facturaIndex > -1) {
-        const factura = allFacturas[facturaIndex];
-        factura.montoPagado += ingresoData.monto;
-        const newStatus = factura.montoPagado >= factura.montoTotal ? FacturaEstado.Pagada : FacturaEstado.PagadaParcialmente;
-        if(factura.estado !== newStatus) {
-            factura.estado = newStatus;
-            get().addAuditLog('factura', factura.id, `registró y contabilizó un pago de ${ingresoData.monto} y cambió el estado a ${newStatus}.`);
-        } else {
-            get().addAuditLog('factura', factura.id, `registró y contabilizó un pago de ${ingresoData.monto}.`);
-        }
+    try {
+      // Crear ingreso en la base de datos usando API real
+      const ingresoConEmpresa = { ...ingresoData, empresaId };
+      await apiClient.createIngreso(ingresoConEmpresa);
+      
+      // Refrescar datos desde la base de datos
+      await get().fetchData(empresaId);
+    } catch (error) {
+      console.error('Error creando ingreso:', error);
+      throw error;
     }
-    get().fetchData(empresaId);
   },
   getFacturasParaPago: () => {
     return get().facturas.filter(f => f.estado !== FacturaEstado.Anulada && f.estado !== FacturaEstado.Pagada);
