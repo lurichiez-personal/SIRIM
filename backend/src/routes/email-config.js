@@ -1,7 +1,7 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const { PrismaClient } = require('@prisma/client');
-const auth = require('../middleware/auth');
+const { authRequired } = require('../middleware/auth');
 
 const router = express.Router();
 const prisma = new PrismaClient();
@@ -37,7 +37,7 @@ const encryptCredential = (credential) => {
 };
 
 // GET /api/email-config - Obtener todas las configuraciones de correo
-router.get('/', auth, async (req, res) => {
+router.get('/', authRequired, async (req, res) => {
   try {
     const configs = await prisma.emailConfig.findMany({
       orderBy: [
@@ -71,7 +71,7 @@ router.get('/', auth, async (req, res) => {
 });
 
 // GET /api/email-config/default - Obtener configuración por defecto
-router.get('/default', auth, async (req, res) => {
+router.get('/default', authRequired, async (req, res) => {
   try {
     const defaultConfig = await prisma.emailConfig.findFirst({
       where: { isDefault: true, isActive: true },
@@ -99,7 +99,7 @@ router.get('/default', auth, async (req, res) => {
 });
 
 // POST /api/email-config - Crear nueva configuración de correo
-router.post('/', auth, async (req, res) => {
+router.post('/', authRequired, async (req, res) => {
   try {
     const {
       name,
@@ -189,7 +189,7 @@ router.post('/', auth, async (req, res) => {
 });
 
 // PUT /api/email-config/:id - Actualizar configuración de correo
-router.put('/:id', auth, async (req, res) => {
+router.put('/:id', authRequired, async (req, res) => {
   try {
     const { id } = req.params;
     const {
@@ -259,7 +259,7 @@ router.put('/:id', auth, async (req, res) => {
 });
 
 // DELETE /api/email-config/:id - Eliminar configuración de correo
-router.delete('/:id', auth, async (req, res) => {
+router.delete('/:id', authRequired, async (req, res) => {
   try {
     const { id } = req.params;
 
@@ -297,7 +297,7 @@ router.delete('/:id', auth, async (req, res) => {
 });
 
 // POST /api/email-config/:id/test - Probar configuración de correo
-router.post('/:id/test', auth, async (req, res) => {
+router.post('/:id/test', authRequired, async (req, res) => {
   try {
     const { id } = req.params;
     const { testEmail } = req.body;
@@ -351,7 +351,7 @@ router.post('/:id/test', auth, async (req, res) => {
 });
 
 // POST /api/email-config/set-default/:id - Establecer como configuración por defecto
-router.post('/set-default/:id', auth, async (req, res) => {
+router.post('/set-default/:id', authRequired, async (req, res) => {
   try {
     const { id } = req.params;
 
