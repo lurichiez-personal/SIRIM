@@ -17,6 +17,7 @@
     "autoprefixer": "^10.4.21",
     "bcryptjs": "^3.0.2",
     "jszip": "3.10.1",
+    "lucide-react": "^0.542.0",
     "multer": "^2.0.2",
     "nodemailer": "^7.0.6",
     "pdf-lib": "^1.17.1",

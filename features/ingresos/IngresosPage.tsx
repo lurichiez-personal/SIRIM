@@ -8,6 +8,7 @@ import { PlusIcon, DownloadIcon } from '../../components/icons/Icons';
 import Pagination from '../../components/ui/Pagination';
 import NuevoPagoModal from './NuevoPagoModal';
 import { exportToCSV } from '../../utils/csvExport';
+import BulkUploadModal from '../bulk-upload/BulkUploadModal';
 
 const ITEMS_PER_PAGE = 10;
 
@@ -17,6 +18,7 @@ const IngresosPage: React.FC = () => {
     
     const [loading, setLoading] = useState(true);
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const [isBulkUploadOpen, setIsBulkUploadOpen] = useState(false);
     const [currentPage, setCurrentPage] = useState(1);
     const [filters, setFilters] = useState({ searchTerm: '', startDate: '', endDate: '', metodoPago: 'todos' });
     const [pagedData, setPagedData] = useState({ items: [], totalCount: 0 });
@@ -63,6 +65,7 @@ const IngresosPage: React.FC = () => {
                 <h1 className="text-3xl font-bold text-secondary-800">Pagos y Cobros</h1>
                 <div className="flex space-x-2">
                     <Button variant="secondary" leftIcon={<DownloadIcon />} onClick={handleExport}>Exportar a CSV</Button>
+                    <Button variant="secondary" onClick={() => setIsBulkUploadOpen(true)}>📊 Cargar Excel</Button>
                     <Button leftIcon={<PlusIcon />} onClick={() => setIsModalOpen(true)}>
                         Registrar Pago
                     </Button>
@@ -134,6 +137,7 @@ const IngresosPage: React.FC = () => {
                 onSave={handleSavePago}
                 facturasDisponibles={facturasDisponibles}
             />
+            <BulkUploadModal isOpen={isBulkUploadOpen} onClose={() => setIsBulkUploadOpen(false)} type="ingresos" empresaId={selectedTenant?.id || 0} onSuccess={() => {/* Refrescar datos */}} />
         </div>
     );
 };

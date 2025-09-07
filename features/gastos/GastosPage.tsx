@@ -12,6 +12,7 @@ import Checkbox from '../../components/ui/Checkbox';
 import { exportToCSV } from '../../utils/csvExport';
 import EscanearGastoModal from './EscanearGastoModal';
 import ProcesarLoteFacturasModal from './ProcesarLoteFacturasModal';
+import BulkUploadModal from '../bulk-upload/BulkUploadModal';
 
 const ITEMS_PER_PAGE = 10;
 const GASTO_CATEGORIAS_606 = [
@@ -28,6 +29,7 @@ const GastosPage: React.FC = () => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isScanModalOpen, setIsScanModalOpen] = useState(false);
     const [isLoteModalOpen, setIsLoteModalOpen] = useState(false);
+    const [isBulkUploadOpen, setIsBulkUploadOpen] = useState(false);
     const [isVistaPreviaOpen, setIsVistaPreviaOpen] = useState(false);
     const [gastoParaEditar, setGastoParaEditar] = useState<Gasto | null>(null);
     const [gastoParaVer, setGastoParaVer] = useState<Gasto | null>(null);
@@ -115,6 +117,7 @@ const GastosPage: React.FC = () => {
                 <Button variant="secondary" leftIcon={<DownloadIcon />} onClick={handleExport}>Exportar a CSV</Button>
                 <Button variant="secondary" onClick={() => setIsScanModalOpen(true)}>📷 Escanear Gasto</Button>
                 <Button variant="secondary" onClick={() => setIsLoteModalOpen(true)}>📄 Lote PDF</Button>
+                <Button variant="secondary" onClick={() => setIsBulkUploadOpen(true)}>📊 Cargar Excel</Button>
                 <Button leftIcon={<PlusIcon />} onClick={() => { setGastoParaEditar(null); setScannedData(null); setIsModalOpen(true); }}>
                     Registrar Gasto
                 </Button>
@@ -186,6 +189,7 @@ const GastosPage: React.FC = () => {
         <VistaPreviaGastoModal isOpen={isVistaPreviaOpen} onClose={() => setIsVistaPreviaOpen(false)} gasto={gastoParaVer} />
         <EscanearGastoModal isOpen={isScanModalOpen} onClose={() => setIsScanModalOpen(false)} onScanComplete={handleScanComplete} />
         <ProcesarLoteFacturasModal isOpen={isLoteModalOpen} onClose={() => setIsLoteModalOpen(false)} onBatchComplete={handleBatchComplete} />
+        <BulkUploadModal isOpen={isBulkUploadOpen} onClose={() => setIsBulkUploadOpen(false)} type="gastos" empresaId={selectedTenant?.id || 0} onSuccess={() => {/* Refrescar datos */}} />
     </div>
   );
 };
