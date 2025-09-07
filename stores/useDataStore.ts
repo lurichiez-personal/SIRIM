@@ -102,7 +102,7 @@ interface DataState {
   updateFacturaStatus: (facturaId: number, status: FacturaEstado) => void;
   bulkUpdateFacturaStatus: (facturaIds: number[], status: FacturaEstado) => void;
 
-  addCliente: (clienteData: Omit<Cliente, 'id'|'empresaId'|'createdAt'|'activo'>) => Cliente;
+  addCliente: (clienteData: Omit<Cliente, 'id'|'empresaId'|'createdAt'|'activo'>) => Promise<Cliente>;
   updateCliente: (cliente: Cliente) => void;
   bulkUpdateClienteStatus: (clienteIds: number[], activo: boolean) => void;
   
