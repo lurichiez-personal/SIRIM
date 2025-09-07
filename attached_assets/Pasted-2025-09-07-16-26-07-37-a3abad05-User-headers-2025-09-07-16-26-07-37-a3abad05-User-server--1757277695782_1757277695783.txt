@@ -1,0 +1,132 @@
+2025-09-07 16:26:07.37
+a3abad05
+User
+headers: {
+2025-09-07 16:26:07.37
+a3abad05
+User
+server: 'nginx',
+2025-09-07 16:26:07.37
+a3abad05
+User
+date: 'Sun, 07 Sep 2025 20:26:07 GMT',
+2025-09-07 16:26:07.37
+a3abad05
+User
+'content-type': 'application/json',
+2025-09-07 16:26:07.37
+a3abad05
+User
+'content-length': '453',
+2025-09-07 16:26:07.37
+a3abad05
+User
+connection: 'keep-alive',
+2025-09-07 16:26:07.37
+a3abad05
+User
+'access-control-allow-credentials': 'true',
+2025-09-07 16:26:07.37
+a3abad05
+User
+'access-control-allow-methods': 'GET, HEAD, PUT, PATCH, POST, DELETE',
+2025-09-07 16:26:07.37
+a3abad05
+User
+'access-control-allow-origin': '*',
+2025-09-07 16:26:07.37
+a3abad05
+User
+'access-control-expose-headers': 'Request-Id, Stripe-Manage-Version, Stripe-Should-Retry, X-Stripe-External-Auth-Required, X-Stripe-Privileged-Session-Required',
+2025-09-07 16:26:07.37
+a3abad05
+User
+'access-control-max-age': '300',
+2025-09-07 16:26:07.37
+a3abad05
+User
+'cache-control': 'no-cache, no-store',
+2025-09-07 16:26:07.37
+a3abad05
+User
+'content-security-policy': "base-uri 'none'; default-src 'none'; form-action 'none'; frame-ancestors 'none'; img-src 'self'; script-src 'self' 'report-sample'; style-src 'self'; worker-src 'none'; upgrade-insecure-requests; report-uri https://q.stripe.com/csp-violation?q=tAOOqldEt-PTy3BlFFib2_ZkI9xG9B6-xjbaNQ3RTlFh9pUFQdzQ-MR68_ZE01fIbk0jUajKx2SY785f",
+2025-09-07 16:26:07.37
+a3abad05
+User
+'request-id': 'req_Tmtuxp9mZCEQ2g',
+2025-09-07 16:26:07.37
+a3abad05
+User
+'stripe-version': '2025-08-27.basil',
+2025-09-07 16:26:07.37
+a3abad05
+User
+vary: 'Origin',
+2025-09-07 16:26:07.37
+a3abad05
+User
+'x-stripe-priority-routing-enabled': 'true',
+2025-09-07 16:26:07.37
+a3abad05
+User
+'x-stripe-routing-context-priority-tier': 'api-testmode',
+2025-09-07 16:26:07.37
+a3abad05
+User
+'x-wc': 'ABGHIJ',
+2025-09-07 16:26:07.37
+a3abad05
+User
+'strict-transport-security': 'max-age=63072000; includeSubDomains; preload'
+2025-09-07 16:26:07.37
+a3abad05
+User
+},
+2025-09-07 16:26:07.37
+a3abad05
+User
+statusCode: 403,
+2025-09-07 16:26:07.37
+a3abad05
+User
+requestId: 'req_Tmtuxp9mZCEQ2g'
+2025-09-07 16:26:07.37
+a3abad05
+User
+},
+2025-09-07 16:26:07.37
+a3abad05
+User
+rawType: 'invalid_request_error',
+2025-09-07 16:26:07.37
+a3abad05
+User
+code: 'secret_key_required',
+2025-09-07 16:26:07.37
+a3abad05
+User
+doc_url: 'https://stripe.com/docs/error-codes/secret-key-required',
+2025-09-07 16:26:07.37
+a3abad05
+User
+param: undefined,
+2025-09-07 16:26:07.37
+a3abad05
+User
+detail: undefined,
+2025-09-07 16:26:07.37
+a3abad05
+User
+headers: {
+2025-09-07 16:26:07.37
+a3abad05
+User
+server: 'nginx',
+2025-09-07 16:26:07.37
+a3abad05
+User
+date: 'Sun, 07 Sep 2025 20:26:07 GMT',
+2025-09-07 16:26:07.37
+a3abad05
+User
+'content-type': 'application/json',
