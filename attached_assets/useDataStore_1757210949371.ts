@@ -512,37 +512,20 @@ export const useDataStore = create<DataState>((set, get) => ({
     facturaIds.forEach(id => get().updateFacturaStatus(id, status));
   },
 
-  addCliente: async (clienteData) => {
+  addCliente: (clienteData) => {
     const empresaId = useTenantStore.getState().selectedTenant?.id;
     if (!empresaId) throw new Error("No tenant selected");
-    
-    try {
-      const newClienteData = { ...clienteData, empresaId };
-      const response = await apiClient.createCliente(newClienteData);
-      
-      if (response.error) {
-        console.error('Error creating cliente:', response.error);
-        throw new Error(response.error);
-      }
-      
-      // Refresh data from API
-      await get().fetchData(empresaId);
-      return response.data;
-    } catch (error) {
-      console.error('Error adding cliente:', error);
-      // Fallback to mock data behavior
-      const newCliente: Cliente = {
-          id: Date.now(),
-          empresaId,
-          createdAt: new Date().toISOString(),
-          activo: true,
-          estadoDGII: 'NO VERIFICADO', // Default value
-          ...clienteData,
-      };
-      allClientes.unshift(newCliente);
-      get().fetchData(empresaId);
-      return newCliente;
-    }
+    const newCliente: Cliente = {
+        id: Date.now(),
+        empresaId,
+        createdAt: new Date().toISOString(),
+        activo: true,
+        estadoDGII: 'NO VERIFICADO', // Default value
+        ...clienteData,
+    };
+    allClientes.unshift(newCliente);
+    get().fetchData(empresaId);
+    return newCliente;
   },
   updateCliente: (cliente) => {
     const empresaId = useTenantStore.getState().selectedTenant?.id;
