@@ -328,8 +328,12 @@ export default function MasterDashboard() {
                         <td className="px-6 py-4 whitespace-nowrap">
                           {empresa.suscripcion ? (
                             <div>
-                              <div className="text-sm font-medium text-gray-900">{empresa.suscripcion.plan.name}</div>
-                              <div className="text-sm text-gray-500">${empresa.suscripcion.plan.price}/mes</div>
+                              <div className="text-sm font-medium text-gray-900">
+                                {empresa.suscripcion.plan?.name || 'Plan no especificado'}
+                              </div>
+                              <div className="text-sm text-gray-500">
+                                ${empresa.suscripcion.plan?.price || 0}/mes
+                              </div>
                               <span className={`inline-flex px-2 py-1 text-xs rounded-full ${getStatusBadgeColor(empresa.suscripcion.status)}`}>
                                 {getStatusText(empresa.suscripcion.status)}
                               </span>
