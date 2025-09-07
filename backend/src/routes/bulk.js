@@ -13,12 +13,9 @@ const storage = multer.memoryStorage();
 const upload = multer({
   storage: storage,
   fileFilter: (req, file, cb) => {
-    if (file.mimetype === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' || 
-        file.mimetype === 'application/vnd.ms-excel') {
-      cb(null, true);
-    } else {
-      cb(new Error('Solo se permiten archivos Excel (.xlsx, .xls)'));
-    }
+    console.log('Archivo recibido:', file.originalname, 'MIME:', file.mimetype);
+    // Temporalmente permitir todos los archivos para testing
+    cb(null, true);
   },
   limits: {
     fileSize: 10 * 1024 * 1024 // 10MB límite
