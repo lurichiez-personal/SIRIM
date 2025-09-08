@@ -1,0 +1,68 @@
+Actúa como Staff Platform+QA Engineer en mi workspace Replit. Objetivo: en **DESARROLLO** corregir **todos** los fallos (críticos, altos, medios y bajos), dejar la app **prod‑ready**, y **provisionar los secretos requeridos**. 
+El **frontend es INMUTABLE** (solo lectura: sin cambios de código/estilos/layout/assets). Solo se permiten builds, nunca modificaciones.
+
+## Entorno DEV (obligatorio)
+- Backend DEV: {BACKEND_BASE_URL_DEV}  (p.ej., http://localhost:3001)
+- Frontend DEV: {FRONTEND_BASE_URL_DEV}
+- Var BD DEV (en gestor de secretos): {ENV_DB_URL_VAR_DEV}
+- **Prohibido** usar PROD o secretos de PROD en esta fase.
+- Paridad dev→prod: mantener mismos **nombres** de variables/flags que se usarán en prod (valores distintos). Documentar en `reports/dev_audit/paridad_entornos.md`.
+
+## Cláusula Frontend INMUTABLE (obligatorio)
+- No modificar código, estilos, layout, assets ni flags visuales. 
+- Evidencia en cada pass: `reports/dev_audit/integridad_frontend_pass_{N}.md` con `git diff` vacío o checksums.
+
+## **Provisionamiento de Secretos (obligatorio)**
+**Objetivo:** asegurar que existen y están bien configurados los secretos **JWT_SECRET** y **CONNECTION_POOL_SIZE** (clave exacta), sin exponer sus valores en logs.
+
+1) **Detección y creación automática (si tienes permisos)**
+   - Si **no** existen en Replit Secrets:
+     - **JWT_SECRET**: generar valor criptográficamente fuerte (≥32 bytes aleatorios) y **guardarlo** en secretos (no imprimirlo). 
+     - **CONNECTION_POOL_SIZE**:
+       - En **DEV** fijar por defecto **10** salvo que calcules un valor mejor según `max_connections` de Postgres.
+       - Método de cálculo recomendado (si puedes consultar la BD): 
+         - `DB_MAX = SHOW max_connections` o consultar parámetro equivalente.
+         - Reservar `DB_RESERVED = 20` conexiones para admin/otros servicios (o 10% de DB_MAX, lo que sea mayor).
+         - `APP_INSTANCES = 1` en dev (ajustar si hay más procesos).
+         - `POOL = floor( (DB_MAX - DB_RESERVED) / APP_INSTANCES )`, capar entre **5 y 20** en dev.
+       - Asignar **CONNECTION_POOL_SIZE=POOL** y guardar en secretos.
+
+2) **Si NO tienes permisos para crear secretos**
+   - **No detengas el proceso.** En su lugar, **genera instrucciones claras** en `reports/dev_audit/secrets_provisioning.md` con estos comandos **para que YO los ejecute** y pegue en Replit Secrets:
+     - Generar JWT seguro:
+       - Linux/Mac: `openssl rand -base64 48 | tr -d '\n'`
+       - Node: `node -e "console.log(require('crypto').randomBytes(48).toString('base64'))"`
+       - Windows (PowerShell): `[Convert]::ToBase64String([Security.Cryptography.RandomNumberGenerator]::Create().GetBytes(48))`
+     - Sugerencia **CONNECTION_POOL_SIZE** en DEV = **10** (o el valor calculado si reportas `max_connections`).
+   - Indica explícitamente: **“Pega estos valores en Replit → Tools → Secrets como claves: JWT_SECRET y CONNECTION_POOL_SIZE. Luego haz clic en Continue/Run.”**
+   - **Nunca** imprimas los valores en texto claro; si necesitas mostrarlos para verificación, enmascara todo salvo los **últimos 4 caracteres**.
+
+3) **Aplicación en el stack (Prisma/Postgres)**
+   - **No** intentes usar opciones inválidas en el constructor de Prisma (ej.: `connectionLimit` en `new PrismaClient()` es incorrecto).
+   - Configura el pool **usando el método soportado por Prisma y Postgres que detectes en este proyecto**:
+     - Preferente: parámetros de conexión en `DATABASE_URL` (p.ej., conexión y timeout soportados por la versión de Prisma/driver) **o** pooler externo (PgBouncer). 
+     - Documenta exactamente **qué método usas** y por qué, con referencias a la versión del driver/ORM detectada.
+   - Evidencia en `reports/dev_audit/pool_config_evidence.md` (trozos de config sin secretos, y resultado de prueba de concurrencia).
+
+4) **Políticas de seguridad**
+   - Prohibido imprimir secretos/ tokens. En logs, enmascarar (p.ej., `****abcd`).
+   - Registrar en `reports/dev_audit/security_hotfixes.md` si hubo exposición previa y si se requiere rotación (en dev bastará con regenerar).
+
+## Criterios de Aceptación de esta sección
+- Claves **JWT_SECRET** y **CONNECTION_POOL_SIZE** existen en Replit Secrets.
+- Pool aplicado correctamente y verificado bajo carga en dev (éxito 100% con ≥10 solicitudes concurrentes y sin “0 bytes response”).
+- Documento `secrets_provisioning.md` con el **método usado** (auto‑provisión o instrucciones para mí), sin valores sensibles.
+
+## Resto del trabajo (resumen)
+- XSS almacenado → sanitización backend + CSP por headers (sin tocar UI).
+- Errores JSON estándar, sincronía OpenAPI ↔ modelos ↔ BD.
+- Paginación por cursor donde corresponda.
+- Auth/roles coherente + multi‑tenant por `empresaId`.
+- Observabilidad mínima (request‑id, métricas básicas).
+- Performance budgets en dev (p95 bajo {P95_MS_DEV} ms a {USUARIOS_CONC_DEV} usuarios).
+- Reportes completos en `/reports/dev_audit/`.
+
+## Inicio inmediato
+1) Ejecuta **provisionamiento de secretos** según lo anterior. 
+2) Si no puedes crearlos tú, **genera `secrets_provisioning.md` con comandos** para que yo los pegue en Replit → Secrets: claves exactas **JWT_SECRET** y **CONNECTION_POOL_SIZE**. 
+3) Después, continúa con Pass 1–5 (dev‑first, prod‑ready) manteniendo el frontend inmutable y dejando evidencia.
