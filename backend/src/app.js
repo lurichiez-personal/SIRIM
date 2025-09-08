@@ -30,17 +30,29 @@ const app = express();
 // Render/heroku-style proxies
 app.set("trust proxy", 1);
 
-// CORS
-// Admite un solo origen (string) o varios separados por coma en CORS_ORIGIN
-const allowedOrigin = process.env.CORS_ORIGIN || "*";
-const origin =
-  allowedOrigin === "*"
-    ? "*"
-    : allowedOrigin.split(",").map((s) => s.trim());
+// CORS hardened for DEV environment
+const allowedOrigins = [
+  'http://localhost:5000',
+  'http://127.0.0.1:5000',
+  'http://172.31.101.162:5000'
+];
+
+// Security hardening
+app.disable('x-powered-by'); // Remove Express signature
 
 app.use(
   cors({
-    origin,
+    origin: function (origin, callback) {
+      // Allow requests with no origin (Postman, mobile apps)
+      if (!origin) return callback(null, true);
+      
+      if (allowedOrigins.indexOf(origin) !== -1) {
+        callback(null, true);
+      } else {
+        console.warn(`❌ CORS blocked request from: ${origin}`);
+        callback(new Error('Not allowed by CORS'));
+      }
+    },
     credentials: true,
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
@@ -48,7 +60,68 @@ app.use(
   })
 );
 
-// Body parser
+// Security headers middleware
+app.use((req, res, next) => {
+  // CSP for XSS protection
+  res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self'");
+  
+  // Clickjacking protection
+  res.setHeader('X-Frame-Options', 'DENY');
+  
+  // MIME sniffing protection
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  
+  // Referrer policy
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  
+  // Permissions policy
+  res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+  
+  next();
+});
+
+// Rate limiting middleware (100 requests per minute)
+const requestCounts = new Map();
+const RATE_LIMIT_WINDOW = 60 * 1000; // 1 minute
+const RATE_LIMIT_MAX = 100;
+
+app.use((req, res, next) => {
+  const clientId = req.ip || req.connection.remoteAddress || 'unknown';
+  const now = Date.now();
+  
+  if (!requestCounts.has(clientId)) {
+    requestCounts.set(clientId, { count: 1, windowStart: now });
+  } else {
+    const clientData = requestCounts.get(clientId);
+    
+    if (now - clientData.windowStart > RATE_LIMIT_WINDOW) {
+      clientData.count = 1;
+      clientData.windowStart = now;
+    } else {
+      clientData.count++;
+      
+      if (clientData.count > RATE_LIMIT_MAX) {
+        return res.status(429).json({ 
+          error: 'Too Many Requests',
+          message: `Rate limit exceeded. Max ${RATE_LIMIT_MAX} requests per minute.`,
+          retryAfter: Math.ceil((clientData.windowStart + RATE_LIMIT_WINDOW - now) / 1000)
+        });
+      }
+    }
+  }
+  
+  next();
+});
+
+// Enhanced logging with request ID
+app.use((req, res, next) => {
+  req.requestId = Date.now().toString(36) + Math.random().toString(36).substr(2);
+  res.setHeader('X-Request-ID', req.requestId);
+  console.log(`[${req.requestId}] ${req.method} ${req.path} - ${req.ip} - ${new Date().toISOString()}`);
+  next();
+});
+
+// Body parser (kept at 1mb for security)
 app.use(express.json({ limit: "1mb" }));
 
 // Servir archivos estáticos del frontend SIEMPRE (desarrollo y producción)
