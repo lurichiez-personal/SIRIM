@@ -1,0 +1,47 @@
+Actúa como Staff Platform+QA Engineer. Objetivo: cerrar pendientes para “prod‑ready” en **DESARROLLO** manteniendo **frontend INMUTABLE**. No modificar UI; solo backend/config y pruebas. Entregar evidencia reproducible en `/reports/dev_audit/`.
+
+## Pre‑gate: secretos
+- Verifica que existen `JWT_SECRET` y `CONNECTION_POOL_SIZE`. Si no, re‑emite `reports/dev_audit/secrets_provisioning.md` y **detén** las pruebas de carga hasta que yo confirme.
+
+## 1) Verificación del pool efectivo
+- Bajo 20 solicitudes concurrentes a `/api/gastos?empresaId=...`, captura conteo de conexiones activas en Postgres (`pg_stat_activity`, filtra por `application_name` si está). 
+- Salida: `pool_config_evidence.md` con comandos y *raw outputs*.
+
+## 2) Hardening de seguridad (sin tocar el front)
+- Añade/valida headers: CSP, HSTS, nosniff, frame‑options, referrer‑policy, permissions‑policy.
+- Cierra CORS a `{FRONTEND_BASE_URL_DEV}`.
+- Configura rate limiting y request size limit.
+- Salida: `security_hardening_report.md` con pruebas (curl/httpie) mostrando headers y límites.
+
+## 3) Contratos y errores
+- Sincroniza `openapi.json` y valida **todas** las rutas (incluye negativos).
+- Asegura respuestas de error **siempre** en JSON estándar.
+- Salida: `contracts_validation.md` + `errors_json_validation.md`.
+
+## 4) Observabilidad
+- Implementa `/healthz` y `/readyz` (chequeo real de BD).
+- Añade `request-id` en logs y métricas (latencia p50/p95/p99, tasa error, RPS).
+- Crea alertas (documentadas) para p95 y 5xx.
+- Salida: `observability_readiness.md` con ejemplos de logs/metricas y reglas de alerta.
+
+## 5) Rendimiento
+- Ejecuta dos perfiles: normal `{USUARIOS_CONC_DEV}` y pico `{USUARIOS_PICO_DEV}` con budgets `{P95_MS_DEV}` y `<1%` error rate.
+- Salida: `load_results.md` con parámetros y *raw outputs*.
+
+## 6) Base de datos
+- Confirma migraciones acordes a fixes (roles→role, `authMethod`).
+- Simula backup/rollback en dev y documenta en `db_migration_runbook.md`.
+
+## 7) Supply chain / Build
+- Verifica Node LTS y `npm ci`.
+- Genera **SBOM** y **vuln_report**; si hay HIGH/CRITICAL, propone fixes o bloquea.
+- Salida: `sbom.json`, `vuln_report.md`, `build_reproducibility.md`.
+
+## 8) Paridad dev→prod
+- Actualiza `paridad_entornos.md` con nombres de vars/flags idénticos a prod‑objetivo (valores distintos).
+- Incluye compresión, trust proxy, timeouts, keep‑alive.
+- Salida: `paridad_entornos.md` (actualizado).
+
+## Gates de cierre
+- No declares “LISTO PARA PROMOVER” si cualquiera de los puntos anteriores falla.
+- Entrega un `go_no_go.md` con el estado de cada gate y evidencias enlazadas.
