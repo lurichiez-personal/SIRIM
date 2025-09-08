@@ -2,18 +2,20 @@
 const { PrismaClient } = require('@prisma/client');
 
 // Configuración robusta del cliente Prisma con pool explícito
+// CRITICAL FIX: Connection pool configured via DATABASE_URL parameters
+const connectionPoolSize = process.env.CONNECTION_POOL_SIZE || '10';
+const connectionTimeout = process.env.CONNECTION_TIMEOUT_MS || '20000';
+
+// Build DATABASE_URL with connection pool parameters
+const databaseUrl = process.env.DATABASE_URL + 
+  (process.env.DATABASE_URL.includes('?') ? '&' : '?') +
+  `connection_limit=${connectionPoolSize}&pool_timeout=${Math.floor(parseInt(connectionTimeout)/1000)}`;
+
 const prisma = new PrismaClient({
   datasources: {
     db: {
-      url: process.env.DATABASE_URL,
+      url: databaseUrl,
     },
-  },
-  // CRITICAL FIX: Explicit connection pool configuration
-  // Development: 10 connections, Production: 20 connections
-  connectionLimit: parseInt(process.env.CONNECTION_POOL_SIZE || '10'),
-  transactionOptions: {
-    isolationLevel: 'ReadCommitted',
-    timeout: parseInt(process.env.CONNECTION_TIMEOUT_MS || '20000'),
   },
   log: [
     {
