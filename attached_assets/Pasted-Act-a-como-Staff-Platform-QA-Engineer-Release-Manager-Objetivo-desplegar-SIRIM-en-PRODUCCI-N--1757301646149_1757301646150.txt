@@ -1,0 +1,97 @@
+Actúa como Staff Platform+QA Engineer & Release Manager. Objetivo: desplegar SIRIM en **PRODUCCIÓN** con estrategia **blue‑green/canary**, cerrar seguridad/observabilidad al 100%, y demostrar evidencia objetiva post‑deploy. 
+**Frontend es INMUTABLE** (NO cambios en código/estilos/layout/assets). Se permite **únicamente** el build de producción del front sin modificar fuentes.
+
+## Artefactos, entornos y secretos (OBLIGATORIO)
+- Repo: {REPO_URL}
+- Rama/tag de release: {BRANCH_OR_TAG_PROD}
+- Backends:
+  - PROD API base URL: {BACKEND_BASE_URL_PROD}
+  - Health endpoints esperados: `{BACKEND_BASE_URL_PROD}/healthz` y `/readyz`
+- Frontend:
+  - PROD APP base URL: {FRONTEND_BASE_URL_PROD}
+- Gestor de secretos PROD (no imprimir valores):
+  - {ENV_DB_URL_VAR_PROD} (cadena de conexión PostgreSQL)
+  - JWT_SECRET (≥32 bytes aleatorio)
+  - ALLOWED_ORIGINS={FRONTEND_BASE_URL_PROD}
+  - LOG_LEVEL=info, NODE_ENV=production, TRUST_PROXY=1
+  - (Opcional si aplica pooler) PGBOUNCER_URL / DB_POOLER_URL
+- Ventana de cambio (UTC): {MAINTENANCE_WINDOW_UTC}
+- Estrategia: {DEPLOY_STRATEGY} = blue‑green (con switch) o canary `{CANARY_PERCENT}%` → `{CANARY_DURATION_MIN}` min
+
+## Cláusula de INMUTABILIDAD del FRONTEND
+- Prohibido modificar código/temas/estilos/layout/assets del front.
+- Permitido: `npm run build` para generar artefactos de prod desde `{BRANCH_OR_TAG_PROD}`.
+- Evidencia: `reports/prod_release/integridad_frontend_release.md` con `git diff` vacío y hashes de artefactos.
+
+## Paso 0 – Verificación de secretos y paridad
+- Confirmar **que existen** los secretos de PROD (JWT_SECRET distinto a dev).
+- Verificar paridad de nombres de variables entre dev y prod (valores pueden diferir). 
+- Salida: `paridad_entornos_prod.md`.
+
+## Paso 1 – Pool de BD **efectivo** (no solo “configurado”)
+- Corregir el **desfase 10 vs 20**:
+  - Intentar `connection_limit=20` (si la versión de Prisma y tu proveedor lo soportan) en `{ENV_DB_URL_VAR_PROD}`.
+  - Si Prisma **no** respeta el parámetro, usar endpoint **pooled** del proveedor (Neon/Supabase) o **PgBouncer** (session pooling) y apuntar `{ENV_DB_URL_VAR_PROD}` al pooler con límite 20.
+- Validar en **PROD**:
+  - Bajo ≥20 solicitudes concurrentes, medir conexiones activas en `pg_stat_activity` (filtra por DB/usuario/app).
+  - Corroborar log de inicio del runtime si expone el tamaño del pool.
+- Salida: `pool_config_prod_evidence.md` con **comandos y raw outputs**, confirmando ≥20 conexiones disponibles y 0 agotamientos.
+
+## Paso 2 – Hardening en PROD (sin tocar el front)
+- Activar/validar **headers**:
+  - HSTS, X-Content-Type-Options, X-Frame-Options, Referrer-Policy, Permissions-Policy, y **CSP** restrictiva acorde a orígenes reales (front y API).
+- **CORS**: permitir exclusivamente {FRONTEND_BASE_URL_PROD}.
+- **Rate limiting** y **body size limit** adecuados.
+- Evidencia real con HTTPS (no localhost): `security_hardening_prod.md` (curl/httpie mostrando headers en 2–3 rutas).
+
+## Paso 3 – Supply chain y build
+- Construir imagen/es de release (backend y front estático). 
+- Generar **SBOM** (Syft) y escanear con **Trivy** (o alternativa equivalente). 
+  - Si hay HIGH/CRITICAL → **bloquear release** y proponer fixes.
+- Salidas: `sbom.json`, `vuln_report.md`, `build_reproducibility.md`.
+
+## Paso 4 – Despliegue blue‑green/canary
+- Desplegar “green” o canario al `{CANARY_PERCENT}%` del tráfico.
+- SLOs en vivo durante canario:
+  - p95 < {P95_MS} ms en endpoints críticos,
+  - error rate < {ERROR_RATE_MAX}%,
+  - 0 incremento de 5xx vs baseline.
+- Si algún SLO falla → **rollback inmediato** y `rollback_event.md`.
+- Si todo OK tras `{CANARY_DURATION_MIN}` min → promover a 100%.
+
+## Paso 5 – Observabilidad y salud operativa (cerrar 100%)
+- `/healthz` y `/readyz` **estables tras reinicios** (chequeo de BD real).
+- Logging estructurado con `request-id` y `empresaId` (sin PII).
+- Métricas (latencia p50/p95/p99, error rate, RPS) exportadas a {METRICS_BACKEND} (si existe) y **alertas** configuradas (p95 y 5xx).
+- Salida: `observability_prod_readiness.md` + reglas de alerta.
+
+## Paso 6 – Validaciones post‑deploy (en PROD)
+- Re‑ejecutar **E2E caja negra**: {FRONTEND_BASE_URL_PROD} ↔ {BACKEND_BASE_URL_PROD}.
+- Validar **OpenAPI** y **errores JSON** en todas las rutas (incluye negativos).
+- Prueba de **carga ligera** con `{PEAK_USERS}` concurrentes (ramp‑up 5 min).
+- Salida: `post_deploy_validation.md` con parámetros y **raw outputs**.
+
+## DoD (Definition of Done) – marcar “LISTO”
+Solo declarar **LISTO** si:
+- 0 issues **CRÍTICOS/ALTOS** abiertos,
+- p95 y error rate dentro de umbrales **en PROD**,
+- Pool efectivo validado (evidencia ≥20 conexiones),
+- CSP/HSTS y CORS verificados en PROD,
+- SBOM sin HIGH/CRITICAL,
+- health/readiness y alertas operativas,
+- `integridad_frontend_release.md` confirma **cero cambios de UI**,
+- `production_runbook.md` y `rollback_runbook.md` listos.
+
+## Entregables (guardar en `reports/prod_release/`)
+- `integridad_frontend_release.md`
+- `paridad_entornos_prod.md`
+- `pool_config_prod_evidence.md`
+- `security_hardening_prod.md`
+- `sbom.json`, `vuln_report.md`, `build_reproducibility.md`
+- `canary_plan.md`, `rollback_event.md` (si aplica), `post_deploy_validation.md`
+- `production_runbook.md`, `rollback_runbook.md`, `go_no_go_prod.md`
+
+## Inicio
+1) Verifica/crea secretos de PROD (sin imprimir valores). 
+2) Resuelve **pool 20** (parámetro o pooler) y adjunta evidencia.
+3) Ejecuta canario y validaciones. Si los SLOs se cumplen, promueve a 100% y entrega todos los reportes.
