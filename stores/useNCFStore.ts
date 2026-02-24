@@ -1,18 +1,18 @@
-
 import { create } from 'zustand';
-import { NCFSequence, NCFType } from '../types';
+import { NCFSequence, NCFType, isNcfNotaCredito } from '../types.ts';
+import { db } from '../firebase.ts';
+import { collection, addDoc, onSnapshot, Unsubscribe, query, where, runTransaction, doc, getDocs } from 'firebase/firestore';
+import { useTenantStore } from './useTenantStore.ts';
+import { useAlertStore } from './useAlertStore.ts';
 
 interface NCFState {
   sequences: NCFSequence[];
-  fetchSequences: (empresaId: number) => Promise<void>;
-  addSequence: (sequence: Omit<NCFSequence, 'id' | 'secuenciaActual' | 'activa' | 'alertaActiva'>) => Promise<void>;
-  getSequencesForTenant: (empresaId: number) => NCFSequence[];
-  getAvailableTypes: (empresaId: number) => NCFType[];
-  getNextNCF: (empresaId: number, tipo: NCFType) => Promise<string | null>;
-  checkAlerts: (empresaId: number) => void;
+  loading: boolean;
+  subscribeToSequences: (empresaId: string) => Unsubscribe;
+  addSequence: (sequence: Omit<NCFSequence, 'id' | 'empresaId' | 'secuenciaActual' | 'activa' | 'alertaActiva'>) => Promise<void>;
+  getNextNCF: (empresaId: string, tipo: NCFType) => Promise<string | null>;
+  checkAlerts: (sequences: NCFSequence[]) => NCFSequence[];
 }
-
-// Las secuencias NCF ahora vienen exclusivamente de la base de datos PostgreSQL
 
 const pad = (num: number, size: number) => {
     let s = num.toString();
@@ -21,172 +21,141 @@ const pad = (num: number, size: number) => {
 }
 
 export const useNCFStore = create<NCFState>((set, get) => ({
-  sequences: [], // Las secuencias NCF se cargan dinámicamente desde la BD
+  sequences: [],
+  loading: true,
   
-  fetchSequences: async (empresaId: number) => {
-    try {
-      const response = await fetch(`/api/ncf/sequences?empresaId=${empresaId}`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
-      });
-      
-      if (response.ok) {
-        const sequences = await response.json();
-        set({ sequences });
-      } else {
-        console.error('Error obteniendo secuencias NCF:', response.statusText);
-      }
-    } catch (error) {
-      console.error('Error de conexión obteniendo secuencias NCF:', error);
-    }
+  subscribeToSequences: (empresaId: string) => {
+    set({ loading: true });
+    const q = query(collection(db, 'ncf_sequences'), where('empresaId', '==', empresaId));
+    
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+        let sequences: NCFSequence[] = [];
+        snapshot.forEach(doc => {
+            sequences.push({ id: doc.id, ...doc.data() } as NCFSequence);
+        });
+        const sequencesWithAlerts = get().checkAlerts(sequences);
+        set({ sequences: sequencesWithAlerts, loading: false });
+    },
+    (error) => {
+        console.error(`Error fetching NCF sequences for company ${empresaId}:`, error);
+        useAlertStore.getState().showAlert('Error de Sincronización', 'No se pudieron cargar las secuencias de NCF. Verifique su conexión y permisos.');
+        set({ sequences: [], loading: false });
+    });
+    
+    return unsubscribe;
   },
-
+  
   addSequence: async (sequenceData) => {
-    try {
-      const response = await fetch('/api/ncf/sequences', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        },
-        body: JSON.stringify(sequenceData)
-      });
-
-      if (response.ok) {
-        const newSequence = await response.json();
-        set(state => ({
-          sequences: [...state.sequences, newSequence]
-        }));
-        get().checkAlerts(sequenceData.empresaId);
-      } else {
-        console.error('Error creando secuencia NCF:', response.statusText);
-        
-        // Fallback: crear localmente (temporal)
-        const newSequence: NCFSequence = {
-          ...sequenceData,
-          id: Date.now(),
-          secuenciaActual: sequenceData.secuenciaDesde,
-          activa: true,
-          alertaActiva: false
-        };
-        set(state => ({
-          sequences: [...state.sequences, newSequence]
-        }));
-        get().checkAlerts(sequenceData.empresaId);
-      }
-    } catch (error) {
-      console.error('Error de conexión creando secuencia NCF:', error);
-      
-      // Fallback: crear localmente (temporal)
-      const newSequence: NCFSequence = {
+    const empresaId = useTenantStore.getState().selectedTenant?.id;
+    if (!empresaId) {
+      console.error("No tenant selected, cannot add NCF sequence");
+      return;
+    }
+    await addDoc(collection(db, 'ncf_sequences'), {
         ...sequenceData,
-        id: Date.now(),
+        empresaId,
         secuenciaActual: sequenceData.secuenciaDesde,
         activa: true,
         alertaActiva: false
-      };
-      set(state => ({
-        sequences: [...state.sequences, newSequence]
-      }));
-      get().checkAlerts(sequenceData.empresaId);
+    });
+  },
+  
+  getNextNCF: async (empresaId: string, tipo: NCFType) => {
+    const today = new Date().toISOString().split('T')[0];
+    const isNota = isNcfNotaCredito(tipo);
+    
+    // 1. Try local state first with conditional validity check
+    let sequence = get().sequences.find(s => 
+        s.tipo === tipo && 
+        s.activa && 
+        s.secuenciaActual <= s.secuenciaHasta &&
+        (isNota || s.fechaVencimiento >= today) // VALIDACIÓN CONDICIONAL
+    );
+
+    // 2. If not found, fetch directly from Firestore
+    if (!sequence) {
+        try {
+            const q = query(
+                collection(db, 'ncf_sequences'), 
+                where('empresaId', '==', empresaId)
+            );
+            const snapshot = await getDocs(q);
+            const validDoc = snapshot.docs.find(d => {
+                const data = d.data() as NCFSequence;
+                return data.tipo === tipo && 
+                       data.activa && 
+                       data.secuenciaActual <= data.secuenciaHasta &&
+                       (isNota || data.fechaVencimiento >= today);
+            });
+            
+            if (validDoc) {
+                sequence = { id: validDoc.id, ...validDoc.data() } as NCFSequence;
+            }
+        } catch (error) {
+            console.error("Error fetching NCF sequence directly:", error);
+        }
     }
-  },
-  getSequencesForTenant: (empresaId: number) => {
-    return get().sequences.filter(s => s.empresaId === empresaId);
-  },
-  getAvailableTypes: (empresaId: number) => {
-    const tenantSequences = get().sequences.filter(s => s.empresaId === empresaId && s.activa);
-    const availableTypes = tenantSequences.map(s => s.tipo);
-    return [...new Set(availableTypes)]; // Devuelve tipos únicos
-  },
-  getNextNCF: async (empresaId: number, tipo: NCFType) => {
+
+    if (!sequence) {
+        console.error(`No active or valid NCF sequence found for type ${tipo}`);
+        return null;
+    }
+    
+    const seqRef = doc(db, 'ncf_sequences', sequence.id);
+
     try {
-      const response = await fetch('/api/ncf/next', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        },
-        body: JSON.stringify({ empresaId, tipo })
-      });
+        const ncfCompleto = await runTransaction(db, async (transaction) => {
+            const seqDoc = await transaction.get(seqRef);
+            if (!seqDoc.exists()) {
+                throw "Sequence document does not exist!";
+            }
+            
+            const data = seqDoc.data() as NCFSequence;
+            const currentSeqNum = data.secuenciaActual;
+            
+            if (currentSeqNum > data.secuenciaHasta) {
+                console.warn(`NCF sequence ${tipo} is exhausted.`);
+                return null;
+            }
 
-      if (response.ok) {
-        const result = await response.json();
-        
-        // Actualizar la secuencia local incrementando secuenciaActual
-        set(state => ({
-          sequences: state.sequences.map(s => 
-            s.empresaId === empresaId && s.tipo === tipo 
-              ? { ...s, secuenciaActual: s.secuenciaActual + 1 }
-              : s
-          )
-        }));
-        
-        get().checkAlerts(empresaId);
-        return result.ncf;
-      } else {
-        console.error('Error obteniendo siguiente NCF:', response.statusText);
-        
-        // Fallback: usar lógica local
-        let ncfCompleto: string | null = null;
-        set(state => {
-          const sequences = state.sequences.map(s => {
-            if (s.empresaId === empresaId && s.tipo === tipo && s.activa && s.secuenciaActual <= s.secuenciaHasta) {
-              if (!ncfCompleto) {
-                const ncfNumber = s.secuenciaActual;
-                ncfCompleto = s.prefijo + pad(ncfNumber, (s.prefijo === 'B02' || s.prefijo === 'B16') ? 10 : 8);
-                return { ...s, secuenciaActual: s.secuenciaActual + 1 };
-              }
+            if (!isNota && data.fechaVencimiento < today) {
+                console.warn(`NCF sequence ${tipo} is expired.`);
+                transaction.update(seqRef, { activa: false });
+                return null;
             }
-            return s;
-          });
-          return { sequences };
+            
+            transaction.update(seqRef, { secuenciaActual: currentSeqNum + 1 });
+            
+            let ncfSequenceLength = 8; // Default
+            if (data.prefijo.startsWith('B')) {
+                ncfSequenceLength = 11 - data.prefijo.length;
+            } else if (data.prefijo.startsWith('E')) {
+                ncfSequenceLength = 13 - data.prefijo.length;
+            }
+
+            return data.prefijo + pad(currentSeqNum, ncfSequenceLength);
         });
-        
-        get().checkAlerts(empresaId);
+
         return ncfCompleto;
-      }
-    } catch (error) {
-      console.error('Error de conexión obteniendo siguiente NCF:', error);
-      
-      // Fallback: usar lógica local
-      let ncfCompleto: string | null = null;
-      set(state => {
-        const sequences = state.sequences.map(s => {
-          if (s.empresaId === empresaId && s.tipo === tipo && s.activa && s.secuenciaActual <= s.secuenciaHasta) {
-            if (!ncfCompleto) {
-              const ncfNumber = s.secuenciaActual;
-              ncfCompleto = s.prefijo + pad(ncfNumber, (s.prefijo === 'B02' || s.prefijo === 'B16') ? 10 : 8);
-              return { ...s, secuenciaActual: s.secuenciaActual + 1 };
-            }
-          }
-          return s;
-        });
-        return { sequences };
-      });
-      
-      get().checkAlerts(empresaId);
-      return ncfCompleto;
+
+    } catch (e) {
+        console.error("NCF Transaction failed: ", e);
+        return null;
     }
   },
-  checkAlerts: (empresaId) => {
-    set(state => ({
-        sequences: state.sequences.map(s => {
-            if (s.empresaId !== empresaId) return s;
-            
-            const totalComprobantes = s.secuenciaHasta - s.secuenciaDesde + 1;
-            const comprobantesUsados = s.secuenciaActual - s.secuenciaDesde;
-            const porcentajeUsado = (comprobantesUsados / totalComprobantes) * 100;
-            
-            const alertaActiva = porcentajeUsado >= 90;
-
-            return { ...s, alertaActiva };
-        })
-    }));
+  
+  checkAlerts: (sequences) => {
+    const today = new Date().toISOString().split('T')[0];
+    return sequences.map(s => {
+        const totalComprobantes = s.secuenciaHasta - s.secuenciaDesde + 1;
+        const comprobantesUsados = s.secuenciaActual - s.secuenciaDesde;
+        const porcentajeUsado = (comprobantesUsados / totalComprobantes) * 100;
+        
+        const isNota = isNcfNotaCredito(s.tipo);
+        const isExpired = !isNota && s.fechaVencimiento < today;
+        const alertaActiva = porcentajeUsado >= 90 || isExpired;
+        
+        return { ...s, alertaActiva };
+    });
   }
 }));
-
-// Comprobar alertas al inicio
-const initialTenantId = 1; // Simular tenant inicial
-useNCFStore.getState().checkAlerts(initialTenantId);

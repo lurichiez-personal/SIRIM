@@ -2,14 +2,18 @@ import React, { useState, useEffect } from 'react';
 import { useMarketingStore } from '../../stores/useMarketingStore';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
+import { PlusIcon, TrashIcon } from '../../components/icons/Icons';
+import { useConfirmationStore } from '../../stores/useConfirmationStore';
 
 const MarketingPage: React.FC = () => {
-    const { plans, landingImageUrl, updatePlanPrice, updateLandingImage } = useMarketingStore();
+    const { plans, landingImageUrls, updatePlanPrice, addLandingImage, removeLandingImage } = useMarketingStore();
+    const { showConfirmation } = useConfirmationStore();
 
     const [basicoPrice, setBasicoPrice] = useState(0);
     const [proPrice, setProPrice] = useState(0);
     const [premiumPrice, setPremiumPrice] = useState(0);
-    const [imageUrl, setImageUrl] = useState('');
+    
+    const [isUploading, setIsUploading] = useState(false);
 
     useEffect(() => {
         if (plans) {
@@ -17,10 +21,7 @@ const MarketingPage: React.FC = () => {
             setProPrice(plans.pro.price);
             setPremiumPrice(plans.premium.price);
         }
-        if (landingImageUrl) {
-            setImageUrl(landingImageUrl);
-        }
-    }, [plans, landingImageUrl]);
+    }, [plans]);
 
     const handlePriceSave = (e: React.FormEvent) => {
         e.preventDefault();
@@ -30,10 +31,21 @@ const MarketingPage: React.FC = () => {
         alert('Precios actualizados!');
     };
 
-    const handleImageSave = (e: React.FormEvent) => {
-        e.preventDefault();
-        updateLandingImage(imageUrl);
-        alert('Imagen actualizada!');
+    const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            setIsUploading(true);
+            await addLandingImage(file);
+            setIsUploading(false);
+        }
+    };
+
+    const handleDelete = (url: string) => {
+        showConfirmation(
+            'Confirmar Eliminación',
+            '¿Está seguro de que desea eliminar esta imagen del landing page?',
+            () => removeLandingImage(url)
+        );
     };
     
     const renderPriceInput = (label: string, value: number, setter: (val: number) => void) => (
@@ -79,21 +91,29 @@ const MarketingPage: React.FC = () => {
                     </form>
                 </Card>
                 <Card>
-                    <form onSubmit={handleImageSave}>
-                        <CardHeader>
-                            <CardTitle>Gestionar Contenido Landing</CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                            <div>
-                                <label htmlFor="imageUrl" className="block text-sm font-medium text-secondary-700">URL de Imagen Principal</label>
-                                <input type="text" id="imageUrl" value={imageUrl} onChange={e => setImageUrl(e.target.value)} className="mt-1 block w-full border border-secondary-300 rounded-md p-2" placeholder="https://ejemplo.com/imagen.png" />
-                                {imageUrl && <img src={imageUrl} alt="Vista previa de la imagen" className="mt-4 rounded-md shadow-md max-h-48 w-full object-cover"/>}
-                            </div>
-                        </CardContent>
-                         <div className="p-4 bg-secondary-50 border-t flex justify-end">
-                            <Button type="submit">Guardar Imagen</Button>
+                    <CardHeader>
+                        <CardTitle>Gestionar Imágenes del Landing</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                            {landingImageUrls.map(url => (
+                                <div key={url} className="relative group">
+                                    <img src={url} alt="Vista previa" className="aspect-video w-full object-cover rounded-md shadow" />
+                                    <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-50 transition-all flex items-center justify-center">
+                                        <button onClick={() => handleDelete(url)} className="p-2 bg-red-600 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
+                                            <TrashIcon className="h-5 w-5" />
+                                        </button>
+                                    </div>
+                                </div>
+                            ))}
+                             <label className="aspect-video flex flex-col items-center justify-center border-2 border-dashed border-secondary-300 rounded-md cursor-pointer hover:bg-secondary-50">
+                                <PlusIcon className="h-8 w-8 text-secondary-400"/>
+                                <span className="text-xs text-secondary-500 mt-1">Añadir Imagen</span>
+                                <input type="file" onChange={handleFileChange} className="hidden" accept="image/png, image/jpeg, image/webp" disabled={isUploading} />
+                            </label>
                         </div>
-                    </form>
+                         {isUploading && <p className="text-sm text-center text-primary">Subiendo imagen...</p>}
+                    </CardContent>
                 </Card>
             </div>
         </div>

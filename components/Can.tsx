@@ -1,7 +1,6 @@
-
 import React from 'react';
-import { usePermissions } from '../hooks/usePermissions';
-import { Permission } from '../types';
+import { usePermissions } from '../hooks/usePermissions.ts';
+import { Permission } from '../types.ts';
 
 interface CanProps {
   I: Permission; // "I can..."

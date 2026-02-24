@@ -1,12 +1,14 @@
 import React, { useEffect } from 'react';
-import Header from './Header';
-import Sidebar from './Sidebar';
-import { TaskStatusContainer } from './ui/TaskStatus';
-import CommandPalette from './ui/CommandPalette';
-import { useCommandPaletteStore } from '../stores/useCommandPaletteStore';
-import AlertModal from './ui/AlertModal';
-import ConfirmationModal from './ui/ConfirmationModal';
-import { useUIStore } from '../stores/useUIStore';
+import Header from './Header.tsx';
+import Sidebar from './Sidebar.tsx';
+import { TaskStatusContainer } from './ui/TaskStatus.tsx';
+import CommandPalette from './ui/CommandPalette.tsx';
+import { useCommandPaletteStore } from '../stores/useCommandPaletteStore.ts';
+import AlertModal from './ui/AlertModal.tsx';
+import ConfirmationModal from './ui/ConfirmationModal.tsx';
+import { useUIStore } from '../stores/useUIStore.ts';
+import ChatbotFAB from './chatbot/ChatbotFAB.tsx';
+import ChatWindow from './chatbot/ChatWindow.tsx';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -49,6 +51,8 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       <CommandPalette />
       <AlertModal />
       <ConfirmationModal />
+      <ChatbotFAB />
+      <ChatWindow />
     </div>
   );
 };

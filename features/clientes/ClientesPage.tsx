@@ -1,89 +1,84 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { Cliente } from '../../types';
-import { useTenantStore } from '../../stores/useTenantStore';
-import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/Card';
-import Button from '../../components/ui/Button';
-import { PlusIcon, DownloadIcon, InformationCircleIcon } from '../../components/icons/Icons';
-import NuevoClienteModal from './NuevoClienteModal';
-import { useDataStore } from '../../stores/useDataStore';
-import Pagination from '../../components/ui/Pagination';
-import Checkbox from '../../components/ui/Checkbox';
-import { exportToCSV } from '../../utils/csvExport';
-import { useDGIIDataStore } from '../../stores/useDGIIDataStore';
+
+import React, { useState, useMemo } from 'react';
+import { Cliente, Permission } from '../../types.ts';
+import { useTenantStore } from '../../stores/useTenantStore.ts';
+import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/Card.tsx';
+import Button from '../../components/ui/Button.tsx';
+import { PlusIcon, DownloadIcon, TrashIcon, ChevronUpDownIcon, ChevronUpIcon, ChevronDownIcon } from '../../components/icons/Icons.tsx';
+import NuevoClienteModal from './NuevoClienteModal.tsx';
+import { useDataStore } from '../../stores/useDataStore.ts';
+import Pagination from '../../components/ui/Pagination.tsx';
+import Checkbox from '../../components/ui/Checkbox.tsx';
+import { exportToCSV } from '../../utils/csvExport.ts';
+import Can from '../../components/Can.tsx';
+import { useConfirmationStore } from '../../stores/useConfirmationStore.ts';
+import { useAlertStore } from '../../stores/useAlertStore.ts';
+import { applyPagination } from '../../utils/pagination.ts';
 
 const ITEMS_PER_PAGE = 10;
 
-const RNCStatus: React.FC = () => {
-    const { status, lastUpdated, recordCount, errorMessage, progress } = useDGIIDataStore();
-    let text = '';
-    let color = 'text-secondary-500';
-    let showProgress = false;
-
-    switch(status) {
-        case 'checking': text = 'Verificando base de datos local...'; break;
-        case 'downloading': 
-            text = 'Descargando archivo de la DGII...'; 
-            color = 'text-blue-600'; 
-            showProgress = true;
-            break;
-        case 'processing': 
-            text = `Procesando y guardando datos... (${progress}%)`; 
-            color = 'text-blue-600';
-            showProgress = true;
-            break;
-        case 'ready': 
-            text = `Base de datos local lista. ${recordCount.toLocaleString()} registros. Última actualización: ${new Date(lastUpdated).toLocaleString('es-DO')}`;
-            color = 'text-green-600';
-            break;
-        case 'error': text = `Error: ${errorMessage}`; color = 'text-red-600'; break;
-        case 'idle': text = 'Iniciando descarga de la base de datos de RNC...'; break;
-    }
-
-    return (
-        <div>
-            <div className={`text-xs mt-2 flex items-center ${color}`}>
-                <InformationCircleIcon className="h-4 w-4 mr-1"/>
-                <span>{text}</span>
-            </div>
-            {showProgress && (
-                <div className="w-full bg-secondary-200 rounded-full h-1.5 mt-2">
-                    <div className="bg-primary h-1.5 rounded-full" style={{ width: `${progress}%`, transition: 'width 0.2s ease-in-out' }}></div>
-                </div>
-            )}
-        </div>
-    );
-};
+type SortField = keyof Cliente;
 
 const ClientesPage: React.FC = () => {
     const { selectedTenant } = useTenantStore();
-    const { clientes, addCliente, updateCliente, getPagedClientes, bulkUpdateClienteStatus } = useDataStore();
-    const { status: rncStatus, triggerUpdate: triggerRNCUpdate } = useDGIIDataStore();
+    const { clientes, addCliente, updateCliente, bulkUpdateClienteStatus, deleteCliente, bulkDeleteClientes, isLoading } = useDataStore();
+    const { showConfirmation } = useConfirmationStore();
+    const { showAlert } = useAlertStore();
     
-    const [loading, setLoading] = useState(true);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [clienteParaEditar, setClienteParaEditar] = useState<Cliente | null>(null);
     
     const [currentPage, setCurrentPage] = useState(1);
     const [searchTerm, setSearchTerm] = useState('');
     const [statusFilter, setStatusFilter] = useState<'todos' | 'activo' | 'inactivo'>('todos');
-    const [pagedData, setPagedData] = useState({ items: [], totalCount: 0 });
+    const [sortConfig, setSortConfig] = useState<{ field: SortField, direction: 'asc' | 'desc' } | null>(null);
     
-    const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+    const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
-    useEffect(() => {
-        if (selectedTenant) {
-            setLoading(true);
-            const data = getPagedClientes({
-                page: currentPage,
-                pageSize: ITEMS_PER_PAGE,
-                searchTerm,
-                status: statusFilter
-            });
-            setPagedData(data);
-            setSelectedIds(new Set());
-            setLoading(false);
+    const pagedData = useMemo(() => {
+        let filtered = [...clientes];
+
+        if (searchTerm) {
+            const lowerTerm = searchTerm.toLowerCase();
+            filtered = filtered.filter(c => c.nombre.toLowerCase().includes(lowerTerm) || c.rnc?.toLowerCase().includes(lowerTerm));
         }
-    }, [selectedTenant, currentPage, searchTerm, statusFilter, getPagedClientes, clientes]);
+        if (statusFilter !== 'todos') {
+            const isActive = statusFilter === 'activo';
+            filtered = filtered.filter(c => c.activo === isActive);
+        }
+
+        if (sortConfig) {
+            filtered.sort((a, b) => {
+                const aValue = a[sortConfig.field];
+                const bValue = b[sortConfig.field];
+                if (aValue === undefined || aValue === null) return 1;
+                if (bValue === undefined || bValue === null) return -1;
+                if (aValue < bValue) return sortConfig.direction === 'asc' ? -1 : 1;
+                if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1;
+                return 0;
+            });
+        } else {
+             filtered.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+        }
+
+        return applyPagination(filtered, currentPage, ITEMS_PER_PAGE);
+
+    }, [clientes, currentPage, searchTerm, statusFilter, sortConfig]);
+
+    const handleSort = (field: SortField) => {
+        let direction: 'asc' | 'desc' = 'asc';
+        if (sortConfig && sortConfig.field === field && sortConfig.direction === 'asc') {
+            direction = 'desc';
+        }
+        setSortConfig({ field, direction });
+    };
+
+    const getSortIcon = (field: SortField) => {
+        if (!sortConfig || sortConfig.field !== field) {
+            return <ChevronUpDownIcon className="h-4 w-4 ml-2 text-secondary-400" />;
+        }
+        return sortConfig.direction === 'asc' ? <ChevronUpIcon className="h-4 w-4 ml-2" /> : <ChevronDownIcon className="h-4 w-4 ml-2" />;
+    };
     
     const handleOpenModalParaCrear = () => {
         setClienteParaEditar(null);
@@ -100,14 +95,45 @@ const ClientesPage: React.FC = () => {
         setClienteParaEditar(null);
     };
 
-    const handleSaveClient = (clientData: Omit<Cliente, 'id' | 'empresaId' | 'createdAt'>) => {
-        if (clienteParaEditar) {
-            updateCliente({ ...clienteParaEditar, ...clientData });
-        } else {
-            addCliente(clientData);
+    const handleSaveClient = async (clientData: Omit<Cliente, 'id' | 'empresaId' | 'createdAt'>) => {
+        try {
+            if (clienteParaEditar) {
+                await updateCliente({ ...clienteParaEditar, ...clientData });
+            } else {
+                await addCliente(clientData);
+            }
+        } catch (error) {
+            console.error("Failed to save client:", error);
+            throw error; // Re-throw to be caught by the modal
         }
     };
     
+    const handleDeleteClient = (cliente: Cliente) => {
+        showConfirmation(
+            'Confirmar Eliminación',
+            `¿Está seguro de que desea eliminar a "${cliente.nombre}"? Esta acción no se puede deshacer.`,
+            async () => {
+                try {
+                    await deleteCliente(cliente.id);
+                    showAlert('Éxito', 'Cliente eliminado correctamente.');
+                } catch (error) {
+                    // The error is already shown by the alert store in useDataStore
+                }
+            }
+        );
+    };
+
+    const handleBulkDelete = () => {
+        showConfirmation(
+            'Confirmar Eliminación Masiva',
+            `¿Está seguro de que desea eliminar ${selectedIds.size} clientes? Esta acción no se puede deshacer.`,
+            async () => {
+                await bulkDeleteClientes(Array.from(selectedIds));
+                setSelectedIds(new Set()); // Clear selection after action
+            }
+        );
+    };
+
     const getEstadoDGIIBadge = (estado: string | undefined) => {
         if (!estado) return null;
         switch (estado.toUpperCase()) {
@@ -125,7 +151,7 @@ const ClientesPage: React.FC = () => {
         }
     };
     
-    const handleSelectOne = (id: number, checked: boolean) => {
+    const handleSelectOne = (id: string, checked: boolean) => {
         setSelectedIds(prev => {
             const newSet = new Set(prev);
             if (checked) newSet.add(id);
@@ -136,13 +162,15 @@ const ClientesPage: React.FC = () => {
 
     const isAllSelected = pagedData.items.length > 0 && selectedIds.size === pagedData.items.length;
     
-    const handleBulkAction = (activo: boolean) => {
-        bulkUpdateClienteStatus(Array.from(selectedIds), activo);
+    const handleBulkAction = async (activo: boolean) => {
+        await bulkUpdateClienteStatus(Array.from(selectedIds), activo);
         setSelectedIds(new Set());
     };
     
     const handleExport = () => {
-        const dataToExport = getPagedClientes({ page: 1, pageSize: pagedData.totalCount, searchTerm, status: statusFilter }).items;
+        if (!selectedTenant) return;
+        // Use the memoized and filtered data for export, but without pagination
+        const dataToExport = pagedData.items; 
         exportToCSV(dataToExport.map(c => ({
             'Nombre': c.nombre,
             'RNC': c.rnc,
@@ -153,6 +181,18 @@ const ClientesPage: React.FC = () => {
             'Creado en': new Date(c.createdAt).toLocaleDateString('es-DO'),
         })), 'clientes');
     };
+    
+    const SortableHeader: React.FC<{ field: SortField, title: string }> = ({ field, title }) => (
+        <th 
+            className="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider cursor-pointer hover:bg-secondary-100"
+            onClick={() => handleSort(field)}
+        >
+            <div className="flex items-center">
+                {title}
+                {getSortIcon(field)}
+            </div>
+        </th>
+    );
 
     return (
         <div>
@@ -167,26 +207,6 @@ const ClientesPage: React.FC = () => {
                     </Button>
                 </div>
             </div>
-
-            <Card className="mb-6">
-                <CardHeader>
-                    <div className="flex flex-col md:flex-row justify-between items-center">
-                        <CardTitle>Base de Datos de RNC (DGII)</CardTitle>
-                        <Button 
-                            variant="secondary" 
-                            onClick={triggerRNCUpdate}
-                            disabled={rncStatus === 'downloading' || rncStatus === 'processing'}
-                            className="mt-2 md:mt-0"
-                        >
-                            {rncStatus === 'downloading' || rncStatus === 'processing' ? 'Actualizando...' : 'Actualizar Ahora'}
-                        </Button>
-                    </div>
-                </CardHeader>
-                <CardContent>
-                    <RNCStatus />
-                </CardContent>
-            </Card>
-
 
             <Card>
                 <CardHeader>
@@ -217,6 +237,9 @@ const ClientesPage: React.FC = () => {
                             <div className="flex space-x-2">
                                 <Button size="sm" onClick={() => handleBulkAction(true)}>Marcar como Activo</Button>
                                 <Button size="sm" variant="secondary" onClick={() => handleBulkAction(false)}>Marcar como Inactivo</Button>
+                                <Can I={Permission.ELIMINAR_CLIENTES}>
+                                    <Button size="sm" variant="danger" onClick={handleBulkDelete} leftIcon={<TrashIcon />}>Eliminar</Button>
+                                </Can>
                             </div>
                         </div>
                     )}
@@ -227,15 +250,15 @@ const ClientesPage: React.FC = () => {
                             <thead className="bg-secondary-50">
                                 <tr>
                                     <th className="px-6 py-3 text-left w-12"><Checkbox checked={isAllSelected} onChange={handleSelectAll} /></th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">Nombre / Razón Social</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">RNC</th>
+                                    <SortableHeader field="nombre" title="Nombre / Razón Social" />
+                                    <SortableHeader field="rnc" title="RNC" />
                                     <th className="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">Estado DGII</th>
                                     <th className="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">Estado Interno</th>
                                     <th className="px-6 py-3 text-right text-xs font-medium text-secondary-500 uppercase tracking-wider">Acciones</th>
                                 </tr>
                             </thead>
                             <tbody className="bg-white divide-y divide-secondary-200">
-                                {loading ? (
+                                {isLoading ? (
                                     <tr><td colSpan={6} className="text-center py-4">Cargando...</td></tr>
                                 ) : pagedData.items.length === 0 ? (
                                     <tr><td colSpan={6} className="text-center py-4 text-secondary-500">No se encontraron clientes.</td></tr>
@@ -258,9 +281,16 @@ const ClientesPage: React.FC = () => {
                                                 </span>
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                                <button onClick={() => handleOpenModalParaEditar(cliente)} className="text-primary hover:text-primary-700">
-                                                    Editar
-                                                </button>
+                                                <div className="flex items-center justify-end space-x-4">
+                                                    <button onClick={() => handleOpenModalParaEditar(cliente)} className="text-primary hover:text-primary-700">
+                                                        Editar
+                                                    </button>
+                                                    <Can I={Permission.ELIMINAR_CLIENTES}>
+                                                        <button onClick={() => handleDeleteClient(cliente)} className="text-red-600 hover:text-red-800" title="Eliminar Cliente">
+                                                            <TrashIcon className="h-5 w-5" />
+                                                        </button>
+                                                    </Can>
+                                                </div>
                                             </td>
                                         </tr>
                                     ))
@@ -271,7 +301,7 @@ const ClientesPage: React.FC = () => {
 
                     {/* Mobile Card View */}
                     <div className="md:hidden space-y-4">
-                         {loading ? (
+                         {isLoading ? (
                             <p className="text-center py-4">Cargando...</p>
                         ) : pagedData.items.length === 0 ? (
                             <p className="text-center py-4 text-secondary-500">No se encontraron clientes.</p>
@@ -301,10 +331,15 @@ const ClientesPage: React.FC = () => {
                                             </span>
                                         </div>
                                     </div>
-                                    <div className="mt-4 text-right">
+                                    <div className="mt-4 text-right flex items-center justify-end space-x-4">
                                          <button onClick={() => handleOpenModalParaEditar(cliente)} className="text-primary hover:text-primary-700 text-sm font-semibold">
                                             Editar
                                         </button>
+                                        <Can I={Permission.ELIMINAR_CLIENTES}>
+                                            <button onClick={() => handleDeleteClient(cliente)} className="text-red-600 hover:text-red-800">
+                                                <TrashIcon className="h-5 w-5" />
+                                            </button>
+                                        </Can>
                                     </div>
                                 </Card>
                             ))

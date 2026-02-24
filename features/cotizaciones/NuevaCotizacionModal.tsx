@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Cotizacion, Cliente, Item, FacturaItem } from '../../types';
 import Modal from '../../components/ui/Modal';
@@ -12,10 +13,10 @@ import { useRatesStore } from '../../stores/useRatesStore';
 interface NuevaCotizacionModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (newCotizacion: Omit<Cotizacion, 'id' | 'empresaId' | 'estado'>) => void;
+  onSave: (newCotizacion: Omit<Cotizacion, 'id' | 'empresaId' | 'estado'>) => Promise<void>;
   clientes: Cliente[];
   itemsDisponibles: Item[];
-  onCreateCliente: (newClientData: { nombre: string; rnc?: string }) => Cliente;
+  onCreateCliente: (newClientData: { nombre: string; rnc?: string }) => Promise<Cliente>;
   cotizacionParaEditar?: Cotizacion | null;
 }
 
@@ -23,11 +24,11 @@ const NuevaCotizacionModal: React.FC<NuevaCotizacionModalProps> = ({ isOpen, onC
     const { selectedTenant } = useTenantStore();
     const { getRatesForTenant } = useRatesStore();
     
-    const [clienteId, setClienteId] = useState<number | null>(null);
+    const [clienteId, setClienteId] = useState<string | null>(null);
     const [clienteRNC, setClienteRNC] = useState('');
     const [clienteNombre, setClienteNombre] = useState('');
     const [fecha, setFecha] = useState(new Date().toISOString().split('T')[0]);
-    const [lineItems, setLineItems] = useState<Partial<FacturaItem & { key: number }>[]>([{ key: Date.now() }]);
+    const [lineItems, setLineItems] = useState<(Partial<FacturaItem> & { key: number })[]>([{ key: Date.now() }]);
     const [descuentoPorcentaje, setDescuentoPorcentaje] = useState(0);
     const [aplicaITBIS, setAplicaITBIS] = useState(true);
     const [aplicaISC, setAplicaISC] = useState(false);
@@ -59,12 +60,15 @@ const NuevaCotizacionModal: React.FC<NuevaCotizacionModalProps> = ({ isOpen, onC
     const totals = useMemo(() => {
         const subtotal = lineItems.reduce((acc, item) => acc + (item.subtotal || 0), 0);
         const montoDescuento = subtotal * ((descuentoPorcentaje || 0) / 100);
-        
-        const itbis = aplicaITBIS ? subtotal * rates.itbis : 0;
+        const subtotalConDescuento = subtotal - montoDescuento;
+
+        // ITBIS se calcula sobre el subtotal después de aplicar el descuento.
+        const itbis = aplicaITBIS ? subtotalConDescuento * rates.itbis : 0;
+        // ISC y Propina Legal se calculan comúnmente sobre el subtotal antes del descuento.
         const isc = aplicaISC ? subtotal * rates.isc : 0;
         const propinaLegal = aplicaPropina ? subtotal * rates.propina : 0;
 
-        const montoTotal = (subtotal - montoDescuento) + itbis + isc + propinaLegal;
+        const montoTotal = subtotalConDescuento + itbis + isc + propinaLegal;
         
         return { subtotal, montoDescuento, itbis, isc, propinaLegal, montoTotal };
     }, [lineItems, descuentoPorcentaje, aplicaITBIS, aplicaISC, aplicaPropina, rates]);
@@ -80,43 +84,47 @@ const NuevaCotizacionModal: React.FC<NuevaCotizacionModalProps> = ({ isOpen, onC
         return Object.keys(newErrors).length === 0;
     };
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!validate()) return;
         
         let finalClientId = clienteId;
         
-        if (!isEditMode && finalClientId === null && clienteNombre) {
-            const newClient = onCreateCliente({ nombre: clienteNombre, rnc: clienteRNC });
-            finalClientId = newClient.id;
+        try {
+            if (!isEditMode && finalClientId === null && clienteNombre) {
+                const newClient = await onCreateCliente({ nombre: clienteNombre, rnc: clienteRNC });
+                finalClientId = newClient.id;
+            }
+    
+            if (!finalClientId) {
+                setErrors(prev => ({ ...prev, cliente: 'Se requiere un cliente válido para guardar la cotización.' }));
+                return;
+            }
+    
+            await onSave({
+                clienteId: finalClientId,
+                clienteNombre: clienteNombre,
+                clienteRNC,
+                fecha,
+                items: lineItems.filter(item => item.itemId).map(item => ({...item, itemId: item.itemId! , codigo: item.codigo!, descripcion: item.descripcion!, cantidad: item.cantidad!, precioUnitario: item.precioUnitario!, subtotal: item.subtotal! })),
+                subtotal: totals.subtotal,
+                descuentoPorcentaje,
+                montoDescuento: totals.montoDescuento,
+                aplicaITBIS,
+                aplicaISC,
+                isc: totals.isc,
+                itbis: totals.itbis,
+                aplicaPropina,
+                propinaLegal: totals.propinaLegal,
+                montoTotal: totals.montoTotal,
+                comments: [],
+                auditLog: [],
+            });
+            resetForm();
+            onClose();
+        } catch (error) {
+            // Modal will stay open if save fails
         }
-
-        if (!finalClientId) {
-            setErrors(prev => ({ ...prev, cliente: 'Se requiere un cliente válido para guardar la cotización.' }));
-            return;
-        }
-
-        onSave({
-            clienteId: finalClientId,
-            clienteNombre: clienteNombre,
-            clienteRNC,
-            fecha,
-            items: lineItems.filter(item => item.itemId).map(item => ({...item, itemId: item.itemId! , codigo: item.codigo!, descripcion: item.descripcion!, cantidad: item.cantidad!, precioUnitario: item.precioUnitario!, subtotal: item.subtotal! })),
-            subtotal: totals.subtotal,
-            descuentoPorcentaje,
-            montoDescuento: totals.montoDescuento,
-            aplicaITBIS,
-            aplicaISC,
-            isc: totals.isc,
-            itbis: totals.itbis,
-            aplicaPropina,
-            propinaLegal: totals.propinaLegal,
-            montoTotal: totals.montoTotal,
-            comments: [],
-            auditLog: [],
-        });
-        resetForm();
-        onClose();
     };
     
     const resetForm = () => {
@@ -163,7 +171,7 @@ const NuevaCotizacionModal: React.FC<NuevaCotizacionModalProps> = ({ isOpen, onC
                     const updatedItem = { ...item, [field]: value };
 
                     if (field === 'itemId') {
-                        const selectedItem = itemsDisponibles.find(i => i.id === Number(value));
+                        const selectedItem = itemsDisponibles.find(i => i.id === value);
                         if (selectedItem) {
                             updatedItem.descripcion = selectedItem.nombre;
                             updatedItem.precioUnitario = selectedItem.precio;

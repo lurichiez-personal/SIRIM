@@ -1,10 +1,10 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Empleado, CausaDesvinculacion, Desvinculacion } from '../../types';
-import Modal from '../../components/ui/Modal';
-import Button from '../../components/ui/Button';
-import { calcularPrestaciones } from '../../utils/payrollUtils';
-import { generarCartaDescargo } from '../../utils/documentUtils';
-import { useConfirmationStore } from '../../stores/useConfirmationStore';
+import { Empleado, CausaDesvinculacion, Desvinculacion } from '../../types.ts';
+import Modal from '../../components/ui/Modal.tsx';
+import Button from '../../components/ui/Button.tsx';
+import { calcularPrestaciones } from '../../utils/payrollUtils.ts';
+import { generarCartaDescargo } from '../../utils/documentUtils.ts';
+import { useConfirmationStore } from '../../stores/useConfirmationStore.ts';
 
 interface DesvinculacionModalProps {
   isOpen: boolean;
@@ -19,7 +19,7 @@ const DesvinculacionModal: React.FC<DesvinculacionModalProps> = ({ isOpen, onClo
     const [causa, setCausa] = useState<CausaDesvinculacion>(CausaDesvinculacion.Desahucio);
     const [fechaSalida, setFechaSalida] = useState(new Date().toISOString().split('T')[0]);
     const [step, setStep] = useState(1);
-    const [savedDesvinculacion, setSavedDesvinculacion] = useState<(Omit<Desvinculacion, 'id' | 'empresaId' | 'asientoId'> & {id: number, empresaId: number}) | null>(null);
+    const [savedDesvinculacion, setSavedDesvinculacion] = useState<(Omit<Desvinculacion, 'id' | 'empresaId' | 'asientoId'> & {id: string, empresaId: string}) | null>(null);
 
     const prestaciones = useMemo(() => {
         if (!empleado) return null;
@@ -48,8 +48,7 @@ const DesvinculacionModal: React.FC<DesvinculacionModalProps> = ({ isOpen, onClo
                     prestaciones,
                 };
                 onSave(desvinculacionData);
-                // We need an ID for the letter, so let's simulate it. In a real app, onSave would return the created object.
-                setSavedDesvinculacion({ ...desvinculacionData, id: Date.now(), empresaId: empleado.empresaId });
+                setSavedDesvinculacion({ ...desvinculacionData, id: String(Date.now()), empresaId: empleado.empresaId });
                 setStep(2);
             }
         );
@@ -65,7 +64,7 @@ const DesvinculacionModal: React.FC<DesvinculacionModalProps> = ({ isOpen, onClo
     
     const handleDownloadCarta = () => {
         if (savedDesvinculacion && empleado) {
-            generarCartaDescargo(savedDesvinculacion, empleado);
+            generarCartaDescargo(savedDesvinculacion as Desvinculacion, empleado);
         }
     };
     
@@ -99,7 +98,7 @@ const DesvinculacionModal: React.FC<DesvinculacionModalProps> = ({ isOpen, onClo
                     <div className="space-y-4">
                         <div>
                             <label className="block text-sm font-medium">Empleado a Desvincular</label>
-                            <select onChange={(e) => setEmpleado(empleados.find(emp => emp.id === parseInt(e.target.value)) || null)} className="mt-1 w-full border-secondary-300 rounded-md">
+                            <select onChange={(e) => setEmpleado(empleados.find(emp => emp.id === e.target.value) || null)} className="mt-1 w-full border-secondary-300 rounded-md">
                                 <option>Seleccione un empleado...</option>
                                 {empleados.map(e => <option key={e.id} value={e.id}>{e.nombre} ({e.cedula})</option>)}
                             </select>

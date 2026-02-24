@@ -1,0 +1,116 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // --- FUNCIONES AUXILIARES ---
+
+    // Verifica si el usuario está autenticado
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Obtiene los datos del usuario actual desde la colección 'users'
+    // Se usa para verificar el empresaId y los roles del usuario que hace la petición.
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    // Verifica si el usuario tiene un rol específico (ej: 'Contador', 'Admin')
+    function hasRole(role) {
+      let user = getUserData();
+      return user.roles.hasAny([role]);
+    }
+
+    // Verifica si el usuario pertenece a la empresa del documento que intenta acceder
+    function belongsToCompany(empresaId) {
+      let user = getUserData();
+      return user.empresaId == empresaId;
+    }
+
+    // Permite acceso si el usuario es dueño de la empresa O si es Contador (Super Usuario en este contexto)
+    function canAccessCompanyData(empresaId) {
+      return belongsToCompany(empresaId) || hasRole('Contador');
+    }
+
+    // Valida que los nuevos documentos tengan obligatoriamente el campo empresaId
+    function hasEmpresaId() {
+      return request.resource.data.keys().hasAll(['empresaId']);
+    }
+
+    // --- REGLAS POR COLECCIÓN ---
+
+    // 1. Colección de Usuarios
+    match /users/{userId} {
+      // Un usuario puede leer su propio perfil.
+      // Un Contador puede leer cualquier perfil (para gestión).
+      // Un usuario de la misma empresa puede leer perfiles de sus compañeros (ej: ver quién creó una factura).
+      allow read: if isAuthenticated() && (
+        request.auth.uid == userId || 
+        hasRole('Contador') || 
+        belongsToCompany(resource.data.empresaId)
+      );
+      
+      // Solo se permite crear usuarios si se está autenticado (registro).
+      allow create: if isAuthenticated();
+      
+      // Un usuario puede actualizar sus propios datos básicos.
+      // Un Admin o Contador puede actualizar usuarios de su empresa.
+      allow update: if isAuthenticated() && (
+        request.auth.uid == userId || 
+        hasRole('Contador') || 
+        (hasRole('Admin') && belongsToCompany(resource.data.empresaId))
+      );
+      
+      // Solo Contadores o Admins pueden borrar usuarios.
+      allow delete: if isAuthenticated() && (hasRole('Contador') || hasRole('Admin'));
+    }
+
+    // 2. Colección de Empresas
+    match /empresas/{empresaId} {
+      allow read: if isAuthenticated() && canAccessCompanyData(empresaId);
+      allow create: if isAuthenticated(); // Permitir crear al registrarse
+      allow update: if isAuthenticated() && canAccessCompanyData(empresaId);
+    }
+
+    // 3. Colecciones de Datos del Negocio (Multi-tenant)
+    // Agrupamos todas las colecciones que dependen estrictamente del empresaId
+    match /{collectionName}/{docId} {
+      allow read: if isAuthenticated() 
+                  && (collectionName in ['clientes', 'facturas', 'gastos', 'items', 'ingresos', 'cotizaciones', 'notas', 'facturasRecurrentes', 'credenciales', 'empleados', 'nominas', 'desvinculaciones', 'asientosContables', 'cierresITBIS', 'pagosAnticiposISR', 'ncf_sequences'])
+                  && canAccessCompanyData(resource.data.empresaId);
+
+      allow create: if isAuthenticated() 
+                    && (collectionName in ['clientes', 'facturas', 'gastos', 'items', 'ingresos', 'cotizaciones', 'notas', 'facturasRecurrentes', 'credenciales', 'empleados', 'nominas', 'desvinculaciones', 'asientosContables', 'cierresITBIS', 'pagosAnticiposISR', 'ncf_sequences'])
+                    && hasEmpresaId()
+                    && canAccessCompanyData(request.resource.data.empresaId);
+
+      allow update: if isAuthenticated() 
+                    && (collectionName in ['clientes', 'facturas', 'gastos', 'items', 'ingresos', 'cotizaciones', 'notas', 'facturasRecurrentes', 'credenciales', 'empleados', 'nominas', 'desvinculaciones', 'asientosContables', 'cierresITBIS', 'pagosAnticiposISR', 'ncf_sequences'])
+                    && canAccessCompanyData(resource.data.empresaId)
+                    // No permitir cambiar el documento de una empresa a otra
+                    && request.resource.data.empresaId == resource.data.empresaId;
+
+      allow delete: if isAuthenticated() 
+                    && (collectionName in ['clientes', 'facturas', 'gastos', 'items', 'ingresos', 'cotizaciones', 'notas', 'facturasRecurrentes', 'credenciales', 'empleados', 'nominas', 'desvinculaciones', 'asientosContables', 'cierresITBIS', 'pagosAnticiposISR', 'ncf_sequences'])
+                    && canAccessCompanyData(resource.data.empresaId);
+    }
+
+    // 4. Base de Datos RNC (Compartida)
+    match /rnc_data/{rnc} {
+      allow read: if isAuthenticated(); // Todos los usuarios autenticados pueden consultar
+      allow write: if isAuthenticated() && (hasRole('Admin') || hasRole('Contador')); // Solo admins pueden actualizar la DB maestra
+    }
+
+    // 5. Metadatos del Sistema
+    match /_metadata/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() && (hasRole('Admin') || hasRole('Contador'));
+    }
+
+    // 6. Marketing (Landing Page)
+    match /marketing/{docId} {
+      allow read: if true; // Público para que cargue el Landing Page antes del login
+      allow write: if isAuthenticated() && hasRole('Contador'); // Solo el dueño del sistema edita precios/marketing
+    }
+  }
+}

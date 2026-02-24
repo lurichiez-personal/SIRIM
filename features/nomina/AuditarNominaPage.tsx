@@ -1,15 +1,18 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useDataStore } from '../../stores/useDataStore';
-import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/Card';
-import { Nomina, NominaStatus, Permission } from '../../types';
-import Button from '../../components/ui/Button';
-import Can from '../../components/Can';
+import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/Card.tsx';
+import { Nomina, NominaStatus, Permission } from '../../types.ts';
+import Button from '../../components/ui/Button.tsx';
+import Can from '../../components/Can.tsx';
+import { useConfirmationStore } from '../../stores/useConfirmationStore.ts';
 
 const AuditarNominaPage: React.FC = () => {
     const { nominaId } = useParams<{ nominaId: string }>();
     const navigate = useNavigate();
-    const { getNominaById, auditarNomina } = useDataStore();
+    const { getNominaById, auditarNomina, deleteNomina } = useDataStore();
+    const { showConfirmation } = useConfirmationStore();
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
     const nomina = useMemo(() => {
         if (!nominaId) return null;
@@ -22,14 +25,40 @@ const AuditarNominaPage: React.FC = () => {
         return (
             <div>
                 <h1 className="text-3xl font-bold text-secondary-800 mb-6">Nómina no encontrada</h1>
-                <p>No se pudo encontrar la nómina solicitada. <Link to="/nomina/historial" className="text-primary hover:underline">Volver al historial</Link>.</p>
+                <p>No se pudo encontrar la nómina solicitada. <Link to="/dashboard/nomina/historial" className="text-primary hover:underline">Volver al historial</Link>.</p>
             </div>
         );
     }
     
-    const handleAprobar = () => {
-        auditarNomina(nomina.id);
-        navigate('/nomina/historial');
+    const handleAprobar = async () => {
+        setIsSubmitting(true);
+        try {
+            await auditarNomina(nomina.id);
+            navigate('/dashboard/nomina/historial');
+        } catch (error) {
+            console.error("Error al aprobar la nómina:", error);
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+    
+    const handleRechazar = () => {
+        showConfirmation(
+            'Confirmar Rechazo',
+            `¿Está seguro de que desea rechazar y eliminar la nómina del período ${nomina.periodo}? Deberá generarla de nuevo.`,
+            async () => {
+                setIsSubmitting(true);
+                try {
+                    await deleteNomina(nomina.id);
+                    navigate('/dashboard/nomina/historial');
+                } catch (error) {
+                    // El error es manejado y mostrado por la alerta del data store
+                    console.error("Error al rechazar la nómina:", error);
+                } finally {
+                    setIsSubmitting(false);
+                }
+            }
+        );
     };
 
     const totals = {
@@ -43,10 +72,10 @@ const AuditarNominaPage: React.FC = () => {
     return (
         <div>
             <div className="flex items-center mb-4">
-                <Link to="/nomina/historial" className="text-primary hover:underline">&larr; Volver al Historial de Nóminas</Link>
+                <Link to="/dashboard/nomina/historial" className="text-primary hover:underline">&larr; Volver al Historial de Nóminas</Link>
             </div>
             <h1 className="text-3xl font-bold text-secondary-800 mb-2">Auditoría de Nómina - Período {nomina.periodo}</h1>
-            <p className="text-secondary-600 mb-6">Revisa los cálculos y detalles antes de aprobar para la contabilización.</p>
+            <p className="text-secondary-600 mb-6">Revisa los cálculos y detalles antes de aprobar para la contabilización y el pago.</p>
             
              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
                 <Card>
@@ -112,8 +141,13 @@ const AuditarNominaPage: React.FC = () => {
 
             {nomina.status === NominaStatus.PendienteAuditoria && (
                  <Can I={Permission.AUDITAR_NOMINA}>
-                    <div className="mt-8 flex justify-end">
-                        <Button size="md" onClick={handleAprobar}>Aprobar Nómina para Contabilizar</Button>
+                    <div className="mt-8 flex justify-end space-x-4">
+                        <Button size="md" variant="danger" onClick={handleRechazar} disabled={isSubmitting}>
+                            {isSubmitting ? 'Procesando...' : 'Rechazar y Eliminar'}
+                        </Button>
+                        <Button size="md" onClick={handleAprobar} disabled={isSubmitting}>
+                            {isSubmitting ? 'Procesando...' : 'Aprobar Nómina'}
+                        </Button>
                     </div>
                 </Can>
             )}

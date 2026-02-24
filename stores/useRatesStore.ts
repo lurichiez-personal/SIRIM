@@ -8,9 +8,9 @@ interface Rates {
 }
 
 interface RatesState {
-  ratesByCompany: { [empresaId: number]: Rates };
-  getRatesForTenant: (empresaId: number) => Rates;
-  updateRates: (empresaId: number, newRates: Rates) => void;
+  ratesByCompany: { [empresaId: string]: Rates };
+  getRatesForTenant: (empresaId: string) => Rates;
+  updateRates: (empresaId: string, newRates: Rates) => void;
 }
 
 const defaultRates: Rates = {
@@ -23,9 +23,9 @@ export const useRatesStore = create<RatesState>()(
   persist(
     (set, get) => ({
       ratesByCompany: {
-          1: defaultRates,
-          2: defaultRates,
-          3: defaultRates,
+          '1': defaultRates,
+          '2': defaultRates,
+          '3': defaultRates,
       },
       getRatesForTenant: (empresaId) => {
         const rates = get().ratesByCompany[empresaId];

@@ -1,5 +1,5 @@
-import React, { useState, useRef } from 'react';
-import { NCFSequence, NCFType } from '../../types';
+import React, { useState, useRef, useEffect } from 'react';
+import { NCFSequence, NCFType, isNcfNotaCredito } from '../../types';
 import Modal from '../../components/ui/Modal';
 import Button from '../../components/ui/Button';
 import { useEnterToNavigate } from '../../hooks/useEnterToNavigate';
@@ -15,10 +15,22 @@ const NCFSequenceModal: React.FC<NCFSequenceModalProps> = ({ isOpen, onClose, on
     const [prefijo, setPrefijo] = useState('B01');
     const [secuenciaDesde, setSecuenciaDesde] = useState('');
     const [secuenciaHasta, setSecuenciaHasta] = useState('');
+    const [fechaSolicitud, setFechaSolicitud] = useState(new Date().toISOString().split('T')[0]);
     const [fechaVencimiento, setFechaVencimiento] = useState('');
+    const [numeroSolicitud, setNumeroSolicitud] = useState('');
     const [errors, setErrors] = useState<any>({});
     const formRef = useRef<HTMLFormElement>(null);
     useEnterToNavigate(formRef);
+
+    const isNota = isNcfNotaCredito(tipo);
+
+    // Efecto para calcular fecha de vencimiento por default al 31/12 del año de solicitud
+    useEffect(() => {
+        if (fechaSolicitud) {
+            const year = new Date(fechaSolicitud + 'T00:00:00').getFullYear();
+            setFechaVencimiento(`${year}-12-31`);
+        }
+    }, [fechaSolicitud]);
 
     const handleTipoChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
         const newTipo = e.target.value as NCFType;
@@ -29,9 +41,20 @@ const NCFSequenceModal: React.FC<NCFSequenceModalProps> = ({ isOpen, onClose, on
     const validate = () => {
         const newErrors: any = {};
         if (!tipo) newErrors.tipo = "Debe seleccionar un tipo de NCF.";
-        if (parseInt(secuenciaDesde) <= 0) newErrors.secuenciaDesde = "Debe ser mayor a 0.";
-        if (parseInt(secuenciaHasta) <= parseInt(secuenciaDesde)) newErrors.secuenciaHasta = "Debe ser mayor que la secuencia inicial.";
-        if (!fechaVencimiento) newErrors.fechaVencimiento = "La fecha es obligatoria.";
+        
+        const desdeNum = Number(secuenciaDesde);
+        const hastaNum = Number(secuenciaHasta);
+
+        if (desdeNum <= 0) newErrors.secuenciaDesde = "Debe ser mayor a 0.";
+        if (hastaNum <= desdeNum) newErrors.secuenciaHasta = "Debe ser mayor que la secuencia inicial.";
+        
+        if (!fechaSolicitud) newErrors.fechaSolicitud = "La fecha de solicitud es obligatoria.";
+        
+        if (!isNota && !fechaVencimiento) {
+            newErrors.fechaVencimiento = "La fecha de vencimiento es obligatoria.";
+        }
+        
+        if (!numeroSolicitud.trim()) newErrors.numeroSolicitud = "El número de solicitud/autorización es obligatorio.";
         
         setErrors(newErrors);
         return Object.keys(newErrors).length === 0;
@@ -46,7 +69,10 @@ const NCFSequenceModal: React.FC<NCFSequenceModalProps> = ({ isOpen, onClose, on
             prefijo,
             secuenciaDesde: parseInt(secuenciaDesde),
             secuenciaHasta: parseInt(secuenciaHasta),
-            fechaVencimiento
+            fechaSolicitud,
+            // Para Notas de Crédito, enviamos una fecha remota para evitar bloqueos
+            fechaVencimiento: isNota ? '9999-12-31' : fechaVencimiento,
+            numeroSolicitud
         });
         onClose();
         resetForm();
@@ -57,7 +83,9 @@ const NCFSequenceModal: React.FC<NCFSequenceModalProps> = ({ isOpen, onClose, on
         setPrefijo('B01');
         setSecuenciaDesde('');
         setSecuenciaHasta('');
+        setFechaSolicitud(new Date().toISOString().split('T')[0]);
         setFechaVencimiento('');
+        setNumeroSolicitud('');
         setErrors({});
     };
 
@@ -66,7 +94,7 @@ const NCFSequenceModal: React.FC<NCFSequenceModalProps> = ({ isOpen, onClose, on
         onClose();
     };
 
-    const renderInput = (label: string, id: string, type: string, value: string, onChange: (value: string) => void, error?: string, readOnly = false) => (
+    const renderInput = (label: string, id: string, type: string, value: string, onChange: (value: string) => void, error?: string, readOnly = false, onBlur?: () => void) => (
          <div>
             <label htmlFor={id} className="block text-sm font-medium text-secondary-700">{label}</label>
             <input
@@ -75,6 +103,7 @@ const NCFSequenceModal: React.FC<NCFSequenceModalProps> = ({ isOpen, onClose, on
                 value={value}
                 readOnly={readOnly}
                 onChange={(e) => onChange(e.target.value)}
+                onBlur={onBlur}
                 className={`mt-1 block w-full px-3 py-2 border ${error ? 'border-red-500' : 'border-secondary-300'} rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary sm:text-sm ${readOnly ? 'bg-secondary-100' : ''}`}
             />
             {error && <p className="mt-1 text-sm text-red-600">{error}</p>}
@@ -86,6 +115,7 @@ const NCFSequenceModal: React.FC<NCFSequenceModalProps> = ({ isOpen, onClose, on
             isOpen={isOpen}
             onClose={handleClose}
             title="Añadir Nueva Secuencia NCF"
+            size="2xl"
         >
             <form ref={formRef} onSubmit={handleSubmit} noValidate>
                 <div className="p-6 space-y-4">
@@ -101,13 +131,27 @@ const NCFSequenceModal: React.FC<NCFSequenceModalProps> = ({ isOpen, onClose, on
                         </select>
                         {errors.tipo && <p className="mt-1 text-sm text-red-600">{errors.tipo}</p>}
                     </div>
-                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {renderInput('Número de Solicitud/Autorización *', 'numeroSolicitud', 'text', numeroSolicitud, setNumeroSolicitud, errors.numeroSolicitud)}
                         {renderInput('Prefijo', 'prefijo', 'text', prefijo, () => {}, undefined, true)}
-                        {renderInput('Fecha de Vencimiento *', 'fechaVencimiento', 'date', fechaVencimiento, setFechaVencimiento, errors.fechaVencimiento)}
-                     </div>
+                    </div>
+
                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {renderInput('Secuencia Desde *', 'secuenciaDesde', 'number', secuenciaDesde, setSecuenciaDesde, errors.secuenciaDesde)}
-                        {renderInput('Secuencia Hasta *', 'secuenciaHasta', 'number', secuenciaHasta, setSecuenciaHasta, errors.secuenciaHasta)}
+                        {renderInput('Fecha de Solicitud *', 'fechaSolicitud', 'date', fechaSolicitud, setFechaSolicitud, errors.fechaSolicitud)}
+                        {!isNota ? (
+                            renderInput('Fecha de Vencimiento *', 'fechaVencimiento', 'date', fechaVencimiento, setFechaVencimiento, errors.fechaVencimiento)
+                        ) : (
+                            <div className="flex flex-col justify-center">
+                                <span className="text-xs font-bold text-secondary-500 uppercase">Vigencia</span>
+                                <span className="text-sm font-semibold text-green-600">No aplica para Notas de Crédito</span>
+                            </div>
+                        )}
+                     </div>
+
+                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {renderInput('Secuencia Desde *', 'secuenciaDesde', 'text', secuenciaDesde, setSecuenciaDesde, errors.secuenciaDesde, false, () => setSecuenciaDesde(String(Number(secuenciaDesde))))}
+                        {renderInput('Secuencia Hasta *', 'secuenciaHasta', 'text', secuenciaHasta, setSecuenciaHasta, errors.secuenciaHasta, false, () => setSecuenciaHasta(String(Number(secuenciaHasta))))}
                     </div>
                 </div>
                  <div className="flex justify-end items-center p-4 bg-secondary-50 border-t border-secondary-200 rounded-b-lg space-x-3">

@@ -1,36 +1,41 @@
-import React, { useState, useEffect } from 'react';
-import { Item } from '../../types';
-import { useTenantStore } from '../../stores/useTenantStore';
-import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/Card';
-import Button from '../../components/ui/Button';
-import { PlusIcon, DownloadIcon } from '../../components/icons/Icons';
-import NuevoItemModal from './NuevoItemModal';
-import { useDataStore } from '../../stores/useDataStore';
-import Pagination from '../../components/ui/Pagination';
-import { exportToCSV } from '../../utils/csvExport';
+import React, { useState, useEffect, useMemo } from 'react';
+import { Item } from '../../types.ts';
+import { useTenantStore } from '../../stores/useTenantStore.ts';
+import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/Card.tsx';
+import Button from '../../components/ui/Button.tsx';
+import { PlusIcon, DownloadIcon } from '../../components/icons/Icons.tsx';
+import NuevoItemModal from './NuevoItemModal.tsx';
+import { useDataStore } from '../../stores/useDataStore.ts';
+import Pagination from '../../components/ui/Pagination.tsx';
+import { exportToCSV } from '../../utils/csvExport.ts';
+import { applyPagination } from '../../utils/pagination.ts';
 
 const ITEMS_PER_PAGE = 10;
 
 const InventarioPage: React.FC = () => {
     const { selectedTenant } = useTenantStore();
-    const { items, getPagedItems, addItem, updateItem } = useDataStore();
+    const { items, addItem, updateItem, isLoading } = useDataStore();
     
-    const [loading, setLoading] = useState(true);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [itemParaEditar, setItemParaEditar] = useState<Item | null>(null);
 
     const [currentPage, setCurrentPage] = useState(1);
     const [searchTerm, setSearchTerm] = useState('');
-    const [pagedData, setPagedData] = useState({ items: [], totalCount: 0 });
+    
+    const pagedData = useMemo(() => {
+        let filtered = [...items];
 
-    useEffect(() => {
-        if (selectedTenant) {
-            setLoading(true);
-            const data = getPagedItems({ page: currentPage, pageSize: ITEMS_PER_PAGE, searchTerm });
-            setPagedData(data);
-            setLoading(false);
+        if (searchTerm) {
+            const lowerTerm = searchTerm.toLowerCase();
+            filtered = filtered.filter(i =>
+                i.nombre.toLowerCase().includes(lowerTerm) ||
+                i.codigo.toLowerCase().includes(lowerTerm)
+            );
         }
-    }, [selectedTenant, currentPage, searchTerm, getPagedItems, items]);
+
+        return applyPagination(filtered, currentPage, ITEMS_PER_PAGE);
+
+    }, [items, currentPage, searchTerm]);
 
     const handleOpenModalParaCrear = () => {
         setItemParaEditar(null);
@@ -42,19 +47,23 @@ const InventarioPage: React.FC = () => {
         setIsModalOpen(true);
     };
 
-    const handleSaveItem = (itemData: Omit<Item, 'id' | 'empresaId'>) => {
-        if (itemParaEditar) {
-            updateItem({ ...itemParaEditar, ...itemData });
-        } else {
-            addItem(itemData);
+    const handleSaveItem = async (itemData: Omit<Item, 'id' | 'empresaId'>) => {
+        try {
+            if (itemParaEditar) {
+                await updateItem({ ...itemParaEditar, ...itemData });
+            } else {
+                await addItem(itemData);
+            }
+        } catch (error) {
+            console.error("Failed to save item:", error);
+            throw error; // Re-throw so the modal can catch it and stay open
         }
     };
     
     const formatCurrency = (value: number) => new Intl.NumberFormat('es-DO', { style: 'currency', currency: 'DOP' }).format(value);
 
     const handleExport = () => {
-        const dataToExport = getPagedItems({ page: 1, pageSize: pagedData.totalCount, searchTerm }).items;
-        exportToCSV(dataToExport.map(i => ({
+        exportToCSV(pagedData.items.map(i => ({
             'Codigo': i.codigo,
             'Nombre': i.nombre,
             'Descripcion': i.descripcion,
@@ -101,7 +110,7 @@ const InventarioPage: React.FC = () => {
                                 </tr>
                             </thead>
                             <tbody className="bg-white divide-y divide-secondary-200">
-                                {loading ? (
+                                {isLoading ? (
                                     <tr><td colSpan={5} className="text-center py-4">Cargando...</td></tr>
                                 ) : pagedData.items.length === 0 ? (
                                     <tr><td colSpan={5} className="text-center py-4 text-secondary-500">No hay ítems para esta empresa.</td></tr>

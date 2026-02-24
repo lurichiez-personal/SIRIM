@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { FacturaRecurrente, Cliente, Item, FacturaItem } from '../../types';
+import { FacturaRecurrente, Cliente, Item, FacturaItem } from '../../types.ts';
 import Modal from '../../components/ui/Modal';
 import Button from '../../components/ui/Button';
 import { PlusIcon, TrashIcon } from '../../components/icons/Icons';
@@ -13,24 +13,23 @@ import { useRatesStore } from '../../stores/useRatesStore';
 interface NuevaFacturaRecurrenteModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (data: Omit<FacturaRecurrente, 'id' | 'empresaId' | 'fechaProxima' | 'activa'> | FacturaRecurrente) => void;
+  onSave: (data: Omit<FacturaRecurrente, 'id' | 'empresaId' | 'fechaProxima' | 'activa'> | FacturaRecurrente) => Promise<void>;
   clientes: Cliente[];
   itemsDisponibles: Item[];
-  onCreateCliente: (newClientData: { nombre: string; rnc?: string }) => Cliente;
   plantillaParaEditar?: FacturaRecurrente | null;
 }
 
-const NuevaFacturaRecurrenteModal: React.FC<NuevaFacturaRecurrenteModalProps> = ({ isOpen, onClose, onSave, clientes, itemsDisponibles, onCreateCliente, plantillaParaEditar }) => {
+const NuevaFacturaRecurrenteModal: React.FC<NuevaFacturaRecurrenteModalProps> = ({ isOpen, onClose, onSave, clientes, itemsDisponibles, plantillaParaEditar }) => {
     const { selectedTenant } = useTenantStore();
     const { getRatesForTenant } = useRatesStore();
     const rates = useMemo(() => selectedTenant ? getRatesForTenant(selectedTenant.id) : { itbis: 0.18, isc: 0.16, propina: 0.10 }, [selectedTenant, getRatesForTenant]);
 
-    const [clienteId, setClienteId] = useState<number | null>(null);
+    const [clienteId, setClienteId] = useState<string | null>(null);
     const [clienteNombre, setClienteNombre] = useState('');
     const [descripcion, setDescripcion] = useState('');
     const [fechaInicio, setFechaInicio] = useState(new Date().toISOString().split('T')[0]);
     const [frecuencia, setFrecuencia] = useState<'diaria' | 'semanal' | 'mensual' | 'anual'>('mensual');
-    const [lineItems, setLineItems] = useState<Partial<FacturaItem & { key: number }>[]>([{ key: Date.now() }]);
+    const [lineItems, setLineItems] = useState<(Partial<FacturaItem> & { key: number })[]>([{ key: Date.now() }]);
     const [descuentoPorcentaje, setDescuentoPorcentaje] = useState(0);
     const [aplicaITBIS, setAplicaITBIS] = useState(true);
     const [aplicaISC, setAplicaISC] = useState(false);
@@ -63,12 +62,15 @@ const NuevaFacturaRecurrenteModal: React.FC<NuevaFacturaRecurrenteModalProps> = 
     const totals = useMemo(() => {
         const subtotal = lineItems.reduce((acc, item) => acc + (item.subtotal || 0), 0);
         const montoDescuento = subtotal * ((descuentoPorcentaje || 0) / 100);
-        
-        const itbis = aplicaITBIS ? subtotal * rates.itbis : 0;
+        const subtotalConDescuento = subtotal - montoDescuento;
+
+        // ITBIS se calcula sobre el subtotal después de aplicar el descuento.
+        const itbis = aplicaITBIS ? subtotalConDescuento * rates.itbis : 0;
+        // ISC y Propina Legal se calculan comúnmente sobre el subtotal antes del descuento.
         const isc = aplicaISC ? subtotal * rates.isc : 0;
         const propinaLegal = aplicaPropina ? subtotal * rates.propina : 0;
 
-        const montoTotal = (subtotal - montoDescuento) + itbis + isc + propinaLegal;
+        const montoTotal = subtotalConDescuento + itbis + isc + propinaLegal;
         
         return { subtotal, montoDescuento, itbis, isc, propinaLegal, montoTotal };
     }, [lineItems, descuentoPorcentaje, aplicaITBIS, aplicaISC, aplicaPropina, rates]);
@@ -85,7 +87,7 @@ const NuevaFacturaRecurrenteModal: React.FC<NuevaFacturaRecurrenteModalProps> = 
         return Object.keys(newErrors).length === 0;
     };
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!validate()) return;
         
@@ -109,12 +111,16 @@ const NuevaFacturaRecurrenteModal: React.FC<NuevaFacturaRecurrenteModalProps> = 
             activa
         };
         
-        if (isEditMode) {
-            onSave({ ...plantillaParaEditar, ...data });
-        } else {
-            onSave(data as Omit<FacturaRecurrente, 'id' | 'empresaId' | 'fechaProxima' | 'activa'>);
+        try {
+            if (isEditMode) {
+                await onSave({ ...plantillaParaEditar, ...data });
+            } else {
+                await onSave(data as Omit<FacturaRecurrente, 'id' | 'empresaId' | 'fechaProxima' | 'activa'>);
+            }
+            onClose();
+        } catch (error) {
+            // Modal stays open
         }
-        onClose();
     };
     
     const resetForm = () => {
@@ -143,7 +149,7 @@ const NuevaFacturaRecurrenteModal: React.FC<NuevaFacturaRecurrenteModalProps> = 
                 if (item.key === key) {
                     const updatedItem = { ...item, [field]: value };
                     if (field === 'itemId') {
-                        const selectedItem = itemsDisponibles.find(i => i.id === Number(value));
+                        const selectedItem = itemsDisponibles.find(i => i.id === value);
                         if (selectedItem) {
                             updatedItem.descripcion = selectedItem.nombre;
                             updatedItem.precioUnitario = selectedItem.precio;
@@ -177,8 +183,11 @@ const NuevaFacturaRecurrenteModal: React.FC<NuevaFacturaRecurrenteModalProps> = 
                         <div>
                             <label htmlFor="cliente" className="block text-sm font-medium text-secondary-700">Cliente *</label>
                             <select id="cliente" value={clienteId || ''} onChange={e => {
-                                const c = clientes.find(cl => cl.id === Number(e.target.value));
-                                if (c) { setClienteId(c.id); setClienteNombre(c.nombre); }
+                                const c = clientes.find(cl => cl.id === e.target.value);
+                                if (c) { 
+                                    setClienteId(c.id); 
+                                    setClienteNombre(c.nombre); 
+                                }
                             }} className={`mt-1 block w-full border ${errors.cliente ? 'border-red-500' : 'border-secondary-300'} rounded-md`}>
                                 <option value="">Seleccione un cliente</option>
                                 {clientes.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}

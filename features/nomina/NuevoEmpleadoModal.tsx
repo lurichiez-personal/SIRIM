@@ -9,7 +9,7 @@ import { InformationCircleIcon } from '../../components/icons/Icons';
 interface NuevoEmpleadoModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (data: Omit<Empleado, 'id' | 'empresaId'> | Empleado) => void;
+  onSave: (data: Omit<Empleado, 'id' | 'empresaId'> | Empleado) => Promise<void>;
   empleadoParaEditar: Empleado | null;
 }
 
@@ -19,6 +19,7 @@ const NuevoEmpleadoModal: React.FC<NuevoEmpleadoModalProps> = ({ isOpen, onClose
     const [cedula, setCedula] = useState('');
     const [puesto, setPuesto] = useState('');
     const [salarioBrutoMensual, setSalarioBrutoMensual] = useState('');
+    const [salarioRealMensual, setSalarioRealMensual] = useState('');
     const [fechaIngreso, setFechaIngreso] = useState('');
     const [activo, setActivo] = useState(true);
     const [rehireInfo, setRehireInfo] = useState<string | null>(null);
@@ -35,6 +36,7 @@ const NuevoEmpleadoModal: React.FC<NuevoEmpleadoModalProps> = ({ isOpen, onClose
                 setCedula(empleadoParaEditar.cedula);
                 setPuesto(empleadoParaEditar.puesto);
                 setSalarioBrutoMensual(String(empleadoParaEditar.salarioBrutoMensual));
+                setSalarioRealMensual(String(empleadoParaEditar.salarioRealMensual || ''));
                 setFechaIngreso(empleadoParaEditar.fechaIngreso);
                 setActivo(empleadoParaEditar.activo);
             } else {
@@ -59,28 +61,33 @@ const NuevoEmpleadoModal: React.FC<NuevoEmpleadoModalProps> = ({ isOpen, onClose
         }
     };
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         const data = {
             nombre,
             cedula,
             puesto,
             salarioBrutoMensual: parseFloat(salarioBrutoMensual),
+            salarioRealMensual: parseFloat(salarioRealMensual) || parseFloat(salarioBrutoMensual),
             fechaIngreso,
             activo
         };
 
-        if (isEditMode) {
-            onSave({ ...empleadoParaEditar, ...data });
-        } else {
-            onSave(data);
+        try {
+            if (isEditMode) {
+                await onSave({ ...empleadoParaEditar, ...data });
+            } else {
+                await onSave(data);
+            }
+            onClose();
+        } catch (error) {
+            // Modal stays open
         }
-        onClose();
     };
 
     const resetForm = () => {
         setNombre(''); setCedula(''); setPuesto(''); setSalarioBrutoMensual(''); 
-        setFechaIngreso(''); setActivo(true); setErrors({}); setRehireInfo(null);
+        setSalarioRealMensual(''); setFechaIngreso(''); setActivo(true); setErrors({}); setRehireInfo(null);
     };
 
     return (
@@ -108,22 +115,26 @@ const NuevoEmpleadoModal: React.FC<NuevoEmpleadoModalProps> = ({ isOpen, onClose
                             <label htmlFor="puesto-empleado" className="block text-sm font-medium">Puesto *</label>
                             <input type="text" id="puesto-empleado" value={puesto} onChange={e => setPuesto(e.target.value)} required className="mt-1 w-full border-secondary-300 rounded-md" />
                         </div>
-                        <div>
-                            <label htmlFor="salario-empleado" className="block text-sm font-medium">Salario Bruto Mensual *</label>
-                            <input type="number" id="salario-empleado" value={salarioBrutoMensual} onChange={e => setSalarioBrutoMensual(e.target.value)} required className="mt-1 w-full border-secondary-300 rounded-md" />
+                         <div>
+                            <label htmlFor="fecha-ingreso" className="block text-sm font-medium">Fecha de Ingreso *</label>
+                            <input type="date" id="fecha-ingreso" value={fechaIngreso} onChange={e => setFechaIngreso(e.target.value)} required className="mt-1 w-full border-secondary-300 rounded-md" />
                         </div>
                     </div>
                      <div className="grid grid-cols-2 gap-4">
                         <div>
-                            <label htmlFor="fecha-ingreso" className="block text-sm font-medium">Fecha de Ingreso *</label>
-                            <input type="date" id="fecha-ingreso" value={fechaIngreso} onChange={e => setFechaIngreso(e.target.value)} required className="mt-1 w-full border-secondary-300 rounded-md" />
+                            <label htmlFor="salario-empleado" className="block text-sm font-medium">Salario Base (TSS) *</label>
+                            <input type="number" id="salario-empleado" value={salarioBrutoMensual} onChange={e => setSalarioBrutoMensual(e.target.value)} required className="mt-1 w-full border-secondary-300 rounded-md" />
                         </div>
                         <div>
-                            <p className="block text-sm font-medium">Estado</p>
-                            <div className="mt-2 flex space-x-4">
-                               <label><input type="radio" name="status" value="activo" checked={activo} onChange={() => setActivo(true)} /> Activo</label>
-                               <label><input type="radio" name="status" value="inactivo" checked={!activo} onChange={() => setActivo(false)} /> Inactivo</label>
-                            </div>
+                            <label htmlFor="salario-real" className="block text-sm font-medium text-primary-700">Salario Real (Interno)</label>
+                            <input type="number" id="salario-real" value={salarioRealMensual} onChange={e => setSalarioRealMensual(e.target.value)} className="mt-1 w-full border-primary-300 bg-primary-50 focus:ring-primary-500 rounded-md" placeholder="Dejar igual si es el mismo" />
+                        </div>
+                    </div>
+                     <div>
+                        <p className="block text-sm font-medium">Estado</p>
+                        <div className="mt-2 flex space-x-4">
+                           <label><input type="radio" name="status" value="activo" checked={activo} onChange={() => setActivo(true)} /> Activo</label>
+                           <label><input type="radio" name="status" value="inactivo" checked={!activo} onChange={() => setActivo(false)} /> Inactivo</label>
                         </div>
                     </div>
                 </div>

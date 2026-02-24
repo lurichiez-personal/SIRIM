@@ -1,12 +1,12 @@
-import React, { useState } from 'react';
-import { Cotizacion, CotizacionEstado } from '../../types';
-import Modal from '../../components/ui/Modal';
-import Button from '../../components/ui/Button';
-import { useTenantStore } from '../../stores/useTenantStore';
-import { useDataStore } from '../../stores/useDataStore';
-import { useSettingsStore } from '../../stores/useSettingsStore';
-import Comments from '../../components/ui/Comments';
-import AuditTrail from '../../components/ui/AuditTrail';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
+import { Cotizacion, CotizacionEstado } from '../../types.ts';
+import Modal from '../../components/ui/Modal.tsx';
+import Button from '../../components/ui/Button.tsx';
+import { useTenantStore } from '../../stores/useTenantStore.ts';
+import { useDataStore } from '../../stores/useDataStore.ts';
+import Comments from '../../components/ui/Comments.tsx';
+import AuditTrail from '../../components/ui/AuditTrail.tsx';
+import { ShareIcon, DocumentArrowDownIcon, WhatsappIcon, EnvelopeIcon } from '../../components/icons/Icons.tsx';
 
 interface VistaPreviaCotizacionModalProps {
   isOpen: boolean;
@@ -16,15 +16,37 @@ interface VistaPreviaCotizacionModalProps {
 
 const VistaPreviaCotizacionModal: React.FC<VistaPreviaCotizacionModalProps> = ({ isOpen, onClose, cotizacion }) => {
     const { selectedTenant } = useTenantStore();
-    const { settings } = useSettingsStore();
+    const { clientes } = useDataStore();
     const [activeTab, setActiveTab] = useState<'details' | 'comments' | 'history'>('details');
+    const [isShareMenuOpen, setIsShareMenuOpen] = useState(false);
+    const shareMenuRef = useRef<HTMLDivElement>(null);
+    
+    const accentColor = useMemo(() => {
+        return selectedTenant?.accentColor || '#005A9C';
+    }, [selectedTenant]);
+
+    // Logic for Logo: Use uploaded URL or generate a random one based on name
+    const logoSrc = useMemo(() => {
+        if (selectedTenant?.logoUrl) return selectedTenant.logoUrl;
+        const name = selectedTenant?.nombre || 'Empresa';
+        return `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=random&color=fff&size=128&bold=true`;
+    }, [selectedTenant]);
+    
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+          if (shareMenuRef.current && !shareMenuRef.current.contains(event.target as Node)) {
+            setIsShareMenuOpen(false);
+          }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
 
     if (!isOpen || !cotizacion) return null;
+    
+    const cliente = clientes.find(c => c.id === cotizacion.clienteId);
 
-    const tenantSettings = settings[selectedTenant?.id || 0];
-    const accentColor = tenantSettings?.accentColor || '#005A9C';
-
-    const handlePrint = () => {
+    const handlePrintOrPdf = () => {
         const printContent = document.getElementById('quote-preview-content');
         if (printContent) {
             const printWindow = window.open('', '', 'height=800,width=1000');
@@ -40,6 +62,21 @@ const VistaPreviaCotizacionModal: React.FC<VistaPreviaCotizacionModalProps> = ({
     
     const formatCurrency = (value: number) => new Intl.NumberFormat('es-DO', { style: 'currency', currency: 'DOP' }).format(value);
     
+    const handleShareWhatsApp = () => {
+        const message = `Hola, le compartimos un resumen de la cotización #${cotizacion.id} por un monto de ${formatCurrency(cotizacion.montoTotal)}. Quedamos a su disposición.`;
+        const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(message)}`;
+        window.open(whatsappUrl, '_blank');
+        setIsShareMenuOpen(false);
+    };
+
+    const handleShareEmail = () => {
+        const subject = `Cotización #${cotizacion.id} de ${selectedTenant?.nombre}`;
+        const body = `Hola ${cotizacion.clienteNombre},\n\nAdjunto encontrará un resumen de su cotización.\n\nNúmero de Cotización: #${cotizacion.id}\nMonto Total: ${formatCurrency(cotizacion.montoTotal)}\nFecha: ${new Date(cotizacion.fecha + 'T00:00:00').toLocaleDateString('es-DO')}\n\nGracias,\n${selectedTenant?.nombre}`;
+        const mailtoLink = `mailto:${cliente?.email || ''}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+        window.location.href = mailtoLink;
+        setIsShareMenuOpen(false);
+    };
+
     const getStatusBadge = (estado: CotizacionEstado) => {
         const statuses: { [key in CotizacionEstado]: string } = {
             [CotizacionEstado.Pendiente]: 'bg-yellow-100 text-yellow-800',
@@ -64,7 +101,27 @@ const VistaPreviaCotizacionModal: React.FC<VistaPreviaCotizacionModalProps> = ({
     const modalFooter = (
       <>
         <Button variant="secondary" onClick={onClose}>Cerrar</Button>
-        <Button onClick={handlePrint} style={{ backgroundColor: accentColor }}>Imprimir</Button>
+        <div ref={shareMenuRef} className="relative">
+          <Button variant="secondary" onClick={() => setIsShareMenuOpen(prev => !prev)} leftIcon={<ShareIcon className="h-5 w-5"/>}>
+            Compartir
+          </Button>
+          {isShareMenuOpen && (
+            <div className="absolute bottom-full mb-2 right-0 bg-white rounded-md shadow-lg z-20 border w-48 py-1">
+              <button onClick={handleShareWhatsApp} className="w-full text-left px-4 py-2 text-sm text-secondary-700 hover:bg-secondary-100 flex items-center space-x-2">
+                <WhatsappIcon className="h-5 w-5 text-green-500" />
+                <span>Vía WhatsApp</span>
+              </button>
+              <button onClick={handleShareEmail} className="w-full text-left px-4 py-2 text-sm text-secondary-700 hover:bg-secondary-100 flex items-center space-x-2">
+                <EnvelopeIcon className="h-5 w-5 text-secondary-500" />
+                <span>Vía Correo</span>
+              </button>
+            </div>
+          )}
+        </div>
+        <Button variant="secondary" onClick={handlePrintOrPdf} leftIcon={<DocumentArrowDownIcon className="h-5 w-5"/>}>
+            Descargar PDF
+        </Button>
+        <Button onClick={handlePrintOrPdf} style={{ backgroundColor: accentColor }}>Imprimir</Button>
       </>
     );
     
@@ -89,7 +146,7 @@ const VistaPreviaCotizacionModal: React.FC<VistaPreviaCotizacionModalProps> = ({
                     <div id="quote-preview-content" className="text-secondary-800 animate-fade-in">
                         <header className="flex justify-between items-start pb-4">
                             <div className="flex items-center space-x-4">
-                                {tenantSettings?.logoUrl && <img src={tenantSettings.logoUrl} alt="Logo de la empresa" className="h-16 w-auto object-contain" />}
+                                <img src={logoSrc} alt="Logo de la empresa" className="h-16 w-auto object-contain rounded-md" />
                                 <div>
                                     <h2 className="font-bold text-lg" style={{ color: accentColor }}>{selectedTenant?.nombre}</h2>
                                     <p className="text-sm">RNC: {selectedTenant?.rnc}</p>
@@ -182,9 +239,9 @@ const VistaPreviaCotizacionModal: React.FC<VistaPreviaCotizacionModalProps> = ({
                             </div>
                         </section>
 
-                        {tenantSettings?.footerText && (
+                        {selectedTenant?.footerText && (
                             <footer className="text-center text-xs text-secondary-500 pt-6 mt-6 border-t">
-                                <p>{tenantSettings.footerText}</p>
+                                <p>{selectedTenant.footerText}</p>
                             </footer>
                         )}
                     </div>

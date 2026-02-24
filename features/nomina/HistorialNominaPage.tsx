@@ -6,9 +6,10 @@ import { Nomina, NominaStatus, Permission } from '../../types';
 import Button from '../../components/ui/Button';
 import Can from '../../components/Can';
 import { useConfirmationStore } from '../../stores/useConfirmationStore';
+import { TrashIcon } from '../../components/icons/Icons';
 
 const HistorialNominaPage: React.FC = () => {
-    const { nominas, contabilizarNomina } = useDataStore();
+    const { nominas, deleteNomina } = useDataStore();
     const navigate = useNavigate();
     const { showConfirmation } = useConfirmationStore();
 
@@ -18,16 +19,24 @@ const HistorialNominaPage: React.FC = () => {
         const map = {
             [NominaStatus.PendienteAuditoria]: 'bg-yellow-100 text-yellow-800',
             [NominaStatus.Auditada]: 'bg-blue-100 text-blue-800',
-            [NominaStatus.Contabilizada]: 'bg-green-100 text-green-800',
+            [NominaStatus.Pagada]: 'bg-green-100 text-green-800',
         };
         return map[status] || 'bg-secondary-100 text-secondary-800';
     };
     
-    const handleContabilizar = (nominaId: string) => {
+    const handleDelete = (nomina: Nomina) => {
         showConfirmation(
-            'Confirmar Contabilización',
-            '¿Está seguro de que desea contabilizar esta nómina? Esta acción generará el asiento contable y no se puede revertir.',
-            () => contabilizarNomina(nominaId)
+            'Confirmar Eliminación',
+            `¿Está seguro de que desea eliminar la nómina del período ${nomina.periodo}? Esta acción le permitirá volver a generarla, pero no se puede deshacer.`,
+            async () => {
+                try {
+                    await deleteNomina(nomina.id);
+                } catch (error) {
+                    // The data store now shows its own alerts on success or failure,
+                    // so we just need to catch the promise rejection here to prevent an uncaught error.
+                    console.error("Deletion failed:", error);
+                }
+            }
         );
     };
 
@@ -67,17 +76,23 @@ const HistorialNominaPage: React.FC = () => {
                                             <td className="px-6 py-4 text-right space-x-2">
                                                 {nomina.status === NominaStatus.PendienteAuditoria && (
                                                     <Can I={Permission.AUDITAR_NOMINA}>
-                                                        <Button size="sm" onClick={() => navigate(`/nomina/auditar/${nomina.id}`)}>Auditar</Button>
+                                                        <Button size="sm" onClick={() => navigate(`/dashboard/nomina/auditar/${nomina.id}`)}>Auditar</Button>
                                                     </Can>
                                                 )}
-                                                {nomina.status === NominaStatus.Auditada && (
-                                                    <Can I={Permission.CONTABILIZAR_NOMINA}>
-                                                        <Button size="sm" onClick={() => handleContabilizar(nomina.id)}>Contabilizar</Button>
-                                                    </Can>
+                                                {(nomina.status === NominaStatus.Auditada || nomina.status === NominaStatus.Pagada) && (
+                                                    <Button size="sm" variant="secondary" onClick={() => navigate(`/dashboard/nomina/auditar/${nomina.id}`)}>Ver Detalles</Button>
                                                 )}
-                                                {nomina.status === NominaStatus.Contabilizada && (
-                                                    <Button size="sm" variant="secondary" onClick={() => navigate(`/nomina/auditar/${nomina.id}`)}>Ver Detalles</Button>
-                                                )}
+                                                <Can I={Permission.ELIMINAR_NOMINA}>
+                                                    <Button
+                                                        size="sm"
+                                                        variant="danger"
+                                                        onClick={() => handleDelete(nomina)}
+                                                        disabled={nomina.status === NominaStatus.Pagada}
+                                                        title={nomina.status === NominaStatus.Pagada ? 'No se puede eliminar una nómina ya pagada' : 'Eliminar Nómina'}
+                                                    >
+                                                        <TrashIcon className="h-4 w-4" />
+                                                    </Button>
+                                                </Can>
                                             </td>
                                         </tr>
                                     ))

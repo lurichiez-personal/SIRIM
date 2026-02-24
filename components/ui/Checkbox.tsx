@@ -6,15 +6,16 @@ interface CheckboxProps {
   onChange: (checked: boolean) => void;
   label?: string;
   id?: string;
+  title?: string;
 }
 
-const Checkbox: React.FC<CheckboxProps> = ({ checked, onChange, label, id }) => {
+const Checkbox: React.FC<CheckboxProps> = ({ checked, onChange, label, id, title }) => {
   const handleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     onChange(event.target.checked);
   };
 
   return (
-    <label htmlFor={id} className="inline-flex items-center">
+    <label htmlFor={id} className="inline-flex items-center" title={title}>
       <input
         id={id}
         type="checkbox"

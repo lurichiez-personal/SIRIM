@@ -1,50 +1,50 @@
 
 import React from 'react';
-import { useClientAuthStore } from '../../stores/useClientAuthStore';
-import { useDataStore } from '../../stores/useDataStore';
-import { Card, CardHeader, CardTitle, CardContent } from '../../components/ui/Card';
-import { FacturaEstado, CotizacionEstado } from '../../types';
+import { useClientAuthStore } from '../../stores/useClientAuthStore.ts';
+import { useDataStore } from '../../stores/useDataStore.ts';
+import { Card, CardHeader, CardTitle, CardContent } from '../../components/ui/Card.tsx';
+import { FacturaEstado } from '../../types.ts';
 
 const PortalDashboardPage: React.FC = () => {
     const { clientUser } = useClientAuthStore();
-    const { facturas, cotizaciones } = useDataStore();
-
+    const { facturas } = useDataStore();
+    
     if (!clientUser) return null;
 
-    const misFacturasPendientes = facturas.filter(f => 
-        f.clienteId === clientUser.clienteId &&
-        (f.estado === FacturaEstado.Emitida || f.estado === FacturaEstado.PagadaParcialmente || f.estado === FacturaEstado.Vencida)
-    );
-    const misCotizacionesPendientes = cotizaciones.filter(c =>
-        c.clienteId === clientUser.clienteId &&
-        c.estado === CotizacionEstado.Pendiente
-    );
-    
+    const misFacturas = facturas.filter(f => f.clienteId === clientUser.clienteId && f.estado !== FacturaEstado.Anulada);
+
     const formatCurrency = (value: number) => new Intl.NumberFormat('es-DO', { style: 'currency', currency: 'DOP' }).format(value);
 
+    const totalPendiente = misFacturas.reduce((acc, f) => acc + (Number(f.montoTotal) - Number(f.montoPagado)), 0);
+    const facturasPendientes = misFacturas.filter(f => f.estado === FacturaEstado.Emitida || f.estado === FacturaEstado.Vencida || f.estado === FacturaEstado.PagadaParcialmente);
+    const facturasVencidas = misFacturas.filter(f => f.estado === FacturaEstado.Vencida);
+
     return (
-        <div className="space-y-6">
-            <h1 className="text-2xl font-bold text-secondary-800">Resumen de Cuenta</h1>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Facturas Pendientes de Pago</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <p className="text-3xl font-bold text-red-600">{misFacturasPendientes.length}</p>
-                        <p className="text-secondary-600">Monto total por pagar: {formatCurrency(misFacturasPendientes.reduce((sum, f) => sum + (f.montoTotal - f.montoPagado), 0))}</p>
-                    </CardContent>
-                </Card>
-                 <Card>
-                    <CardHeader>
-                        <CardTitle>Cotizaciones Pendientes de Aprobación</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <p className="text-3xl font-bold text-yellow-600">{misCotizacionesPendientes.length}</p>
-                        <p className="text-secondary-600">Monto total por aprobar: {formatCurrency(misCotizacionesPendientes.reduce((sum, c) => sum + c.montoTotal, 0))}</p>
-                    </CardContent>
-                </Card>
-            </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <Card>
+                <CardHeader>
+                    <CardTitle>Balance Total Pendiente</CardTitle>
+                </CardHeader>
+                <CardContent>
+                    <p className="text-3xl font-bold text-yellow-600">{formatCurrency(totalPendiente)}</p>
+                </CardContent>
+            </Card>
+            <Card>
+                <CardHeader>
+                    <CardTitle>Facturas Pendientes</CardTitle>
+                </CardHeader>
+                <CardContent>
+                    <p className="text-3xl font-bold text-blue-600">{facturasPendientes.length}</p>
+                </CardContent>
+            </Card>
+            <Card>
+                <CardHeader>
+                    <CardTitle>Facturas Vencidas</CardTitle>
+                </CardHeader>
+                <CardContent>
+                    <p className="text-3xl font-bold text-red-600">{facturasVencidas.length}</p>
+                </CardContent>
+            </Card>
         </div>
     );
 };

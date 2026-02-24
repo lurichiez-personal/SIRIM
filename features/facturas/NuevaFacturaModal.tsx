@@ -1,5 +1,7 @@
+
+// src/features/facturas/NuevaFacturaModal.tsx
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { Factura, Cliente, Item, FacturaItem, Cotizacion, NCFType, FacturaRecurrente } from '../../types';
+import { Factura, Cliente, Item, FacturaItem, Cotizacion, NCFType, FacturaRecurrente, FacturaEstado } from '../../types';
 import Modal from '../../components/ui/Modal';
 import Button from '../../components/ui/Button';
 import { PlusIcon, TrashIcon } from '../../components/icons/Icons';
@@ -13,46 +15,80 @@ import { useRatesStore } from '../../stores/useRatesStore';
 interface NuevaFacturaModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (facturaData: Omit<Factura, 'id' | 'empresaId' | 'estado' | 'ncf' | 'montoPagado'> & { ncfTipo: NCFType }) => void;
+  onSave: (facturaData: any) => void;
   clientes: Cliente[];
   itemsDisponibles: Item[];
-  onCreateCliente: (newClientData: { nombre: string; rnc?: string, estadoDGII?: string }) => Cliente;
+  facturas: Factura[];
+  onCreateCliente: (newClientData: { nombre: string; rnc?: string, estadoDGII?: string }) => Promise<Cliente>;
   cotizacionParaFacturar?: Cotizacion | null;
   facturaRecurrenteParaFacturar?: FacturaRecurrente | null;
   facturaParaEditar?: Factura | null;
 }
 
-const NuevaFacturaModal: React.FC<NuevaFacturaModalProps> = ({ isOpen, onClose, onSave, clientes, itemsDisponibles, onCreateCliente, cotizacionParaFacturar, facturaRecurrenteParaFacturar, facturaParaEditar }) => {
+const NuevaFacturaModal: React.FC<NuevaFacturaModalProps> = ({ isOpen, onClose, onSave, clientes, itemsDisponibles, facturas, onCreateCliente, cotizacionParaFacturar, facturaRecurrenteParaFacturar, facturaParaEditar }) => {
     const { selectedTenant } = useTenantStore();
     const { getRatesForTenant } = useRatesStore();
+    const { sequences } = useNCFStore();
     const formRef = useRef<HTMLFormElement>(null);
     useEnterToNavigate(formRef);
 
-    const [clienteId, setClienteId] = useState<number | null>(null);
+    const [clienteId, setClienteId] = useState<string | null>(null);
     const [clienteRNC, setClienteRNC] = useState('');
     const [clienteNombre, setClienteNombre] = useState('');
     const [clienteEstadoDGII, setClienteEstadoDGII] = useState<string | null>(null);
     const [fecha, setFecha] = useState(new Date().toISOString().split('T')[0]);
     const [ncfTipo, setNcfTipo] = useState<NCFType>(NCFType.B02);
     const [ncfNumero, setNcfNumero] = useState('');
-    const [lineItems, setLineItems] = useState<Partial<FacturaItem & { key: number, stock?: number }>[]>([{ key: Date.now() }]);
+    const [ncfModificado, setNcfModificado] = useState('');
+    const [lineItems, setLineItems] = useState<(Partial<FacturaItem> & { key: number, stock?: number })[]>([{ key: Date.now() }]);
     const [descuentoPorcentaje, setDescuentoPorcentaje] = useState(0);
     
     const [aplicaITBIS, setAplicaITBIS] = useState(true);
     const [aplicaISC, setAplicaISC] = useState(false);
     const [aplicaPropina, setAplicaPropina] = useState(false);
+    const [itbisRetenido, setItbisRetenido] = useState(0);
 
-    const [errors, setErrors] = useState<{ cliente?: string; fecha?: string; items?: string, lineItemStock?: {[key: number]: string} }>({});
-    const [sourceCotizacionId, setSourceCotizacionId] = useState<number | undefined>(undefined);
-    const [sourceFacturaRecurrenteId, setSourceFacturaRecurrenteId] = useState<number | undefined>(undefined);
+    const [errors, setErrors] = useState<{ cliente?: string; fecha?: string; items?: string, ncfModificado?: string, lineItemStock?: {[key: number]: string} }>({});
+    const [sourceCotizacionId, setSourceCotizacionId] = useState<string | undefined>(undefined);
+    const [sourceFacturaRecurrenteId, setSourceFacturaRecurrenteId] = useState<string | undefined>(undefined);
 
     const { lookupRNC, loading: isLookingUpRNC } = useDGIIDataStore();
     const isEditMode = !!facturaParaEditar;
     const rates = useMemo(() => selectedTenant ? getRatesForTenant(selectedTenant.id) : { itbis: 0.18, isc: 0.16, propina: 0.10 }, [selectedTenant, getRatesForTenant]);
 
+    // Efecto para calcular el NCF de turno (Preview) cuando cambia el tipo
+    useEffect(() => {
+        if (!isEditMode && selectedTenant && sequences.length > 0) {
+            const sequence = sequences.find(s => s.tipo === ncfTipo && s.empresaId === selectedTenant.id && s.activa);
+            if (sequence) {
+                // Lógica de visualización: Prefijo + Padding(SecuenciaActual)
+                // Nota: SecuenciaActual en DB suele ser el número que toca usar.
+                let ncfLength = 8;
+                if (sequence.prefijo.startsWith('B')) ncfLength = 11 - sequence.prefijo.length;
+                else if (sequence.prefijo.startsWith('E')) ncfLength = 13 - sequence.prefijo.length;
+                
+                const nextNcf = sequence.prefijo + String(sequence.secuenciaActual).padStart(ncfLength, '0');
+                setNcfNumero(nextNcf);
+            } else {
+                setNcfNumero(''); // No hay secuencia configurada
+            }
+        }
+    }, [ncfTipo, sequences, selectedTenant, isEditMode]);
+
+    // Efecto para sincronizar ncfTipo con el prefijo del ncfNumero manual si el usuario lo cambia
+    useEffect(() => {
+        if (ncfNumero.length >= 3 && isEditMode) { // Solo en edit mode auto-detectamos tipo al escribir, en create mode confiamos en el select
+            const prefix = ncfNumero.substring(0, 3).toUpperCase();
+            const foundType = Object.values(NCFType).find(t => t.startsWith(prefix));
+            if (foundType && foundType !== ncfTipo) {
+                setNcfTipo(foundType as NCFType);
+            }
+        }
+    }, [ncfNumero, ncfTipo, isEditMode]);
+
     const nombreInputClass = useMemo(() => {
-        if (errors.cliente) return 'border-red-500'; // Error takes precedence
-        if (!clienteEstadoDGII) return 'border-secondary-300'; // Default
+        if (errors.cliente) return 'border-red-500'; 
+        if (!clienteEstadoDGII) return 'border-secondary-300'; 
         
         if (clienteEstadoDGII.toUpperCase() === 'ACTIVO') {
             return 'bg-green-100 border-green-500 text-green-800 focus:ring-green-500 focus:border-green-500';
@@ -75,14 +111,25 @@ const NuevaFacturaModal: React.FC<NuevaFacturaModalProps> = ({ isOpen, onClose, 
             setClienteNombre(dataToLoad.clienteNombre);
             setClienteRNC(clienteAsociado?.rnc || (dataToLoad as Cotizacion).clienteRNC || '');
             setClienteEstadoDGII(clienteAsociado?.estadoDGII || null);
-            setFecha(new Date().toISOString().split('T')[0]); // Default to today for new invoices from templates
+            setFecha(new Date().toISOString().split('T')[0]); 
             if(facturaParaEditar) {
                 setFecha(facturaParaEditar.fecha);
                 setNcfNumero(facturaParaEditar.ncf || ''); 
+                setItbisRetenido(facturaParaEditar.itbisRetenido || 0);
+                setNcfModificado(facturaParaEditar.ncfModificado || (facturaParaEditar as any).facturaAfectadaNCF || '');
+                setNcfTipo(facturaParaEditar.ncfTipo);
             }
             setLineItems(dataToLoad.items.map(item => ({...item, key: Math.random(), stock: itemsDisponibles.find(i => i.id === item.itemId)?.cantidadDisponible })));
-            setSourceCotizacionId((dataToLoad as Factura).cotizacionId || (dataToLoad as Cotizacion).id);
-            setSourceFacturaRecurrenteId((dataToLoad as Factura).facturaRecurrenteId || (dataToLoad as FacturaRecurrente).id);
+            if ('cotizacionId' in dataToLoad && (dataToLoad as any).cotizacionId) {
+                setSourceCotizacionId((dataToLoad as any).cotizacionId);
+            } else if (!('cotizacionId' in dataToLoad) && 'id' in dataToLoad && 'items' in dataToLoad && !('frecuencia' in dataToLoad)) {
+                setSourceCotizacionId(dataToLoad.id);
+            }
+            if ('facturaRecurrenteId' in dataToLoad && (dataToLoad as any).facturaRecurrenteId) {
+                setSourceFacturaRecurrenteId((dataToLoad as any).facturaRecurrenteId);
+            } else if ('frecuencia' in dataToLoad) {
+                setSourceFacturaRecurrenteId(dataToLoad.id);
+            }
             setDescuentoPorcentaje(dataToLoad.descuentoPorcentaje || 0);
             setAplicaITBIS(dataToLoad.aplicaITBIS);
             setAplicaISC(dataToLoad.aplicaISC || false);
@@ -95,21 +142,21 @@ const NuevaFacturaModal: React.FC<NuevaFacturaModalProps> = ({ isOpen, onClose, 
     const totals = useMemo(() => {
         const subtotal = lineItems.reduce((acc, item) => acc + (item.subtotal || 0), 0);
         const montoDescuento = subtotal * ((descuentoPorcentaje || 0) / 100);
-        
-        // New logic based on user request: taxes are based on pre-discount subtotal
-        const itbis = aplicaITBIS ? subtotal * rates.itbis : 0;
+        const subtotalConDescuento = subtotal - montoDescuento;
+        const itbis = aplicaITBIS ? subtotalConDescuento * rates.itbis : 0;
         const isc = aplicaISC ? subtotal * rates.isc : 0;
         const propinaLegal = aplicaPropina ? subtotal * rates.propina : 0;
-
-        const montoTotal = (subtotal - montoDescuento) + itbis + isc + propinaLegal;
-        
+        const montoTotal = subtotalConDescuento + itbis + isc + propinaLegal;
         return { subtotal, montoDescuento, itbis, isc, propinaLegal, montoTotal };
     }, [lineItems, descuentoPorcentaje, aplicaITBIS, aplicaISC, aplicaPropina, rates]);
     
+    const isNota = useMemo(() => ncfTipo === NCFType.B04 || ncfTipo === NCFType.E34 || ncfTipo === NCFType.B03 || ncfTipo === NCFType.E33, [ncfTipo]);
+
     const validate = () => {
         const newErrors: any = { lineItemStock: {} };
         if (!clienteNombre.trim()) newErrors.cliente = 'Debe especificar un cliente.';
         if (!fecha) newErrors.fecha = 'La fecha es obligatoria.';
+        if (isNota && !ncfModificado) newErrors.ncfModificado = 'Debe seleccionar la factura que se modifica.';
         
         let hasInvalidItem = false;
         lineItems.forEach(item => {
@@ -130,15 +177,19 @@ const NuevaFacturaModal: React.FC<NuevaFacturaModalProps> = ({ isOpen, onClose, 
         return Object.keys(newErrors).length === 1 && Object.keys(newErrors.lineItemStock).length === 0;
     };
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!validate()) return;
         
         let finalClientId = clienteId;
         
         if (!isEditMode && finalClientId === null && clienteNombre) {
-            const newClient = onCreateCliente({ nombre: clienteNombre, rnc: clienteRNC, estadoDGII: clienteEstadoDGII || undefined });
-            finalClientId = newClient.id;
+            try {
+                const newClient = await onCreateCliente({ nombre: clienteNombre, rnc: clienteRNC, estadoDGII: clienteEstadoDGII || undefined });
+                finalClientId = newClient.id;
+            } catch (error) {
+                return;
+            }
         }
 
         if (!finalClientId) {
@@ -146,12 +197,20 @@ const NuevaFacturaModal: React.FC<NuevaFacturaModalProps> = ({ isOpen, onClose, 
             return;
         }
 
-        onSave({
+        const saveData: any = {
             clienteId: finalClientId,
             clienteNombre: clienteNombre,
             fecha,
             ncfTipo,
-            items: lineItems.filter(item => item.itemId).map(item => ({...item, itemId: item.itemId! , codigo: item.codigo!, descripcion: item.descripcion!, cantidad: item.cantidad!, precioUnitario: item.precioUnitario!, subtotal: item.subtotal! })),
+            ncf: ncfNumero, // Enviamos el NCF (manual o sugerido)
+            items: lineItems.filter(item => item.itemId).map(item => ({
+                itemId: item.itemId!,
+                codigo: item.codigo || '',
+                descripcion: item.descripcion || '',
+                cantidad: item.cantidad || 0,
+                precioUnitario: item.precioUnitario || 0,
+                subtotal: item.subtotal || 0,
+            })),
             subtotal: totals.subtotal,
             descuentoPorcentaje,
             montoDescuento: totals.montoDescuento,
@@ -159,16 +218,31 @@ const NuevaFacturaModal: React.FC<NuevaFacturaModalProps> = ({ isOpen, onClose, 
             aplicaISC,
             isc: totals.isc,
             itbis: totals.itbis,
+            itbisRetenido,
             aplicaPropina,
             propinaLegal: totals.propinaLegal,
             montoTotal: totals.montoTotal,
-            cotizacionId: sourceCotizacionId,
-            facturaRecurrenteId: sourceFacturaRecurrenteId,
             conciliado: false,
-            comments: [],
-            auditLog: [],
-        });
+        };
+
+        if (isNota) {
+            saveData.ncfModificado = ncfModificado;
+        } else {
+            saveData.ncfModificado = null;
+        }
+
+        if (sourceCotizacionId) saveData.cotizacionId = sourceCotizacionId;
+        if (sourceFacturaRecurrenteId) saveData.facturaRecurrenteId = sourceFacturaRecurrenteId;
         
+        if (isEditMode) {
+            saveData.comments = facturaParaEditar?.comments || [];
+            saveData.auditLog = facturaParaEditar?.auditLog || [];
+        } else {
+            saveData.comments = [];
+            saveData.auditLog = [];
+        }
+        
+        onSave(saveData);
         onClose(); 
     };
     
@@ -180,6 +254,7 @@ const NuevaFacturaModal: React.FC<NuevaFacturaModalProps> = ({ isOpen, onClose, 
         setFecha(new Date().toISOString().split('T')[0]);
         setNcfTipo(NCFType.B02);
         setNcfNumero('');
+        setNcfModificado('');
         setLineItems([{ key: Date.now() }]);
         setErrors({});
         setSourceCotizacionId(undefined);
@@ -188,6 +263,7 @@ const NuevaFacturaModal: React.FC<NuevaFacturaModalProps> = ({ isOpen, onClose, 
         setAplicaITBIS(true);
         setAplicaISC(false);
         setAplicaPropina(false);
+        setItbisRetenido(0);
     };
 
     const handleRNCBlur = async () => {
@@ -210,7 +286,7 @@ const NuevaFacturaModal: React.FC<NuevaFacturaModalProps> = ({ isOpen, onClose, 
         if (result) {
             setClienteNombre(result.nombre);
             setClienteEstadoDGII(result.status);
-            setClienteId(null); // Es un cliente nuevo
+            setClienteId(null); 
         } else {
             setClienteEstadoDGII(null);
         }
@@ -229,24 +305,19 @@ const NuevaFacturaModal: React.FC<NuevaFacturaModalProps> = ({ isOpen, onClose, 
             currentItems.map(item => {
                 if (item.key === key) {
                     const updatedItem = { ...item, [field]: value };
-
                     if (field === 'itemId') {
-                        const selectedItem = itemsDisponibles.find(i => i.id === Number(value));
+                        const selectedItem = itemsDisponibles.find(i => i.id === value);
                         if (selectedItem) {
                             updatedItem.descripcion = selectedItem.nombre;
                             updatedItem.precioUnitario = selectedItem.precio;
                             updatedItem.codigo = selectedItem.codigo;
                             updatedItem.stock = selectedItem.cantidadDisponible;
-                            if (updatedItem.cantidad === undefined) {
-                                updatedItem.cantidad = 1;
-                            }
+                            if (updatedItem.cantidad === undefined) updatedItem.cantidad = 1;
                         }
                     }
-
                     if (updatedItem.cantidad != null && updatedItem.precioUnitario != null) {
                         updatedItem.subtotal = updatedItem.cantidad * updatedItem.precioUnitario;
                     }
-                    
                     return updatedItem;
                 }
                 return item;
@@ -254,14 +325,8 @@ const NuevaFacturaModal: React.FC<NuevaFacturaModalProps> = ({ isOpen, onClose, 
         );
     };
 
-    const addNewItemLine = () => {
-        setLineItems(prev => [...prev, { key: Date.now(), cantidad: 1, precioUnitario: 0, subtotal: 0 }]);
-    };
-
-    const removeItemLine = (key: number) => {
-        setLineItems(prev => prev.filter(item => item.key !== key));
-    };
-    
+    const addNewItemLine = () => setLineItems(prev => [...prev, { key: Date.now(), cantidad: 1, precioUnitario: 0, subtotal: 0 }]);
+    const removeItemLine = (key: number) => setLineItems(prev => prev.filter(item => item.key !== key));
     const formatCurrency = (value: number) => new Intl.NumberFormat('es-DO', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value);
 
     const modalFooter = (
@@ -283,7 +348,6 @@ const NuevaFacturaModal: React.FC<NuevaFacturaModalProps> = ({ isOpen, onClose, 
               <div className="p-6">
                 <div className="space-y-6 mb-6">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4">
-                        {/* RNC Cell */}
                         <div>
                             <label htmlFor="clienteRNC" className="block text-sm font-medium text-secondary-700">RNC / Cédula</label>
                             <div className="relative mt-1">
@@ -305,7 +369,6 @@ const NuevaFacturaModal: React.FC<NuevaFacturaModalProps> = ({ isOpen, onClose, 
                                 )}
                             </div>
                         </div>
-                        {/* Nombre Cell */}
                         <div>
                             <label htmlFor="clienteNombre" className="block text-sm font-medium text-secondary-700">Nombre / Razón Social *</label>
                             <input
@@ -328,30 +391,52 @@ const NuevaFacturaModal: React.FC<NuevaFacturaModalProps> = ({ isOpen, onClose, 
                             {errors.cliente && <p className="mt-1 text-sm text-red-600">{errors.cliente}</p>}
                         </div>
                     </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4">
-                        {/* Fecha Cell */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-x-4">
                         <div>
                             <label htmlFor="fecha" className="block text-sm font-medium text-secondary-700">Fecha *</label>
                             <input type="date" id="fecha" value={fecha} onChange={e => setFecha(e.target.value)} className={`mt-1 block w-full px-3 py-2 border ${errors.fecha ? 'border-red-500' : 'border-secondary-300'} rounded-md shadow-sm`} />
                             {errors.fecha && <p className="mt-1 text-sm text-red-600">{errors.fecha}</p>}
                         </div>
-                        {/* NCF Tipo Cell */}
                         <div>
-                            {isEditMode ? (
-                                <div>
-                                    <label className="block text-sm font-medium text-secondary-700">NCF</label>
-                                    <p className="mt-1 block w-full px-3 py-2 text-secondary-500 font-mono bg-secondary-100 rounded-md">{ncfNumero}</p>
-                                </div>
-                            ) : (
-                                <div>
-                                    <label htmlFor="ncfTipo" className="block text-sm font-medium text-secondary-700">Tipo de NCF *</label>
-                                    <select id="ncfTipo" value={ncfTipo} onChange={e => setNcfTipo(e.target.value as NCFType)} className="mt-1 block w-full px-3 py-2 border border-secondary-300 rounded-md shadow-sm">
-                                        {Object.values(NCFType).map(type => <option key={type} value={type}>{type}</option>)}
-                                    </select>
-                                </div>
-                            )}
+                            <label htmlFor="ncfTipo" className="block text-sm font-medium text-secondary-700">Tipo de NCF *</label>
+                            <select id="ncfTipo" value={ncfTipo} onChange={e => setNcfTipo(e.target.value as NCFType)} className="mt-1 block w-full px-3 py-2 border border-secondary-300 rounded-md shadow-sm">
+                                {Object.values(NCFType).map(type => <option key={type} value={type}>{type}</option>)}
+                            </select>
+                        </div>
+                        <div>
+                            <label htmlFor="ncfNumero" className="block text-sm font-medium text-secondary-700">NCF (Editable)</label>
+                            <input
+                                type="text"
+                                id="ncfNumero"
+                                value={ncfNumero}
+                                onChange={e => setNcfNumero(e.target.value)}
+                                className="mt-1 block w-full px-3 py-2 border border-secondary-300 rounded-md shadow-sm font-mono font-bold text-primary"
+                                placeholder="Se generará autom."
+                            />
                         </div>
                     </div>
+                     {isNota && (
+                        <div>
+                            <label htmlFor="ncfModificado" className="block text-sm font-medium text-secondary-700">NCF que Modifica *</label>
+                            <select
+                                id="ncfModificado"
+                                value={ncfModificado}
+                                onChange={e => setNcfModificado(e.target.value)}
+                                className={`mt-1 block w-full px-3 py-2 border ${errors.ncfModificado ? 'border-red-500' : 'border-secondary-300'} rounded-md shadow-sm`}
+                                required={isNota}
+                                disabled={!clienteId}
+                            >
+                                <option value="">{clienteId ? "Seleccione la factura a modificar..." : "Seleccione un cliente primero"}</option>
+                                {facturas
+                                    .filter(f => f.clienteId === clienteId && f.estado !== FacturaEstado.Anulada && !f.ncf?.startsWith('B04'))
+                                    .map(f => (
+                                        <option key={f.id} value={f.ncf}>{f.ncf} - {f.fecha} - {formatCurrency(f.montoTotal)}</option>
+                                    ))
+                                }
+                            </select>
+                             {errors.ncfModificado && <p className="mt-1 text-sm text-red-600">{errors.ncfModificado}</p>}
+                        </div>
+                    )}
                 </div>
                 
                 <div className="space-y-2 pt-4 border-t">
@@ -386,7 +471,7 @@ const NuevaFacturaModal: React.FC<NuevaFacturaModalProps> = ({ isOpen, onClose, 
                     <div className="space-y-2 border-l-0 md:border-l md:pl-8">
                         <div className="flex justify-between text-sm">
                             <span className="font-medium text-secondary-600">Subtotal:</span>
-                            <span className="text-secondary-800">{formatCurrency(totals.subtotal)}</span>
+                            <span className="text-secondary-800 font-mono">{formatCurrency(totals.subtotal)}</span>
                         </div>
                         <div className="flex justify-between items-center text-sm">
                             <label htmlFor="descuento" className="font-medium text-secondary-600">Descuento (%):</label>
@@ -401,28 +486,39 @@ const NuevaFacturaModal: React.FC<NuevaFacturaModalProps> = ({ isOpen, onClose, 
                         {totals.montoDescuento > 0 && (
                             <div className="flex justify-between text-sm">
                                 <span className="font-medium text-secondary-600">Monto Descuento:</span>
-                                <span className="text-red-600">- {formatCurrency(totals.montoDescuento)}</span>
+                                <span className="text-red-600 font-mono">- {formatCurrency(totals.montoDescuento)}</span>
                             </div>
                         )}
                         {aplicaISC && (
                              <div className="flex justify-between text-sm">
                                 <span className="font-medium text-secondary-600">ISC ({rates.isc * 100}%):</span>
-                                <span className="text-secondary-800">{formatCurrency(totals.isc)}</span>
+                                <span className="text-secondary-800 font-mono">{formatCurrency(totals.isc)}</span>
                             </div>
                         )}
                         <div className="flex justify-between text-sm">
                             <span className="font-medium text-secondary-600">ITBIS ({rates.itbis * 100}%):</span>
-                            <span className="text-secondary-800">{formatCurrency(totals.itbis)}</span>
+                            <span className="text-secondary-800 font-mono">{formatCurrency(totals.itbis)}</span>
+                        </div>
+                        <div className="flex justify-between items-center text-sm">
+                            <label htmlFor="itbisRetenido" className="font-medium text-secondary-600">ITBIS Retenido por Tercero:</label>
+                            <input
+                                type="number"
+                                id="itbisRetenido"
+                                value={itbisRetenido}
+                                onChange={e => setItbisRetenido(parseFloat(e.target.value) || 0)}
+                                className="w-28 px-2 py-1 border border-secondary-300 rounded-md shadow-sm sm:text-sm text-right font-mono"
+                                step="0.01"
+                            />
                         </div>
                         {aplicaPropina && (
                              <div className="flex justify-between text-sm">
                                 <span className="font-medium text-secondary-600">Propina ({rates.propina * 100}%):</span>
-                                <span className="text-secondary-800">{formatCurrency(totals.propinaLegal)}</span>
+                                <span className="text-secondary-800 font-mono">{formatCurrency(totals.propinaLegal)}</span>
                             </div>
                         )}
                         <div className="flex justify-between text-lg font-bold border-t pt-2 mt-2">
                             <span className="text-secondary-800">Total:</span>
-                            <span className="text-primary">{formatCurrency(totals.montoTotal)}</span>
+                            <span className="text-primary font-mono">{formatCurrency(totals.montoTotal)}</span>
                         </div>
                     </div>
                 </div>

@@ -1,9 +1,9 @@
 
 import React from 'react';
-import { useClientAuthStore } from '../../stores/useClientAuthStore';
-import { useDataStore } from '../../stores/useDataStore';
-import { Card, CardHeader, CardTitle, CardContent } from '../../components/ui/Card';
-import { FacturaEstado } from '../../types';
+import { useClientAuthStore } from '../../stores/useClientAuthStore.ts';
+import { useDataStore } from '../../stores/useDataStore.ts';
+import { Card, CardHeader, CardTitle, CardContent } from '../../components/ui/Card.tsx';
+import { FacturaEstado } from '../../types.ts';
 
 const PortalFacturasPage: React.FC = () => {
     const { clientUser } = useClientAuthStore();
@@ -47,7 +47,8 @@ const PortalFacturasPage: React.FC = () => {
                                 <td className="px-4 py-4 font-medium">{f.ncf}</td>
                                 <td className="px-4 py-4">{new Date(f.fecha).toLocaleDateString('es-DO')}</td>
                                 <td className="px-4 py-4 text-right">{formatCurrency(f.montoTotal)}</td>
-                                <td className="px-4 py-4 text-right font-semibold">{formatCurrency(f.montoTotal - f.montoPagado)}</td>
+                                
+                                <td className="px-4 py-4 text-right font-semibold">{formatCurrency((Number(f.montoTotal) || 0) - (Number(f.montoPagado) || 0))}</td>
                                 <td className="px-4 py-4 text-center">
                                     <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusBadge(f.estado)}`}>
                                         {f.estado}

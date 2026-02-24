@@ -1,58 +1,56 @@
 import { create } from 'zustand';
 import JSZip from 'jszip';
-import { findRNC, clearRNCData, appendRNCData, getDBInfo } from '../utils/rnc-database';
+import { db } from '../firebase';
+import { doc, getDoc, setDoc, writeBatch } from 'firebase/firestore';
 
-type RNCDataStatus = 'idle' | 'checking' | 'downloading' | 'processing' | 'ready' | 'error';
+type RNCDataStatus = 'idle' | 'checking' | 'processing' | 'ready' | 'error';
 
 interface DGIIDataState {
   status: RNCDataStatus;
   lastUpdated: number; // timestamp
   recordCount: number;
-  errorMessage: string | null;
+  statusMessage: string | null;
   loading: boolean; // for compatibility with modals
   progress: number;
   init: () => void;
-  triggerUpdate: () => Promise<void>;
+  processRNCFile: (file: Blob) => Promise<void>;
   lookupRNC: (rnc: string) => Promise<{ nombre: string, status: string } | null>;
 }
-
-const DGII_RNC_URL = 'https://dgii.gov.do/app/WebApps/Consultas/RNC/DGII_RNC.zip';
-const PROXY_URL = `https://corsproxy.io/?${encodeURIComponent(DGII_RNC_URL)}`;
-
 
 export const useDGIIDataStore = create<DGIIDataState>((set, get) => ({
   status: 'idle',
   lastUpdated: 0,
   recordCount: 0,
-  errorMessage: null,
+  statusMessage: null,
   loading: false,
   progress: 0,
 
   init: async () => {
       set({ status: 'checking' });
-      const info = await getDBInfo();
-      if (info && info.count > 0) {
-          set({ status: 'ready', recordCount: info.count, lastUpdated: info.lastUpdated });
-      } else {
-          set({ status: 'idle' });
-          // If the DB is empty, trigger the update automatically.
-          get().triggerUpdate();
+      try {
+          const metadataRef = doc(db, '_metadata', 'rnc_db');
+          const snapshot = await getDoc(metadataRef);
+          
+          if (snapshot.exists()) {
+              const dbInfo = snapshot.data();
+              set({
+                  status: 'ready',
+                  recordCount: dbInfo.count,
+                  lastUpdated: dbInfo.lastUpdated,
+                  statusMessage: 'Base de datos en la nube está operativa.'
+              });
+          } else {
+              set({ status: 'idle', recordCount: 0, lastUpdated: 0, statusMessage: 'La base de datos de RNC en la nube está vacía. Un administrador debe actualizarla.' });
+          }
+      } catch (error) {
+          console.error("Error initializing RNC store from Firestore:", error);
+          set({ status: 'error', statusMessage: 'No se pudo inicializar la base de datos de RNC.' });
       }
   },
 
-  triggerUpdate: async () => {
-    set({ status: 'downloading', errorMessage: null, loading: true, progress: 0 });
+  processRNCFile: async (zipBlob: Blob) => {
+    set({ status: 'processing', statusMessage: 'Extrayendo archivo...', loading: true, progress: 5 });
     try {
-      // 1. Download ZIP file
-      const response = await fetch(PROXY_URL);
-      if (!response.ok) {
-        throw new Error(`Error al descargar: ${response.statusText}. El servicio proxy puede estar experimentando problemas. Por favor, intente más tarde.`);
-      }
-      const zipBlob = await response.blob();
-      
-      set({ status: 'processing', progress: 5 });
-
-      // 2. Unzip and find the TXT file
       const zip = await JSZip.loadAsync(zipBlob);
       const txtFileName = Object.keys(zip.files).find(name => name.toLowerCase().endsWith('.txt'));
       if (!txtFileName) throw new Error('No se encontró el archivo .txt en el ZIP.');
@@ -60,65 +58,101 @@ export const useDGIIDataStore = create<DGIIDataState>((set, get) => ({
       const txtFile = zip.file(txtFileName);
       if (!txtFile) throw new Error('No se pudo leer el archivo .txt.');
       
-      // More robust decoding to handle potential Windows encoding
+      set({ progress: 10, statusMessage: 'Decodificando archivo...' });
       const fileContentAsUint8Array = await txtFile.async('uint8array');
-      const decoder = new TextDecoder('windows-1252'); // Common encoding for government files
+      const decoder = new TextDecoder('windows-1252');
       const txtContent = decoder.decode(fileContentAsUint8Array);
 
-      // 3. Parse the content
-      const lines = txtContent.split(/\r?\n/); // Robust line splitting for Windows/Unix
-      const dataToStore: { rnc: string, name: string, status: string }[] = [];
-      lines.forEach(line => {
-        const cleanLine = line.trim();
-        if (!cleanLine) return;
-        
-        const parts = cleanLine.split('|');
-        const rnc = parts[0]?.trim();
+      set({ progress: 25, statusMessage: 'Preparando para analizar...' });
+      const lines = txtContent.split(/\r?\n/);
+      const dataToStore: { [key: string]: { name: string, status: string } } = {};
+      let recordCount = 0;
 
-        // Per user feedback: Status is in column 10 (index 9) and some columns can be empty.
-        // Validate the row structure to ensure it has enough columns.
-        if (parts.length >= 10 && rnc && (rnc.length === 9 || rnc.length === 11) && /^\d+$/.test(rnc)) {
-          const rawStatus = parts[9]?.trim(); // Column 10 is index 9.
-          const status = rawStatus && rawStatus.length > 0 ? rawStatus : 'DESCONOCIDO';
-          
-          dataToStore.push({ 
-            rnc, 
-            name: (parts[1] || '').trim(), // Razon Social is column 2.
-            status: status 
-          });
+      // Asynchronous chunk processing to avoid blocking the main thread
+      const processChunks = () => new Promise<void>((resolve) => {
+        let currentIndex = 0;
+        const chunkSize = 50000; // Process 50,000 lines at a time
+
+        function processNextChunk() {
+          const end = Math.min(currentIndex + chunkSize, lines.length);
+          for (let i = currentIndex; i < end; i++) {
+            const line = lines[i];
+            const cleanLine = line.trim();
+            if (!cleanLine) continue;
+            
+            const parts = cleanLine.split('|');
+            const rnc = parts[0]?.trim();
+
+            if (parts.length >= 10 && rnc && (rnc.length === 9 || rnc.length === 11) && /^\d+$/.test(rnc)) {
+              const rawStatus = parts[9]?.trim();
+              const status = rawStatus && rawStatus.length > 0 ? rawStatus : 'DESCONOCIDO';
+              
+              dataToStore[rnc] = { 
+                name: (parts[1] || '').trim(),
+                status: status 
+              };
+              recordCount++;
+            }
+          }
+
+          currentIndex = end;
+          const currentProgress = 25 + Math.round((currentIndex / lines.length) * 55);
+          set({ progress: currentProgress, statusMessage: `Analizando ${currentIndex.toLocaleString()} de ${lines.length.toLocaleString()} registros...` });
+
+          if (currentIndex < lines.length) {
+            setTimeout(processNextChunk, 0); // Yield to main thread to keep UI responsive
+          } else {
+            resolve();
+          }
         }
+        
+        processNextChunk();
       });
-      
-      set({ progress: 15 });
 
-      // 4. Save to IndexedDB in batches
-      await clearRNCData();
+      await processChunks();
       
-      const batchSize = 5000;
-      const totalBatches = Math.ceil(dataToStore.length / batchSize);
-
-      for (let i = 0; i < totalBatches; i++) {
-          const batch = dataToStore.slice(i * batchSize, (i + 1) * batchSize);
-          await appendRNCData(batch);
-          const currentProgress = 15 + Math.round(((i + 1) / totalBatches) * 85);
-          set({ progress: currentProgress });
+      set({ progress: 80, statusMessage: 'Guardando nuevos registros en la base de datos... (puede tardar varios minutos)' });
+      
+      const entries = Object.entries(dataToStore);
+      const FIRESTORE_CHUNK_SIZE = 490; // Firestore batch limit is 500 operations
+      for (let i = 0; i < entries.length; i += FIRESTORE_CHUNK_SIZE) {
+          const chunk = entries.slice(i, i + FIRESTORE_CHUNK_SIZE);
+          const batch = writeBatch(db);
+          for (const [rnc, data] of chunk) {
+              const docRef = doc(db, 'rnc_data', rnc);
+              batch.set(docRef, data);
+          }
+          await batch.commit();
+          const currentProgress = 80 + Math.round(((i + chunk.length) / entries.length) * 15);
+          const batchNumber = Math.ceil(i / FIRESTORE_CHUNK_SIZE) + 1;
+          const totalBatches = Math.ceil(entries.length / FIRESTORE_CHUNK_SIZE);
+          set({ progress: currentProgress, statusMessage: `Escribiendo lote ${batchNumber} de ${totalBatches}...` });
       }
 
-      const updatedTimestamp = Date.now();
-      localStorage.setItem('rncDBLastUpdated', updatedTimestamp.toString());
+      set({ progress: 95, statusMessage: 'Actualizando metadatos...' });
+      const now = Date.now();
+      const metadataRef = doc(db, '_metadata', 'rnc_db');
+      await setDoc(metadataRef, {
+          lastUpdated: now,
+          count: recordCount,
+      });
 
       set({
         status: 'ready',
-        lastUpdated: updatedTimestamp,
-        recordCount: dataToStore.length,
+        lastUpdated: now,
+        recordCount: recordCount,
         loading: false,
         progress: 100,
+        statusMessage: '¡Base de datos actualizada con éxito!',
       });
 
     } catch (error) {
-      console.error("Error al actualizar la base de datos de RNC:", error);
-      const message = error instanceof Error ? error.message : 'Ocurrió un error desconocido.';
-      set({ status: 'error', errorMessage: message, loading: false });
+      console.error("Error al procesar el archivo RNC:", error);
+      let message = 'Ocurrió un error desconocido durante el procesamiento.';
+      if (error instanceof Error) {
+        message = error.message;
+      }
+      set({ status: 'error', statusMessage: `Error: ${message}`, loading: false, progress: 0 });
     }
   },
 
@@ -131,10 +165,16 @@ export const useDGIIDataStore = create<DGIIDataState>((set, get) => ({
     }
     
     try {
-      const result = await findRNC(cleanRNC);
-      return result ? { nombre: result.name, status: result.status } : null;
+      const rncRef = doc(db, 'rnc_data', cleanRNC);
+      const snapshot = await getDoc(rncRef);
+      
+      if (snapshot.exists()) {
+        const result = snapshot.data();
+        return { nombre: result.name, status: result.status };
+      }
+      return null;
     } catch (error) {
-      console.error("Error buscando RNC en IndexedDB:", error);
+      console.error("Error buscando RNC en Firestore:", error);
       return null;
     } finally {
       set({ loading: false });
@@ -142,4 +182,5 @@ export const useDGIIDataStore = create<DGIIDataState>((set, get) => ({
   },
 }));
 
+// Initialize the store on load
 useDGIIDataStore.getState().init();

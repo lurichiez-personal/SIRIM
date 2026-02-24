@@ -1,8 +1,7 @@
-
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { OfflineAction } from '../types';
-import { useDataStore } from './useDataStore';
+import { OfflineAction } from '../types.ts';
+import { useDataStore } from './useDataStore.ts';
 
 interface OfflineState {
   isOnline: boolean;

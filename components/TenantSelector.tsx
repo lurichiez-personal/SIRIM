@@ -1,7 +1,6 @@
-
 import React, { useEffect, useState } from 'react';
-import { useTenantStore } from '../stores/useTenantStore';
-import { BuildingOfficeIcon, ChevronDownIcon } from './icons/Icons';
+import { useTenantStore } from '../stores/useTenantStore.ts';
+import { BuildingOfficeIcon, ChevronDownIcon } from './icons/Icons.tsx';
 
 const TenantSelector: React.FC = () => {
     const { selectedTenant, availableTenants, setTenant, fetchAvailableTenants } = useTenantStore();
@@ -16,7 +15,7 @@ const TenantSelector: React.FC = () => {
         return <div className="text-sm text-secondary-500">Cargando empresas...</div>;
     }
 
-    const handleSelect = (tenantId: number) => {
+    const handleSelect = (tenantId: string) => {
         setTenant(tenantId);
         setIsOpen(false);
     };

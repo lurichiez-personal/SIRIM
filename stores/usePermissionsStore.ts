@@ -1,8 +1,6 @@
-
-
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { Role, Permission, RolePermissions } from '../types';
+import { Role, Permission, RolePermissions } from '../types.ts';
 
 interface PermissionsState {
   permissions: RolePermissions;
@@ -12,15 +10,24 @@ interface PermissionsState {
 
 const defaultPermissions: RolePermissions = {
     [Role.Admin]: [
-        Permission.VER_DASHBOARD, Permission.GESTIONAR_CLIENTES, Permission.GESTIONAR_FACTURAS,
+        Permission.VER_DASHBOARD, Permission.GESTIONAR_CLIENTES, Permission.ELIMINAR_CLIENTES,
+        Permission.ELIMINAR_FACTURAS,
         Permission.GESTIONAR_COTIZACIONES, Permission.GESTIONAR_NOTAS, Permission.GESTIONAR_GASTOS,
         Permission.GESTIONAR_PAGOS, Permission.GESTIONAR_INVENTARIO, Permission.GESTIONAR_CONCILIACION,
         Permission.VER_REPORTES_DGII, Permission.GESTIONAR_CONFIGURACION_EMPRESA, Permission.GESTIONAR_USUARIOS,
-        Permission.GESTIONAR_NOMINA, Permission.AUDITAR_NOMINA, Permission.CONTABILIZAR_NOMINA,
+        Permission.ELIMINAR_USUARIOS,
+        Permission.GESTIONAR_ROLES,
+        Permission.GESTIONAR_NOMINA, Permission.AUDITAR_NOMINA, Permission.ELIMINAR_NOMINA,
         Permission.GESTIONAR_DESVINCULACIONES, Permission.VER_HISTORIAL_DESVINCULACIONES, 
         Permission.GESTIONAR_CONTABILIDAD, Permission.GESTIONAR_CATALOGO_CUENTAS, Permission.VER_REPORTES_FINANCIEROS,
+        Permission.GESTIONAR_BASE_DATOS_RNC,
+        Permission.GESTIONAR_CIERRE_ITBIS,
+        Permission.ELIMINAR_GASTOS,
+        Permission.GESTIONAR_CREDENCIALES_EMPRESA,
+        Permission.GESTIONAR_ANTICIPOS_ISR,
+        Permission.GESTIONAR_DECLARACION_IR2,
+        Permission.GESTIONAR_FACTURAS,
     ],
-    [Role.Master]: Object.values(Permission), // Master User has access to EVERYTHING
     [Role.Contador]: Object.values(Permission), // Contador (Master User) can do everything
     [Role.Operaciones]: [
         Permission.VER_DASHBOARD, Permission.GESTIONAR_CLIENTES, Permission.GESTIONAR_FACTURAS,
@@ -36,8 +43,10 @@ const defaultPermissions: RolePermissions = {
     [Role.GerenteRRHH]: [
         Permission.VER_DASHBOARD,
         Permission.GESTIONAR_NOMINA,
+        Permission.ELIMINAR_NOMINA,
         Permission.GESTIONAR_DESVINCULACIONES,
         Permission.VER_HISTORIAL_DESVINCULACIONES,
+        Permission.GESTIONAR_CREDENCIALES_EMPRESA,
     ],
     [Role.AuditorNomina]: [
         Permission.VER_DASHBOARD,

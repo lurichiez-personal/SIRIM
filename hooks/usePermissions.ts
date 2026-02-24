@@ -1,7 +1,6 @@
-
-import { useAuthStore } from '../stores/useAuthStore';
-import { usePermissionsStore } from '../stores/usePermissionsStore';
-import { Permission } from '../types';
+import { useAuthStore } from '../stores/useAuthStore.ts';
+import { usePermissionsStore } from '../stores/usePermissionsStore.ts';
+import { Permission } from '../types.ts';
 
 export const usePermissions = () => {
   const { user } = useAuthStore();

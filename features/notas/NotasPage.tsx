@@ -1,37 +1,47 @@
-import React, { useState, useEffect } from 'react';
-import { NotaCreditoDebito, Factura, FacturaEstado, NCFType, CodigoModificacionNCF, NotaType } from '../../types';
-import { useTenantStore } from '../../stores/useTenantStore';
-import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/Card';
-import Button from '../../components/ui/Button';
-import { PlusIcon, DownloadIcon } from '../../components/icons/Icons';
-import NuevaNotaModal from './NuevaNotaModal';
-import { useDataStore } from '../../stores/useDataStore';
-import { useNCFStore } from '../../stores/useNCFStore';
-import Pagination from '../../components/ui/Pagination';
-import { exportToCSV } from '../../utils/csvExport';
+import React, { useState, useEffect, useMemo } from 'react';
+import { NotaCreditoDebito, Factura, FacturaEstado, NCFType, CodigoModificacionNCF, NotaType } from '../../types.ts';
+import { useTenantStore } from '../../stores/useTenantStore.ts';
+import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/Card.tsx';
+import Button from '../../components/ui/Button.tsx';
+import { PlusIcon, DownloadIcon, EyeIcon } from '../../components/icons/Icons.tsx';
+import NuevaNotaModal from './NuevaNotaModal.tsx';
+import { useDataStore } from '../../stores/useDataStore.ts';
+import { useNCFStore } from '../../stores/useNCFStore.ts';
+import Pagination from '../../components/ui/Pagination.tsx';
+import { exportToCSV } from '../../utils/csvExport.ts';
+import { applyPagination } from '../../utils/pagination.ts';
+import VistaPreviaNotaModal from './VistaPreviaNotaModal.tsx';
 
 const ITEMS_PER_PAGE = 10;
 
 const NotasPage: React.FC = () => {
     const { selectedTenant } = useTenantStore();
-    const { facturas, addNota, updateFacturaStatus, getPagedNotas } = useDataStore();
+    const { facturas, addNota, updateNota, updateFacturaStatus, notas, isLoading } = useDataStore();
     const { getNextNCF } = useNCFStore();
     
-    const [loading, setLoading] = useState(true);
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const [isVistaPreviaOpen, setIsVistaPreviaOpen] = useState(false);
+    const [notaParaVer, setNotaParaVer] = useState<NotaCreditoDebito | null>(null);
+    const [notaParaEditar, setNotaParaEditar] = useState<NotaCreditoDebito | null>(null);
     
     const [currentPage, setCurrentPage] = useState(1);
     const [filters, setFilters] = useState({ searchTerm: '', startDate: '', endDate: '' });
-    const [pagedData, setPagedData] = useState({ items: [], totalCount: 0 });
-
-    useEffect(() => {
-        if (selectedTenant) {
-            setLoading(true);
-            const data = getPagedNotas({ page: currentPage, pageSize: ITEMS_PER_PAGE, ...filters });
-            setPagedData(data);
-            setLoading(false);
+    
+    const pagedData = useMemo(() => {
+        let filtered = [...notas];
+        if (filters.searchTerm) {
+            const lowerTerm = filters.searchTerm.toLowerCase();
+            filtered = filtered.filter(n => n.clienteNombre.toLowerCase().includes(lowerTerm) || n.ncf.toLowerCase().includes(lowerTerm) || n.facturaAfectadaNCF.toLowerCase().includes(lowerTerm));
         }
-    }, [selectedTenant, currentPage, filters, getPagedNotas]);
+        if (filters.startDate) {
+            filtered = filtered.filter(n => n.fecha >= filters.startDate);
+        }
+        if (filters.endDate) {
+            filtered = filtered.filter(n => n.fecha <= filters.endDate);
+        }
+        const sorted = filtered.sort((a,b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime());
+        return applyPagination(sorted, currentPage, ITEMS_PER_PAGE);
+    }, [notas, currentPage, filters]);
 
     const handleFilterChange = (field: string, value: string) => {
         setFilters(prev => ({ ...prev, [field]: value }));
@@ -39,6 +49,8 @@ const NotasPage: React.FC = () => {
     };
 
     const handleSaveNota = async (data: { 
+        id?: string,
+        ncf?: string,
         facturaAfectada: Factura, 
         codigoModificacion: keyof typeof CodigoModificacionNCF, 
         fecha: string, 
@@ -54,44 +66,79 @@ const NotasPage: React.FC = () => {
     }) => {
         if (!selectedTenant) return;
         
-        const { facturaAfectada, codigoModificacion, fecha, descripcion, ...amounts } = data;
+        const { id, ncf: editedNcf, facturaAfectada, codigoModificacion, fecha, descripcion, ...amounts } = data;
 
-        const ncf = await getNextNCF(selectedTenant.id, NCFType.B04);
-        if (!ncf) {
-            alert('Error: No hay NCF de tipo Nota de Crédito (B04) disponibles. Por favor, configure nuevas secuencias.');
-            return;
-        }
+        if (id) {
+            // Update existing note
+            const updatedNota: NotaCreditoDebito = {
+                ...notaParaEditar!,
+                ncf: editedNcf || notaParaEditar!.ncf,
+                fecha,
+                descripcion,
+                subtotal: amounts.subtotal,
+                aplicaITBIS: amounts.aplicaITBIS,
+                aplicaISC: amounts.aplicaISC,
+                isc: amounts.isc,
+                itbis: amounts.itbis,
+                aplicaPropina: amounts.aplicaPropina,
+                propinaLegal: amounts.propinaLegal,
+                montoTotal: amounts.montoTotal,
+                codigoModificacion,
+            };
+            await updateNota(updatedNota);
+        } else {
+            // Create new note
+            const ncf = await getNextNCF(selectedTenant.id, NCFType.B04);
+            if (!ncf) {
+                alert('Error: No hay NCF de tipo Nota de Crédito (B04) disponibles. Por favor, configure nuevas secuencias.');
+                return;
+            }
 
-        const newNota: Omit<NotaCreditoDebito, 'id' | 'empresaId'> = {
-            tipo: NotaType.Credito,
-            facturaAfectadaId: facturaAfectada.id,
-            facturaAfectadaNCF: facturaAfectada.ncf || 'N/A',
-            ncf,
-            fecha,
-            clienteId: facturaAfectada.clienteId,
-            clienteNombre: facturaAfectada.clienteNombre,
-            subtotal: amounts.subtotal,
-            aplicaITBIS: amounts.aplicaITBIS,
-            aplicaISC: amounts.aplicaISC,
-            isc: amounts.isc,
-            itbis: amounts.itbis,
-            aplicaPropina: amounts.aplicaPropina,
-            propinaLegal: amounts.propinaLegal,
-            montoTotal: amounts.montoTotal,
-            codigoModificacion,
-            descripcion,
-        };
-        
-        addNota(newNota);
+            const newNota: Omit<NotaCreditoDebito, 'id' | 'empresaId'> = {
+                tipo: NotaType.Credito,
+                facturaAfectadaId: facturaAfectada.id,
+                facturaAfectadaNCF: facturaAfectada.ncf || 'N/A',
+                ncf,
+                fecha,
+                clienteId: facturaAfectada.clienteId,
+                clienteNombre: facturaAfectada.clienteNombre,
+                subtotal: amounts.subtotal,
+                aplicaITBIS: amounts.aplicaITBIS,
+                aplicaISC: amounts.aplicaISC,
+                isc: amounts.isc,
+                itbis: amounts.itbis,
+                aplicaPropina: amounts.aplicaPropina,
+                propinaLegal: amounts.propinaLegal,
+                montoTotal: amounts.montoTotal,
+                codigoModificacion,
+                descripcion,
+            };
+            
+            addNota(newNota);
 
-        if (codigoModificacion === '01') { // 01 - Anulación de Factura
-            updateFacturaStatus(facturaAfectada.id, FacturaEstado.Anulada);
+            if (codigoModificacion === '01') { // 01 - Anulación de Factura
+                updateFacturaStatus(facturaAfectada.id, FacturaEstado.Anulada);
+            }
         }
     };
     
+    const handleVerNota = (nota: NotaCreditoDebito) => {
+        setNotaParaVer(nota);
+        setIsVistaPreviaOpen(true);
+    };
+
+    const handleEditNota = (nota: NotaCreditoDebito) => {
+        setNotaParaEditar(nota);
+        setIsModalOpen(true);
+    };
+
+    const handleOpenModal = () => {
+        setNotaParaEditar(null);
+        setIsModalOpen(true);
+    };
+
     const handleExport = () => {
-        const dataToExport = getPagedNotas({ ...filters, page: 1, pageSize: pagedData.totalCount }).items;
-        exportToCSV(dataToExport.map(n => ({
+        exportToCSV(pagedData.items.map(n => ({
             'NCF Nota': n.ncf,
             'Tipo': n.tipo,
             'Fecha': n.fecha,
@@ -116,7 +163,7 @@ const NotasPage: React.FC = () => {
                 <h1 className="text-3xl font-bold text-secondary-800">Notas de Crédito y Débito</h1>
                 <div className="flex space-x-2">
                     <Button variant="secondary" leftIcon={<DownloadIcon />} onClick={handleExport}>Exportar a CSV</Button>
-                    <Button leftIcon={<PlusIcon />} onClick={() => setIsModalOpen(true)}>
+                    <Button leftIcon={<PlusIcon />} onClick={handleOpenModal}>
                         Nueva Nota
                     </Button>
                 </div>
@@ -145,16 +192,17 @@ const NotasPage: React.FC = () => {
                                     <th className="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">Factura Afectada</th>
                                     <th className="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">Monto</th>
                                     <th className="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase tracking-wider">Motivo</th>
+                                    <th className="px-6 py-3 text-right text-xs font-medium text-secondary-500 uppercase tracking-wider">Acción</th>
                                 </tr>
                             </thead>
                              <tbody className="bg-white divide-y divide-secondary-200">
-                                {loading ? (
-                                    <tr><td colSpan={7} className="text-center py-4">Cargando...</td></tr>
+                                {isLoading ? (
+                                    <tr><td colSpan={8} className="text-center py-4">Cargando...</td></tr>
                                 ) : pagedData.items.length === 0 ? (
-                                    <tr><td colSpan={7} className="text-center py-4 text-secondary-500">No hay notas emitidas para esta empresa.</td></tr>
+                                    <tr><td colSpan={8} className="text-center py-4 text-secondary-500">No hay notas emitidas para esta empresa.</td></tr>
                                 ) : (
                                     pagedData.items.map(nota => (
-                                        <tr key={nota.id}>
+                                        <tr key={nota.id} className="hover:bg-secondary-50">
                                             <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-secondary-900 capitalize">{nota.tipo}</td>
                                             <td className="px-6 py-4 whitespace-nowrap text-sm text-secondary-500">{nota.ncf}</td>
                                             <td className="px-6 py-4 whitespace-nowrap text-sm text-secondary-500">{nota.clienteNombre}</td>
@@ -162,6 +210,14 @@ const NotasPage: React.FC = () => {
                                             <td className="px-6 py-4 whitespace-nowrap text-sm text-primary hover:underline cursor-pointer">{nota.facturaAfectadaNCF}</td>
                                             <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-secondary-500">{formatCurrency(nota.montoTotal)}</td>
                                             <td className="px-6 py-4 whitespace-nowrap text-sm text-secondary-500">{getCodigoText(nota.codigoModificacion)}</td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">
+                                                <button onClick={() => handleVerNota(nota)} className="text-secondary-500 hover:text-primary" title="Ver Nota">
+                                                    <EyeIcon className="h-5 w-5"/>
+                                                </button>
+                                                <button onClick={() => handleEditNota(nota)} className="text-primary hover:text-primary-700">
+                                                    Editar
+                                                </button>
+                                            </td>
                                         </tr>
                                     ))
                                 )}
@@ -182,6 +238,13 @@ const NotasPage: React.FC = () => {
                 onClose={() => setIsModalOpen(false)}
                 onSave={handleSaveNota}
                 facturasDisponibles={facturas.filter(f => f.estado !== FacturaEstado.Anulada)}
+                notaParaEditar={notaParaEditar}
+            />
+            
+            <VistaPreviaNotaModal
+                isOpen={isVistaPreviaOpen}
+                onClose={() => setIsVistaPreviaOpen(false)}
+                nota={notaParaVer}
             />
         </div>
     );

@@ -1,38 +1,41 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FacturaRecurrente } from '../../types';
-import { useTenantStore } from '../../stores/useTenantStore';
-import { useDataStore } from '../../stores/useDataStore';
-import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/Card';
-import Button from '../../components/ui/Button';
-import { PlusIcon, DownloadIcon } from '../../components/icons/Icons';
-import Pagination from '../../components/ui/Pagination';
-import NuevaFacturaRecurrenteModal from './NuevaFacturaRecurrenteModal';
-import { exportToCSV } from '../../utils/csvExport';
+import { FacturaRecurrente } from '../../types.ts';
+import { useTenantStore } from '../../stores/useTenantStore.ts';
+import { useDataStore } from '../../stores/useDataStore.ts';
+import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/Card.tsx';
+import Button from '../../components/ui/Button.tsx';
+import { PlusIcon, DownloadIcon } from '../../components/icons/Icons.tsx';
+import Pagination from '../../components/ui/Pagination.tsx';
+import NuevaFacturaRecurrenteModal from './NuevaFacturaRecurrenteModal.tsx';
+import { exportToCSV } from '../../utils/csvExport.ts';
+import { applyPagination } from '../../utils/pagination.ts';
 
 const ITEMS_PER_PAGE = 10;
 
 const FacturacionRecurrentePage: React.FC = () => {
     const { selectedTenant } = useTenantStore();
-    const { facturasRecurrentes, clientes, items, getPagedFacturasRecurrentes, addFacturaRecurrente, updateFacturaRecurrente, addCliente } = useDataStore();
+    const { facturasRecurrentes, clientes, items, addFacturaRecurrente, updateFacturaRecurrente, addCliente, isLoading } = useDataStore();
     const navigate = useNavigate();
 
-    const [loading, setLoading] = useState(true);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [plantillaParaEditar, setPlantillaParaEditar] = useState<FacturaRecurrente | null>(null);
     
     const [currentPage, setCurrentPage] = useState(1);
     const [filters, setFilters] = useState({ searchTerm: '', status: 'todos' as 'todos' | 'activa' | 'inactiva' });
-    const [pagedData, setPagedData] = useState({ items: [], totalCount: 0 });
-
-    useEffect(() => {
-        if (selectedTenant) {
-            setLoading(true);
-            const data = getPagedFacturasRecurrentes({ page: currentPage, pageSize: ITEMS_PER_PAGE, ...filters });
-            setPagedData(data);
-            setLoading(false);
+    
+    const pagedData = useMemo(() => {
+        let filtered = [...facturasRecurrentes];
+        if (filters.searchTerm) {
+            const lowerTerm = filters.searchTerm.toLowerCase();
+            filtered = filtered.filter(f => f.clienteNombre.toLowerCase().includes(lowerTerm) || f.descripcion.toLowerCase().includes(lowerTerm));
         }
-    }, [selectedTenant, currentPage, filters, getPagedFacturasRecurrentes, facturasRecurrentes]);
+        if (filters.status !== 'todos') {
+            const isActive = filters.status === 'activa';
+            filtered = filtered.filter(f => f.activa === isActive);
+        }
+        return applyPagination(filtered, currentPage, ITEMS_PER_PAGE);
+    }, [facturasRecurrentes, currentPage, filters]);
 
     const handleFilterChange = (field: string, value: string) => {
         if (field === 'status') {
@@ -53,21 +56,25 @@ const FacturacionRecurrentePage: React.FC = () => {
         setIsModalOpen(true);
     };
     
-    const handleSave = (data: Omit<FacturaRecurrente, 'id' | 'empresaId' | 'fechaProxima' | 'activa'> | FacturaRecurrente) => {
-        if ('id' in data) {
-            updateFacturaRecurrente(data);
-        } else {
-            addFacturaRecurrente(data);
+    const handleSave = async (data: Omit<FacturaRecurrente, 'id' | 'empresaId' | 'fechaProxima' | 'activa'> | FacturaRecurrente) => {
+        try {
+            if ('id' in data) {
+                await updateFacturaRecurrente(data);
+            } else {
+                await addFacturaRecurrente(data);
+            }
+        } catch (error) {
+            console.error("Failed to save recurring template:", error);
+            throw error;
         }
     };
     
     const handleGenerate = (plantilla: FacturaRecurrente) => {
-        navigate('/facturas', { state: { facturaRecurrente: plantilla } });
+        navigate('/dashboard/facturas', { state: { facturaRecurrente: plantilla } });
     };
     
     const handleExport = () => {
-        const dataToExport = getPagedFacturasRecurrentes({ ...filters, page: 1, pageSize: pagedData.totalCount }).items;
-        exportToCSV(dataToExport.map(r => ({
+        exportToCSV(pagedData.items.map(r => ({
             'Cliente': r.clienteNombre,
             'Descripcion': r.descripcion,
             'Frecuencia': r.frecuencia,
@@ -127,7 +134,7 @@ const FacturacionRecurrentePage: React.FC = () => {
                                 </tr>
                             </thead>
                             <tbody className="bg-white divide-y divide-secondary-200">
-                               {loading ? (
+                               {isLoading ? (
                                     <tr><td colSpan={6} className="text-center py-4">Cargando...</td></tr>
                                 ) : pagedData.items.length === 0 ? (
                                     <tr><td colSpan={6} className="text-center py-4 text-secondary-500">No hay plantillas recurrentes.</td></tr>
@@ -168,7 +175,6 @@ const FacturacionRecurrentePage: React.FC = () => {
                 onSave={handleSave}
                 clientes={clientes}
                 itemsDisponibles={items}
-                onCreateCliente={addCliente}
                 plantillaParaEditar={plantillaParaEditar}
             />
         </div>

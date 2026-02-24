@@ -1,464 +1,297 @@
 
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
-import { User, Role } from '../types';
-import { useTenantStore } from './useTenantStore';
-import { useDataStore } from './useDataStore';
-import { useAlertStore } from './useAlertStore';
+import { User, Role } from '../types.ts';
+import { useTenantStore } from './useTenantStore.ts';
+import { useDataStore } from './useDataStore.ts';
+import { auth, db, getSecondaryAuth } from '../firebase.ts';
+import { 
+  signInWithEmailAndPassword, 
+  signOut, 
+  onAuthStateChanged, 
+  createUserWithEmailAndPassword,
+  signInWithPopup,
+  OAuthProvider,
+  updatePassword
+} from 'firebase/auth';
+import { doc, getDoc, setDoc, collection, query, where, getDocs, updateDoc, deleteDoc } from 'firebase/firestore';
+import { useAlertStore } from './useAlertStore.ts';
 
 interface AuthState {
   isAuthenticated: boolean;
+  isLoading: boolean;
   user: User | null;
-  users: User[];
-  login: (user: User) => void;
-  logout: () => void;
+  forcePasswordChange: boolean;
+  logout: () => Promise<void>;
   triggerMicrosoftLogin: () => Promise<boolean>;
   loginWithPassword: (email: string, password: string) => Promise<boolean>;
-  register: (data: { nombreEmpresa: string, rnc: string, nombreUsuario: string, email: string, password: string }) => Promise<boolean>;
-  getUsersForTenant: (empresaId: number) => Promise<User[]>;
-  addUser: (userData: Omit<User, 'id'>) => Promise<void>;
-  updateUser: (userData: User) => void;
-  handleMicrosoftCallback: () => Promise<boolean>;
+  register: (data: {
+    nombreEmpresa: string;
+    rnc: string;
+    nombreUsuario: string;
+    email: string;
+    password: string;
+  }) => Promise<boolean>;
+  getUsersForTenant: (empresaId: string) => Promise<User[]>;
+  addUser: (userData: Omit<User, 'id'>, password: string) => Promise<void>;
+  updateUser: (userData: User, password?: string) => Promise<void>;
+  deleteUser: (user: User) => Promise<void>;
+  changePassword: (password: string) => Promise<boolean>;
+  clearForcePasswordChangeFlag: () => Promise<void>;
+  updateCurrentUserProfile: (data: { nombre?: string; password?: string; photoURL?: string }) => Promise<boolean>;
 }
 
-// Los usuarios ahora vienen exclusivamente de la base de datos PostgreSQL
-
-
-export const useAuthStore = create<AuthState>()(
-  persist(
-    (set, get) => ({
+export const useAuthStore = create<AuthState>()((set, get) => ({
       isAuthenticated: false,
+      isLoading: true,
       user: null,
-      users: [], // Los usuarios se cargan dinámicamente desde la BD
+      forcePasswordChange: false,
 
-      login: (user: User) => {
-        console.log('🔑 Ejecutando login para usuario:', user);
-        set({ isAuthenticated: true, user });
-        
-        // Verificar que el token esté presente antes de cargar empresas
-        const currentToken = localStorage.getItem('token');
-        if (currentToken) {
-          console.log('✅ Token presente al hacer login, cargando empresas...');
-          setTimeout(() => {
-            useTenantStore.getState().fetchAvailableTenants();
-          }, 300);
-        } else {
-          console.error('❌ Token no presente al hacer login');
-        }
+      logout: async () => {
+        await signOut(auth);
       },
-      logout: () => {
-        set({ isAuthenticated: false, user: null });
-        useTenantStore.getState().clearTenants();
-        useDataStore.getState().clearData();
-      },
+
       triggerMicrosoftLogin: async () => {
-        console.log("Iniciando login con Microsoft...");
-        
         try {
-          // Importar dinámicamente para evitar problemas de SSR
-          const { microsoftAuthService } = await import('../utils/microsoftAuth');
-          
-          // Cargar configuración
-          const isConfigured = microsoftAuthService.loadConfiguration();
-          
-          if (!isConfigured || !microsoftAuthService.isReady()) {
-            useAlertStore.getState().showAlert(
-              'Microsoft Auth No Configurado',
-              'Debe configurar las credenciales de Microsoft primero. Vaya a Configuración > Microsoft Office 365.'
-            );
-            return false;
-          }
+            const provider = new OAuthProvider('microsoft.com');
+            const result = await signInWithPopup(auth, provider);
+            const firebaseUser = result.user;
+            
+            const userDocRef = doc(db, 'users', firebaseUser.uid);
+            const userDocSnap = await getDoc(userDocRef);
 
-          // Verificar si ya hay un token válido
-          if (microsoftAuthService.hasValidToken()) {
-            // Intentar obtener información del usuario con token existente
-            const tokenData = microsoftAuthService.getStoredToken();
-            if (tokenData) {
-              try {
-                const userInfo = await microsoftAuthService.getUserInfo(tokenData.access_token);
-                
-                // Buscar o crear usuario basado en información de Microsoft
-                const existingUser = get().users.find(u => 
-                  u.email.toLowerCase() === userInfo.mail?.toLowerCase() ||
-                  u.email.toLowerCase() === userInfo.userPrincipalName?.toLowerCase()
-                );
+            if (!userDocSnap.exists()) {
+               const newEmpresaRef = doc(collection(db, 'empresas'));
+               await setDoc(newEmpresaRef, {
+                   nombre: `${firebaseUser.displayName}'s Company`,
+                   rnc: '000000000',
+               });
 
-                if (existingUser && existingUser.activo) {
-                  get().login(existingUser);
-                  return true;
-                } else {
-                  // Crear nuevo usuario si no existe
-                  const newUser: User = {
-                    id: `ms-${userInfo.id}`,
-                    nombre: userInfo.displayName,
-                    email: userInfo.mail || userInfo.userPrincipalName,
-                    roles: [Role.Contador],
-                    authMethod: 'microsoft',
-                    activo: true
-                  };
-                  
-                  set(state => ({ users: [...state.users, newUser] }));
-                  get().login(newUser);
-                  return true;
-                }
-              } catch (error) {
-                console.error('Error con token existente:', error);
-                // Token inválido, continuar con nuevo flujo de autenticación
-              }
+               const newUser: Omit<User, 'id'> = {
+                   nombre: firebaseUser.displayName || 'Usuario Microsoft',
+                   email: firebaseUser.email!,
+                   roles: [Role.Admin],
+                   empresaId: newEmpresaRef.id,
+                   authMethod: 'microsoft',
+                   activo: true,
+               };
+               await setDoc(userDocRef, newUser);
             }
-          }
-
-          // Iniciar proceso de autenticación (redirige a Microsoft)
-          microsoftAuthService.startAuthentication();
-          return true;
-          
-        } catch (error) {
-          console.error('Error en Microsoft login:', error);
-          useAlertStore.getState().showAlert(
-            'Error de Autenticación',
-            'No se pudo iniciar sesión con Microsoft. Verifique la configuración.'
-          );
-          return false;
+            return true;
+        } catch(error) {
+            console.error("Microsoft login error:", error);
+            useAlertStore.getState().showAlert('Error de Inicio de Sesión', 'No se pudo iniciar sesión con Microsoft.');
+            return false;
         }
       },
+
       loginWithPassword: async (email, password) => {
         try {
-          const cleanEmail = email.trim().toLowerCase();
-          const cleanPassword = password.trim();
-          
-          // Detectar si es usuario master
-          const isMasterUser = cleanEmail === 'lurichiez@gmail.com';
-          const endpoint = isMasterUser ? '/api/master/login' : '/api/auth/login';
-          
-          console.log(`Intentando login con ${endpoint} para ${cleanEmail}`);
-          
-          // Limpiar token anterior del localStorage
-          localStorage.removeItem('token');
-          
-          // Intentar login con el endpoint correcto
-          const response = await fetch(endpoint, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-              email: cleanEmail,
-              password: cleanPassword
-            })
-          });
+          const userCredential = await signInWithEmailAndPassword(auth, email, password);
+          const userDocRef = doc(db, 'users', userCredential.user.uid);
+          const userDocSnap = await getDoc(userDocRef);
 
-          if (response.ok) {
-            const result = await response.json();
-            console.log('Login response:', result);
-            
-            if (result.user && result.token) {
-              console.log('✅ Login exitoso, guardando token...');
-              
-              // Guardar token ANTES de cualquier otra operación
-              localStorage.setItem('token', result.token);
-              
-              // Verificar que se guardó correctamente
-              const verifyToken = localStorage.getItem('token');
-              if (!verifyToken) {
-                console.error('❌ Error: Token no se guardó en localStorage');
-                return false;
-              }
-              console.log('✅ Token guardado correctamente');
-              
-              // Crear objeto de usuario
-              const user: User = {
-                id: result.user.id.toString(),
-                nombre: result.user.nombre,
-                email: result.user.email,
-                roles: isMasterUser ? [Role.Master] : [Role.Admin],
-                authMethod: 'local',
-                activo: true,
-                empresaId: result.user.empresaId
-              };
-              
-              console.log('✅ Usuario creado:', user);
-              
-              // Login exitoso - actualizar estado
-              get().login(user);
-              
-              // Carga de empresas con verificación de token
-              setTimeout(() => {
-                const tokenForApi = localStorage.getItem('token');
-                if (tokenForApi) {
-                  console.log('✅ Token disponible para API, cargando empresas...');
-                  useTenantStore.getState().fetchAvailableTenants();
-                } else {
-                  console.error('❌ Token no disponible para cargar empresas');
-                }
-              }, 500);
-              
-              return true;
-            }
-          } else {
-            const errorResult = await response.json();
-            console.error("Error en respuesta del servidor:", errorResult);
-          }
-          
-          console.error("Login fallido: Credenciales incorrectas.");
-          return false;
-        } catch (error) {
-          console.error('Error en login:', error);
-          return false;
-        }
-      },
-      register: async (data) => {
-        try {
-          const { nombreEmpresa, rnc, nombreUsuario, email, password } = data;
-          
-          // Usar el endpoint del backend que guarda en PostgreSQL
-          const response = await fetch('/api/registration/register-company', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-              nombreEmpresa,
-              rnc,
-              nombreUsuario,
-              email,
-              password
-            })
-          });
-
-          const result = await response.json();
-          
-          if (response.ok && result.message) {
-            // El registro fue exitoso, crear usuario local para la sesión
-            const newUser: User = {
-              id: result.user.id.toString(),
-              nombre: result.user.nombre,
-              email: result.user.email,
-              roles: [Role.Admin],
-              empresaId: result.empresa.id,
-              authMethod: 'local',
-              activo: true,
-            };
-            
-            // Agregar a usuarios locales y hacer login
-            set(state => ({ users: [...state.users, newUser] }));
-            get().login(newUser);
-            
-            useAlertStore.getState().showAlert(
-              'Registro Exitoso', 
-              `Empresa "${result.empresa.nombre}" creada exitosamente. Se ha enviado una notificación por email.`
-            );
-            
-            return true;
-          } else {
-            useAlertStore.getState().showAlert('Error de Registro', result.error || 'Error en el registro');
+          if (!userDocSnap.exists()) {
+            await signOut(auth);
+            console.error("Login error: User profile not found in Firestore.");
             return false;
           }
+
+          const userData = userDocSnap.data() as User;
+          if (!userData.activo) {
+            await signOut(auth);
+            console.error("Login error: User account is inactive.");
+            return false;
+          }
+          return true;
         } catch (error) {
-          console.error('Error en registro:', error);
-          useAlertStore.getState().showAlert('Error de Conexión', 'No se pudo conectar con el servidor');
+          console.error("Login error:", error);
           return false;
         }
       },
-      getUsersForTenant: async (empresaId: number) => {
-        try {
-          const response = await fetch(`/api/auth/users?empresaId=${empresaId}`, {
-            headers: {
-              'Authorization': `Bearer ${localStorage.getItem('token')}`
-            }
-          });
-          
-          if (response.ok) {
-            const users = await response.json();
-            return users;
-          }
-          
-          // Fallback a datos locales si hay
-          return get().users.filter(u => u.empresaId === empresaId);
-        } catch (error) {
-          console.error('Error obteniendo usuarios:', error);
-          return get().users.filter(u => u.empresaId === empresaId);
-        }
-      },
-      addUser: async (userData) => {
-        try {
-          // Verificar límites antes de enviar
-          const existingUsers = await get().getUsersForTenant(userData.empresaId!);
-          if (userData.roles.includes(Role.Admin)) {
-            const adminsInCompany = existingUsers.filter(u => u.roles.includes(Role.Admin));
-            if (adminsInCompany.length >= 3) {
-                useAlertStore.getState().showAlert('Límite Alcanzado', 'Una empresa no puede tener más de 3 administradores.');
-                return;
-            }
-          }
-
-          const response = await fetch('/api/auth/register', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${localStorage.getItem('token')}`
-            },
-            body: JSON.stringify(userData)
-          });
-
-          if (response.ok) {
-            const newUser = await response.json();
-            // Agregar a la lista local también
-            set(state => ({ users: [...state.users, newUser]}));
-            useAlertStore.getState().showAlert('Usuario Creado', 'Usuario agregado exitosamente');
-          } else {
-            const error = await response.json();
-            useAlertStore.getState().showAlert('Error', error.error || 'Error al crear usuario');
-          }
-        } catch (error) {
-          console.error('Error creando usuario:', error);
-          useAlertStore.getState().showAlert('Error de Conexión', 'No se pudo conectar con el servidor');
-        }
-      },
-      updateUser: (userData) => {
-        const { users } = get();
-        if (userData.roles.includes(Role.Admin)) {
-            const otherAdmins = users.filter(u => u.id !== userData.id && u.empresaId === userData.empresaId && u.roles.includes(Role.Admin));
-            if (otherAdmins.length >= 3) {
-                useAlertStore.getState().showAlert('Límite Alcanzado', 'Una empresa no puede tener más de 3 administradores.');
-                return;
+      
+      changePassword: async (password: string) => {
+        if (auth.currentUser) {
+            try {
+                await updatePassword(auth.currentUser, password);
+                if (get().forcePasswordChange) {
+                    await get().clearForcePasswordChangeFlag();
+                }
+                return true;
+            } catch (error) {
+                console.error("Error updating password:", error);
+                return false;
             }
         }
-
-        set(state => ({
-            users: state.users.map(u => u.id === userData.id ? userData : u)
-        }));
+        return false;
+      },
+      
+      clearForcePasswordChangeFlag: async () => {
+        const user = get().user;
+        if (user) {
+          const userRef = doc(db, 'users', user.id);
+          await updateDoc(userRef, { tempPassword: false });
+          set(state => ({ 
+            forcePasswordChange: false,
+            user: state.user ? { ...state.user, tempPassword: false } : null,
+          }));
+        }
       },
 
-      handleMicrosoftCallback: async () => {
+      register: async (data) => {
+        const { nombreEmpresa, rnc, nombreUsuario, email, password } = data;
         try {
-          const { microsoftAuthService } = await import('../utils/microsoftAuth');
-          
-          const result = await microsoftAuthService.handleCallback();
-          if (!result) {
-            return false; // No hay callback de Microsoft
-          }
+            const newEmpresaRef = doc(collection(db, 'empresas'));
+            await setDoc(newEmpresaRef, {
+                nombre: nombreEmpresa,
+                rnc: rnc,
+            });
 
-          const { user: userInfo } = result;
+            const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+            const firebaseUser = userCredential.user;
 
-          // Buscar usuario existente o crear nuevo
-          let existingUser = get().users.find(u => 
-            u.email.toLowerCase() === userInfo.mail?.toLowerCase() ||
-            u.email.toLowerCase() === userInfo.userPrincipalName?.toLowerCase()
-          );
-
-          if (!existingUser) {
-            // Crear nuevo usuario
-            const newUser: User = {
-              id: `ms-${userInfo.id}`,
-              nombre: userInfo.displayName,
-              email: userInfo.mail || userInfo.userPrincipalName,
-              roles: [Role.Contador],
-              authMethod: 'microsoft',
-              activo: true
+            const newUser: Omit<User, 'id'> = {
+                nombre: nombreUsuario,
+                email: email,
+                roles: [Role.Admin],
+                empresaId: newEmpresaRef.id,
+                authMethod: 'local',
+                activo: true,
             };
-            
-            set(state => ({ users: [...state.users, newUser] }));
-            existingUser = newUser;
-          }
-
-          if (existingUser.activo) {
-            get().login(existingUser);
+            await setDoc(doc(db, 'users', firebaseUser.uid), newUser);
             return true;
-          }
-
-          return false;
-        } catch (error) {
-          console.error('Error procesando callback de Microsoft:', error);
-          return false;
+        } catch (error: any) {
+            console.error("Registration error:", error);
+            let message = 'Ocurrió un error durante el registro.';
+            if (error.code === 'auth/email-already-in-use') {
+                message = 'Este correo electrónico ya está en uso.';
+            }
+            useAlertStore.getState().showAlert('Error de Registro', message);
+            return false;
         }
-      }
-    }),
-    {
-      name: 'sirim-auth-storage', // unique name
-    }
-  )
+      },
+
+      getUsersForTenant: async (empresaId: string) => {
+        const q = query(collection(db, 'users'), where('empresaId', '==', empresaId));
+        const querySnapshot = await getDocs(q);
+        const users: User[] = [];
+        querySnapshot.forEach(doc => {
+            users.push({ id: doc.id, ...doc.data() } as User);
+        });
+        return users;
+      },
+
+      addUser: async (userData, password) => {
+        const secondaryAuth = getSecondaryAuth();
+        try {
+          const userCredential = await createUserWithEmailAndPassword(secondaryAuth, userData.email, password);
+          const uid = userCredential.user.uid;
+          
+          await setDoc(doc(db, 'users', uid), { 
+            ...userData, 
+            tempPassword: true
+          });
+
+          await signOut(secondaryAuth);
+          
+          useAlertStore.getState().showAlert('Usuario Creado', `El usuario ${userData.nombre} ha sido creado con una contraseña temporal. Deberá cambiarla en su primer inicio de sesión.`);
+
+        } catch (error: any) {
+            console.error("Error creating user:", error);
+            let message = 'Ocurrió un error al crear el usuario.';
+            if (error.code === 'auth/email-already-in-use') {
+                message = 'Este correo electrónico ya está en uso por otro usuario.';
+            } else if (error.code === 'auth/weak-password') {
+                message = 'La contraseña debe tener al menos 6 caracteres.';
+            }
+            useAlertStore.getState().showAlert('Error de Creación', message);
+        }
+      },
+
+      updateUser: async (userData, password) => {
+        const { id, ...dataToUpdate } = userData;
+        const userRef = doc(db, 'users', id);
+        await updateDoc(userRef, dataToUpdate);
+
+        if (password) {
+          console.warn("La actualización de contraseña desde el panel de administración no es segura en el lado del cliente y requiere que el usuario se vuelva a autenticar. Para producción, esta operación debe realizarse a través de un backend con el SDK de administrador de Firebase.");
+        }
+      },
+
+      deleteUser: async (user: User) => {
+        const userRef = doc(db, 'users', user.id);
+        await deleteDoc(userRef);
+      },
+
+      updateCurrentUserProfile: async (data) => {
+        const currentUser = get().user;
+        const firebaseUser = auth.currentUser;
+        if (!currentUser || !firebaseUser) return false;
+        
+        const updates: Partial<User> = {};
+        if (data.nombre && data.nombre !== currentUser.nombre) {
+            updates.nombre = data.nombre;
+        }
+        if (data.photoURL && data.photoURL !== currentUser.photoURL) {
+            updates.photoURL = data.photoURL;
+        }
+
+        try {
+            if (data.password) {
+                await get().changePassword(data.password);
+            }
+            
+            if (Object.keys(updates).length > 0) {
+                const userRef = doc(db, 'users', currentUser.id);
+                await updateDoc(userRef, updates);
+                set({ user: { ...currentUser, ...updates } });
+            }
+            
+            return true;
+        } catch (error) {
+            console.error("Error updating profile:", error);
+            useAlertStore.getState().showAlert('Error', 'No se pudo actualizar el perfil.');
+            return false;
+        }
+      },
+    })
 );
 
-// Inicialización robusta del usuario Master
-if (typeof window !== 'undefined') {
-  const initializeMasterUser = () => {
-    console.log('🔍 Verificando token almacenado...');
-    const storedToken = localStorage.getItem('token');
-    
-    if (!storedToken) {
-      console.log('❌ No hay token almacenado');
-      return false;
-    }
-    
+onAuthStateChanged(auth, async (firebaseUser) => {
     try {
-      const tokenPayload = JSON.parse(atob(storedToken.split('.')[1]));
-      console.log('🔍 Token decodificado:', { email: tokenPayload.email, role: tokenPayload.role, exp: new Date(tokenPayload.exp * 1000) });
-      
-      if (tokenPayload.exp * 1000 <= Date.now()) {
-        console.log('⚠️ Token expirado, limpiando');
-        localStorage.removeItem('token');
-        return false;
-      }
-      
-      // Usuario Master específico - solo aceptar el email correcto del master
-      if (tokenPayload.email === 'lurichiez@gmail.com') {
-        const masterUser: User = {
-          id: tokenPayload.sub?.toString() || '1',
-          nombre: tokenPayload.nombre || 'Luis Richards',
-          email: 'lurichiez@gmail.com',
-          roles: [Role.Master],
-          authMethod: 'local',
-          activo: true,
-          empresaId: undefined
-        };
-        
-        console.log('✅ Inicializando usuario master:', masterUser);
-        useAuthStore.setState({ user: masterUser, isAuthenticated: true });
-        
-        // Verificar que el token sigue ahí y luego cargar empresas
-        setTimeout(() => {
-          const tokenCheck = localStorage.getItem('token');
-          if (tokenCheck) {
-            console.log('✅ Token verificado, cargando empresas...');
-            useTenantStore.getState().fetchAvailableTenants();
-          } else {
-            console.error('❌ Token desapareció después de la inicialización');
-          }
-        }, 1000);
-        
-        return true;
-      }
+        if (firebaseUser) {
+            const userDocRef = doc(db, 'users', firebaseUser.uid);
+            const userDocSnap = await getDoc(userDocRef);
+
+            if (userDocSnap.exists()) {
+                const userData = userDocSnap.data() as User;
+                if (userData.activo) {
+                    useAuthStore.setState({
+                        isAuthenticated: true,
+                        user: { ...userData, id: firebaseUser.uid },
+                        forcePasswordChange: userData.tempPassword === true
+                    });
+                    
+                    await useTenantStore.getState().fetchAvailableTenants();
+                    
+                    useAuthStore.setState({ isLoading: false });
+
+                } else {
+                    await signOut(auth);
+                    useAlertStore.getState().showAlert('Cuenta Inactiva', 'Su cuenta de usuario ha sido desactivada.');
+                }
+            } else {
+                 await signOut(auth);
+                 useAlertStore.getState().showAlert('Error de Perfil', 'Su perfil de usuario no se encontró en la base de datos. Por favor, contacte al administrador.');
+            }
+        } else {
+            useAuthStore.setState({ isAuthenticated: false, user: null, isLoading: false, forcePasswordChange: false });
+            useTenantStore.getState().clearTenants();
+            useDataStore.getState().clearData();
+        }
     } catch (error) {
-      console.error('❌ Error decodificando token:', error);
-      localStorage.removeItem('token');
+        console.error("Error during authentication state change:", error);
+        useAlertStore.getState().showAlert('Error de Conexión', 'No se pudo conectar con la base de datos para verificar el usuario.');
+        await signOut(auth);
+        useAuthStore.setState({ isAuthenticated: false, user: null, isLoading: false, forcePasswordChange: false });
     }
-    
-    return false;
-  };
-
-  // Intentar inicialización con reintentos
-  let attempts = 0;
-  const tryInitialize = () => {
-    attempts++;
-    console.log(`🚀 Intento de inicialización #${attempts}`);
-    
-    if (initializeMasterUser()) {
-      console.log('✅ Inicialización exitosa');
-      return;
-    }
-    
-    if (attempts < 5) {
-      setTimeout(tryInitialize, attempts * 200);
-    } else {
-      console.log('⚠️ Inicialización fallida después de 5 intentos - limpiando token inválido');
-      localStorage.removeItem('token');
-      // Redirigir al login si estamos en una ruta protegida
-      if (window.location.hash !== '#/login' && window.location.hash !== '#/') {
-        window.location.hash = '#/login';
-      }
-    }
-  };
-
-  // Iniciar el proceso
-  tryInitialize();
-}
+});

@@ -52,99 +52,133 @@ const calcularAportesEmpleador = (salarioBruto: number): { sfs: number, srl: num
 
 /**
  * Calcula la retención mensual del Impuesto Sobre la Renta (ISR).
- * @param salarioBruto - El salario bruto mensual del empleado.
- * @param totalDeduccionesTSS - La suma de las deducciones de SFS y AFP.
- * @returns El monto de ISR a retener en el mes.
+ * @param salarioBruto - El salario bruto mensual.
+ * @param sfs - La deducción mensual de SFS.
+ * @param afp - La deducción mensual de AFP.
+ * @returns La retención de ISR mensual.
  */
-const calcularISR = (salarioBruto: number, totalDeduccionesTSS: number): number => {
-    const salarioNetoImponibleAnual = (salarioBruto - totalDeduccionesTSS) * 12;
+const calcularRetencionISR = (salarioBruto: number, sfs: number, afp: number): number => {
+    const salarioNetoImponibleAnual = (salarioBruto - sfs - afp) * 12;
 
-    if (salarioNetoImponibleAnual <= ISR_ESCALAS_ANUAL[0].limite) {
+    if (salarioNetoImponibleAnual <= 416220.00) {
         return 0;
     }
 
-    const escala = ISR_ESCALAS_ANUAL.find(e => salarioNetoImponibleAnual <= e.limite);
-    
-    if (!escala) {
-        return 0; // Should not happen with Infinity limit
+    let isrAnual = 0;
+    if (salarioNetoImponibleAnual <= 624329.00) {
+        isrAnual = (salarioNetoImponibleAnual - 416220.00) * 0.15;
+    } else if (salarioNetoImponibleAnual <= 867123.00) {
+        isrAnual = ((salarioNetoImponibleAnual - 624329.00) * 0.20) + 31216.00;
+    } else {
+        isrAnual = ((salarioNetoImponibleAnual - 867123.00) * 0.25) + 79776.00;
     }
     
-    const excedente = salarioNetoImponibleAnual - escala.excedenteDe;
-    const impuestoAnual = (excedente * escala.tasa) + escala.sumaFija;
-    
-    return impuestoAnual / 12;
+    return isrAnual > 0 ? isrAnual / 12 : 0;
 };
 
 /**
- * Procesa la nómina para un empleado, calculando todas las deducciones, aportes y el salario neto.
+ * Procesa todos los cálculos de nómina para un solo empleado.
+ * @param empleado - El objeto del empleado a procesar.
+ * @returns Un objeto NominaEmpleado con todos los cálculos.
  */
 export const procesarNominaEmpleado = (empleado: Empleado): NominaEmpleado => {
     const salarioBruto = empleado.salarioBrutoMensual;
+    const { sfs, afp } = calcularDeduccionesTSS(salarioBruto);
+    const isr = calcularRetencionISR(salarioBruto, sfs, afp);
+    const totalDeduccionesEmpleado = sfs + afp + isr;
 
-    const deducciones = calcularDeduccionesTSS(salarioBruto);
-    const totalDeduccionesTSS = deducciones.sfs + deducciones.afp;
+    const aportesEmpleador = calcularAportesEmpleador(salarioBruto);
+    const totalAportesEmpleador = aportesEmpleador.sfs + aportesEmpleador.srl + aportesEmpleador.afp + aportesEmpleador.infotep;
     
-    const isr = calcularISR(salarioBruto, totalDeduccionesTSS);
-    
-    const totalDeduccionesEmpleado = totalDeduccionesTSS + isr;
     const salarioNeto = salarioBruto - totalDeduccionesEmpleado;
-
-    const aportes = calcularAportesEmpleador(salarioBruto);
-    const totalAportesEmpleador = aportes.sfs + aportes.srl + aportes.afp + aportes.infotep;
 
     return {
         empleadoId: empleado.id,
         nombre: empleado.nombre,
         salarioBruto,
-        sfs: deducciones.sfs,
-        afp: deducciones.afp,
+        afp,
+        sfs,
         isr,
         totalDeduccionesEmpleado,
-        sfsEmpleador: aportes.sfs,
-        srlEmpleador: aportes.srl,
-        // FIX: Added missing afpEmpleador property to match the NominaEmpleado type.
-        afpEmpleador: aportes.afp,
-        infotep: aportes.infotep,
+        sfsEmpleador: aportesEmpleador.sfs,
+        srlEmpleador: aportesEmpleador.srl,
+        afpEmpleador: aportesEmpleador.afp,
+        infotep: aportesEmpleador.infotep,
         totalAportesEmpleador,
         salarioNeto,
     };
 };
 
 /**
- * Calcula las prestaciones laborales de un empleado.
+ * Calcula las prestaciones laborales de un empleado al terminar su contrato.
+ * @param empleado - El empleado a desvincular.
+ * @param fechaSalida - La fecha de salida en formato 'YYYY-MM-DD'.
+ * @param causa - La causa de la terminación del contrato.
+ * @returns Un objeto con el desglose de las prestaciones.
  */
-export const calcularPrestaciones = (empleado: Empleado, fechaSalida: string, causa: CausaDesvinculacion) => {
-    const fechaIngreso = new Date(empleado.fechaIngreso + 'T00:00:00');
-    const fechaSalidaDate = new Date(fechaSalida + 'T00:00:00');
+export const calcularPrestaciones = (
+    empleado: Empleado, 
+    fechaSalida: string, 
+    causa: CausaDesvinculacion
+): { preaviso: number; cesantia: number; vacaciones: number; salarioNavidad: number; total: number; } => {
     
-    const aniosTrabajados = (fechaSalidaDate.getTime() - fechaIngreso.getTime()) / (1000 * 60 * 60 * 24 * 365.25);
-    const mesesTrabajados = aniosTrabajados * 12;
+    const fechaIngresoDate = new Date(empleado.fechaIngreso + 'T00:00:00Z');
+    const fechaSalidaDate = new Date(fechaSalida + 'T00:00:00Z');
+
+    const diffTime = fechaSalidaDate.getTime() - fechaIngresoDate.getTime();
+    if (diffTime < 0) return { preaviso: 0, cesantia: 0, vacaciones: 0, salarioNavidad: 0, total: 0 };
+
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    const mesesCompletos = Math.floor(diffDays / 30.4375);
+    const añosCompletos = Math.floor(mesesCompletos / 12);
 
     const salarioDiario = empleado.salarioBrutoMensual / 23.83;
     
     let preaviso = 0;
     let cesantia = 0;
 
-    // --- Preaviso y Cesantía ---
-    if (causa === 'desahucio') {
-        if (mesesTrabajados >= 3 && mesesTrabajados < 6) { preaviso = 7 * salarioDiario; cesantia = 6 * salarioDiario; } 
-        else if (mesesTrabajados >= 6 && mesesTrabajados < 12) { preaviso = 14 * salarioDiario; cesantia = 13 * salarioDiario; } 
-        else if (aniosTrabajados >= 1 && aniosTrabajados < 5) { preaviso = 28 * salarioDiario; cesantia = 21 * salarioDiario * aniosTrabajados; } 
-        else if (aniosTrabajados >= 5) { preaviso = 28 * salarioDiario; cesantia = 23 * salarioDiario * aniosTrabajados; }
-    }
-    
-    // --- Vacaciones ---
-    // Simplificado: asume que las vacaciones no han sido tomadas en el último período.
-    let vacaciones = 0;
-    if (mesesTrabajados >= 5) {
-        const diasVacaciones = aniosTrabajados >= 5 ? 18 : 14;
-        const diasProporcionales = (diasVacaciones / 12) * (mesesTrabajados % 12);
-        vacaciones = diasProporcionales * salarioDiario;
+    if (causa === CausaDesvinculacion.Desahucio) {
+        // Cálculo del Preaviso
+        if (mesesCompletos >= 3 && mesesCompletos < 6) {
+            preaviso = 7 * salarioDiario;
+        } else if (mesesCompletos >= 6 && mesesCompletos < 12) {
+            preaviso = 14 * salarioDiario;
+        } else if (mesesCompletos >= 12) {
+            preaviso = 28 * salarioDiario;
+        }
+
+        // Cálculo de la Cesantía
+        if (mesesCompletos >= 3 && mesesCompletos < 6) {
+            cesantia = 6 * salarioDiario;
+        } else if (mesesCompletos >= 6 && mesesCompletos < 12) {
+            cesantia = 13 * salarioDiario;
+        } else if (añosCompletos >= 1 && añosCompletos < 5) {
+            cesantia = (21 * salarioDiario) * añosCompletos;
+        } else if (añosCompletos >= 5) {
+            cesantia = (23 * salarioDiario) * añosCompletos;
+        }
     }
 
-    // --- Salario de Navidad (Regalía Pascual) ---
-    const mesesDelAnioSalida = fechaSalidaDate.getMonth() + 1;
-    const salarioNavidad = (empleado.salarioBrutoMensual * mesesDelAnioSalida) / 12;
+    // Cálculo de Vacaciones (derecho adquirido)
+    let vacaciones = 0;
+    if (añosCompletos >= 5) {
+        vacaciones = 18 * salarioDiario;
+    } else if (añosCompletos >= 1) {
+        vacaciones = 14 * salarioDiario;
+    } else if (mesesCompletos >= 5) {
+        const diasVacacionesProporcional = [0,0,0,0,0, 6, 7, 8, 9, 10, 11, 12];
+        vacaciones = (diasVacacionesProporcional[mesesCompletos] || 0) * salarioDiario;
+    }
+
+    // Cálculo del Salario de Navidad (Regalía Pascual)
+    const mesSalida = fechaSalidaDate.getUTCMonth(); // 0-11
+    let mesesTrabajadosEnAño = 0;
+    if (fechaSalidaDate.getUTCFullYear() > fechaIngresoDate.getUTCFullYear()) {
+        mesesTrabajadosEnAño = mesSalida + 1;
+    } else {
+        mesesTrabajadosEnAño = mesSalida - fechaIngresoDate.getUTCMonth();
+    }
+    const salarioNavidad = (empleado.salarioBrutoMensual * mesesTrabajadosEnAño) / 12;
 
     const total = preaviso + cesantia + vacaciones + salarioNavidad;
 

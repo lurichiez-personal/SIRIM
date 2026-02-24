@@ -1,72 +1,47 @@
-
 import React, { useState, useEffect } from 'react';
-import { User, Role } from '../../types';
+import { User, Role, Permission } from '../../types';
 import { useTenantStore } from '../../stores/useTenantStore';
 import { useAuthStore } from '../../stores/useAuthStore';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
-import { PlusIcon } from '../../components/icons/Icons';
+import { PlusIcon, TrashIcon } from '../../components/icons/Icons';
 import NuevoUsuarioModal from './NuevoUsuarioModal';
-import { apiClient } from '../../services/apiClient';
+import Can from '../../components/Can';
+import { useConfirmationStore } from '../../stores/useConfirmationStore';
 
 const GestionUsuariosPage: React.FC = () => {
     const { selectedTenant } = useTenantStore();
-    const { user } = useAuthStore();
-    const [tenantUsers, setTenantUsers] = useState<any[]>([]);
+    const { getUsersForTenant, addUser, updateUser, deleteUser } = useAuthStore();
+    const { showConfirmation } = useConfirmationStore();
+    const [tenantUsers, setTenantUsers] = useState<User[]>([]);
+    const [loading, setLoading] = useState(false);
     const [isModalOpen, setIsModalOpen] = useState(false);
-    const [userToEdit, setUserToEdit] = useState<any | null>(null);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
+    const [userToEdit, setUserToEdit] = useState<User | null>(null);
 
     useEffect(() => {
-        if (selectedTenant && user?.roles?.includes(Role.Master)) {
-            loadTenantUsers();
-        }
-    }, [selectedTenant, user]);
-
-    const loadTenantUsers = async () => {
-        if (!selectedTenant) return;
-        
-        try {
-            setLoading(true);
-            setError(null);
-            const response = await apiClient.getEmpresaUsers(selectedTenant.id);
-            
-            if (response.error) {
-                throw new Error(response.error);
+        const fetchUsers = async () => {
+            if (selectedTenant) {
+                setLoading(true);
+                const users = await getUsersForTenant(selectedTenant.id);
+                setTenantUsers(users);
+                setLoading(false);
             }
-            
-            setTenantUsers(response || []);
-        } catch (err) {
-            console.error('Error cargando usuarios:', err);
-            setError(err instanceof Error ? err.message : 'Error desconocido');
-            setTenantUsers([]);
-        } finally {
-            setLoading(false);
-        }
-    };
+        };
+        fetchUsers();
+    }, [selectedTenant, getUsersForTenant]);
 
-    const handleSaveUser = async (userData: any) => {
-        if (!selectedTenant) return;
-        
-        try {
-            setError(null);
-            
-            if ('id' in userData) {
-                // Actualizar usuario existente
-                await apiClient.updateEmpresaUser(selectedTenant.id, userData.id, userData);
-            } else {
-                // Crear nuevo usuario
-                await apiClient.createEmpresaUser(selectedTenant.id, userData);
+    const handleSaveUser = async (data: { user: Omit<User, 'id'> | User, password?: string }) => {
+        if ('id' in data.user) { // Edit mode
+            await updateUser(data.user as User, data.password);
+        } else { // Create mode
+            if (selectedTenant) {
+                // The modal now provides the complete user object, including empresaId.
+                await addUser(data.user as Omit<User, 'id'>, data.password!);
             }
-            
-            // Recargar lista de usuarios
-            await loadTenantUsers();
-            setIsModalOpen(false);
-            setUserToEdit(null);
-        } catch (err) {
-            console.error('Error guardando usuario:', err);
-            setError(err instanceof Error ? err.message : 'Error desconocido');
+        }
+        // Refetch users
+        if (selectedTenant) {
+            setTenantUsers(await getUsersForTenant(selectedTenant.id));
         }
     };
     
@@ -75,18 +50,22 @@ const GestionUsuariosPage: React.FC = () => {
         setIsModalOpen(true);
     };
 
-    const handleOpenModalParaEditar = (userEmpresa: any) => {
-        // Transformar datos del backend al formato esperado por el modal
-        const userForEdit = {
-            id: userEmpresa.userId,
-            nombre: userEmpresa.user.nombre,
-            email: userEmpresa.user.email,
-            companyRole: userEmpresa.role,
-            active: userEmpresa.active,
-            globalRole: userEmpresa.user.role
-        };
-        setUserToEdit(userForEdit);
+    const handleOpenModalParaEditar = (user: User) => {
+        setUserToEdit(user);
         setIsModalOpen(true);
+    };
+
+    const handleDeleteUser = (user: User) => {
+        showConfirmation(
+            'Confirmar Eliminación Permanente',
+            `¿Está seguro de que desea eliminar permanentemente al usuario ${user.nombre}? Se eliminará su perfil de la base de datos y no podrá volver a acceder al sistema. Esta acción no se puede deshacer.`,
+            async () => {
+                await deleteUser(user);
+                if (selectedTenant) {
+                    setTenantUsers(await getUsersForTenant(selectedTenant.id));
+                }
+            }
+        );
     };
 
     return (
@@ -100,58 +79,45 @@ const GestionUsuariosPage: React.FC = () => {
             <Card>
                 <CardHeader><CardTitle>Usuarios de {selectedTenant?.nombre}</CardTitle></CardHeader>
                 <CardContent>
-                    {loading && (
-                        <div className="text-center py-8">
-                            <p className="text-secondary-600">Cargando usuarios...</p>
-                        </div>
-                    )}
-                    
-                    {error && (
-                        <div className="bg-red-50 border border-red-200 rounded-md p-4 mb-4">
-                            <p className="text-red-600">{error}</p>
-                        </div>
-                    )}
-                    
-                    {!loading && !error && (
-                        <div className="overflow-x-auto">
-                            <table className="min-w-full divide-y divide-secondary-200">
-                                <thead className="bg-secondary-50">
-                                    <tr>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase">Nombre</th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase">Email</th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase">Rol</th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase">Estado</th>
-                                        <th className="px-6 py-3 text-right text-xs font-medium text-secondary-500 uppercase">Acciones</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="bg-white divide-y divide-secondary-200">
-                                    {tenantUsers.map(userEmpresa => (
-                                        <tr key={`${userEmpresa.userId}-${userEmpresa.empresaId}`}>
-                                            <td className="px-6 py-4 font-medium">{userEmpresa.user.nombre}</td>
-                                            <td className="px-6 py-4">{userEmpresa.user.email}</td>
-                                            <td className="px-6 py-4">{userEmpresa.role}</td>
+                    <div className="overflow-x-auto">
+                        <table className="min-w-full divide-y divide-secondary-200">
+                            <thead className="bg-secondary-50">
+                                <tr>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase">Nombre</th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase">Email</th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase">Roles</th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase">Estado</th>
+                                    <th className="px-6 py-3 text-right text-xs font-medium text-secondary-500 uppercase">Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody className="bg-white divide-y divide-secondary-200">
+                                {loading ? (
+                                    <tr><td colSpan={5} className="text-center py-4">Cargando usuarios...</td></tr>
+                                ) : (
+                                    tenantUsers.map(user => (
+                                        <tr key={user.id}>
+                                            <td className="px-6 py-4 font-medium">{user.nombre}</td>
+                                            <td className="px-6 py-4">{user.email}</td>
+                                            <td className="px-6 py-4">{user.roles.join(', ')}</td>
                                             <td className="px-6 py-4">
-                                                <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${userEmpresa.active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
-                                                    {userEmpresa.active ? 'Activo' : 'Inactivo'}
+                                                <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${user.activo ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                                                    {user.activo ? 'Activo' : 'Inactivo'}
                                                 </span>
                                             </td>
-                                            <td className="px-6 py-4 text-right">
-                                                <Button size="sm" variant="secondary" onClick={() => handleOpenModalParaEditar(userEmpresa)}>Editar</Button>
+                                            <td className="px-6 py-4 text-right space-x-2">
+                                                <Button size="sm" variant="secondary" onClick={() => handleOpenModalParaEditar(user)}>Editar</Button>
+                                                <Can I={Permission.ELIMINAR_USUARIOS}>
+                                                    <Button size="sm" variant="danger" onClick={() => handleDeleteUser(user)} title="Eliminar Usuario">
+                                                        <TrashIcon className="h-4 w-4" />
+                                                    </Button>
+                                                </Can>
                                             </td>
                                         </tr>
-                                    ))}
-                                    
-                                    {tenantUsers.length === 0 && !loading && (
-                                        <tr>
-                                            <td colSpan={5} className="px-6 py-8 text-center text-secondary-500">
-                                                No hay usuarios en esta empresa
-                                            </td>
-                                        </tr>
-                                    )}
-                                </tbody>
-                            </table>
-                        </div>
-                    )}
+                                    ))
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
                 </CardContent>
             </Card>
             <NuevoUsuarioModal 
@@ -159,6 +125,7 @@ const GestionUsuariosPage: React.FC = () => {
                 onClose={() => setIsModalOpen(false)}
                 onSave={handleSaveUser}
                 userToEdit={userToEdit}
+                empresaId={selectedTenant?.id}
             />
         </div>
     );

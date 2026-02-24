@@ -1,10 +1,8 @@
-
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuthStore } from '../../stores/useAuthStore';
 import { LogoIcon } from '../../components/icons/Icons';
 import Button from '../../components/ui/Button';
-import ForgotPasswordModal from './ForgotPasswordModal';
 
 const LoginPage: React.FC = () => {
   const { triggerMicrosoftLogin, loginWithPassword } = useAuthStore();
@@ -12,7 +10,6 @@ const LoginPage: React.FC = () => {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [showForgotPassword, setShowForgotPassword] = useState(false);
 
   const handleLocalLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -28,13 +25,9 @@ const LoginPage: React.FC = () => {
   const handleMicrosoftLogin = async () => {
     setError('');
     setLoading(true);
-    try {
-      const success = await triggerMicrosoftLogin();
-      if (!success) {
-        setError('No se pudo iniciar sesión con Microsoft. Verifique la configuración.');
-      }
-    } catch (error) {
-      setError('Error al conectar con Microsoft. Intente nuevamente.');
+    const success = await triggerMicrosoftLogin();
+    if (!success) {
+      setError('No se pudo iniciar sesión con Microsoft.');
     }
     setLoading(false);
   }
@@ -92,16 +85,6 @@ const LoginPage: React.FC = () => {
                 <Button type="submit" className="w-full" disabled={loading}>
                     {loading ? 'Iniciando sesión...' : 'Iniciar Sesión'}
                 </Button>
-                <div className="text-center">
-                  <button
-                    type="button"
-                    onClick={() => setShowForgotPassword(true)}
-                    className="text-sm text-blue-600 hover:text-blue-500 mb-2"
-                  >
-                    ¿Olvidó su contraseña?
-                  </button>
-                </div>
-                
                  <p className="mt-4 text-center text-sm text-secondary-600">
                     ¿No tienes una cuenta?{' '}
                     <Link to="/registro" className="font-medium text-primary hover:text-primary-700">
@@ -111,11 +94,6 @@ const LoginPage: React.FC = () => {
             </form>
         </div>
       </div>
-      
-      <ForgotPasswordModal 
-        isOpen={showForgotPassword}
-        onClose={() => setShowForgotPassword(false)}
-      />
     </div>
   );
 };

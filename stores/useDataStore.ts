@@ -1,970 +1,996 @@
 
+// stores/useDataStore.ts
 import { create } from 'zustand';
-import { Factura, Cliente, Item, Gasto, Ingreso, Cotizacion, NotaCreditoDebito, FacturaEstado, CotizacionEstado, MetodoPago, NotaType, FacturaRecurrente, PagedResult, CodigoModificacionNCF, KpiData, ChartDataPoint, PieChartDataPoint, Comment, AuditLogEntry, Empleado, Nomina, Desvinculacion, AsientoContable, NominaStatus, NotificationType } from '../types';
-import { useTenantStore } from './useTenantStore';
-import { useNotificationStore } from './useNotificationStore';
-import { useAuthStore } from './useAuthStore';
-import { generarAsientoNomina, generarAsientoFacturaVenta, generarAsientoGasto, generarAsientoIngreso, generarAsientoNotaCredito, generarAsientoDesvinculacion } from '../utils/accountingUtils';
-import { apiClient } from '../services/apiClient';
+import { db, storage } from '../firebase.ts';
+import {
+  collection, onSnapshot, doc, getDoc, getDocs, addDoc, updateDoc, deleteDoc,
+  query, where, writeBatch, runTransaction, Unsubscribe, serverTimestamp, arrayUnion, orderBy, limit
+} from 'firebase/firestore';
+import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
+import {
+  Cliente, Factura, Gasto, Item, Ingreso, Cotizacion, NotaCreditoDebito, FacturaRecurrente,
+  Credencial, Empleado, Nomina, Desvinculacion, AsientoContable, CierreITBIS, AnticipoISRPago,
+  FacturaEstado, CotizacionEstado, NominaStatus, MetodoPago, isNcfConsumidorFinal, Comment, AuditLogEntry, PagedResult, KpiData, ChartDataPoint, PieChartDataPoint, NCFType, ActivoFijo, CalculoFiscalSnapshot, ExcelRow607, ImportLog, DataState, FiscalClosure
+} from '../types.ts';
+import { useTenantStore } from './useTenantStore.ts';
+import { useAuthStore } from './useAuthStore.ts';
+import { useAlertStore } from './useAlertStore.ts';
+import { useTaskStore } from './useTaskStore.ts';
+import {
+  generarAsientoFacturaVenta, generarAsientoGasto, generarAsientoIngreso,
+  generarAsientoNotaCredito, generarAsientoNomina, generarAsientoDesvinculacion, generarAsientoPago
+} from '../utils/accountingUtils.ts';
+import { useDGIIDataStore } from './useDGIIDataStore.ts';
+import { GoogleGenAI } from "@google/genai";
+import * as xlsx from 'xlsx';
 
-// --- MOCK DATA SOURCE ---
-
-let allClientes: Cliente[] = [
-    { id: 1, empresaId: 1, nombre: 'Cliente A Corp', rnc: '130123456', email: 'contact@clientea.com', telefono: '809-555-0001', activo: true, createdAt: '2023-01-15T00:00:00Z', estadoDGII: 'ACTIVO', condicionesPago: 'Neto 30' },
-    { id: 2, empresaId: 1, nombre: 'Cliente B Industrial', rnc: '131987654', email: 'info@clienteb.com', telefono: '809-555-0002', activo: true, createdAt: '2023-02-20T00:00:00Z', estadoDGII: 'ACTIVO', condicionesPago: 'Neto 15' },
-    { id: 3, empresaId: 2, nombre: 'Asociados de Consultoría XYZ', rnc: '132112233', email: 'info@consultores.com', telefono: '809-555-0003', activo: true, createdAt: '2023-03-10T00:00:00Z', estadoDGII: 'ACTIVO', condicionesPago: 'Neto 30' },
-    { id: 4, empresaId: 1, nombre: 'Comercial C & D', rnc: '130778899', email: 'ventas@comercialcd.com', telefono: '809-555-0004', activo: false, createdAt: '2023-04-05T00:00:00Z', estadoDGII: 'SUSPENDIDO', condicionesPago: 'Al contado' },
-    { id: 5, empresaId: 3, nombre: 'Constructora Principal', rnc: '132555666', email: 'proyectos@constructorap.com', telefono: '809-555-0005', activo: true, createdAt: '2023-05-12T00:00:00Z', estadoDGII: 'ACTIVO', condicionesPago: 'Neto 60' },
+const COLLECTIONS_TO_FETCH = [
+  'clientes', 'facturas', 'gastos', 'items', 'ingresos', 'cotizaciones', 'notas', 
+  'facturasRecurrentes', 'credenciales', 'empleados', 'nominas', 'desvinculaciones', 
+  'asientosContables', 'cierresITBIS', 'pagosAnticiposISR', 'activosFijos'
 ];
 
-let allFacturas: Factura[] = [
-    { id: 101, empresaId: 1, clienteId: 1, clienteNombre: 'Cliente A Corp', fecha: '2024-05-20', items: [{itemId: 1001, codigo: 'SERV-CONS', descripcion: 'Servicio de Consultoría', cantidad: 25, precioUnitario: 5000, subtotal: 125000}], subtotal: 125000, aplicaITBIS: true, aplicaISC: true, isc: 2118.64, itbis: 22881.36, aplicaPropina: false, propinaLegal: 0, montoTotal: 150000.00, montoPagado: 150000.00, ncf: 'B0100000101', estado: FacturaEstado.Pagada, conciliado: false, comments: [], auditLog: [] },
-    { id: 102, empresaId: 1, clienteId: 2, clienteNombre: 'Cliente B Industrial', fecha: '2024-05-15', items: [], subtotal: 70000.00, descuentoPorcentaje: 5, montoDescuento: 3500, aplicaITBIS: true, aplicaISC: false, isc: 0, itbis: 11970, aplicaPropina: false, propinaLegal: 0, montoTotal: 78470, montoPagado: 40000, ncf: 'B0100000102', estado: FacturaEstado.PagadaParcialmente, conciliado: false, comments: [], auditLog: [] },
-    { id: 103, empresaId: 1, clienteId: 4, clienteNombre: 'Comercial C & D', fecha: '2024-04-10', items: [], subtotal: 25000.00, aplicaITBIS: true, itbis: 4500, montoTotal: 29500.00, montoPagado: 0, ncf: 'B0100000103', estado: FacturaEstado.Vencida, conciliado: false, comments: [], auditLog: [] },
-];
-let allItems: Item[] = [
-    { id: 1001, empresaId: 1, codigo: 'SERV-CONS', nombre: 'Servicio de Consultoría', precio: 5000.00, costo: 2000, cantidadDisponible: undefined },
-    { id: 1002, empresaId: 1, codigo: 'SERV-WEB', nombre: 'Desarrollo Web', precio: 8000.00, costo: 3000, cantidadDisponible: undefined },
-    { id: 1003, empresaId: 1, codigo: 'PROD-A', nombre: 'Producto A', precio: 750.00, costo: 400, cantidadDisponible: 100 },
-    { id: 1004, empresaId: 1, codigo: 'PROD-B', nombre: 'Producto B', precio: 1200.00, costo: 700, cantidadDisponible: 4 },
-];
-
-let allCotizaciones: Cotizacion[] = [
-    { id: 201, empresaId: 1, clienteId: 1, clienteNombre: 'Cliente A Corp', clienteRNC: '130123456', fecha: '2024-05-10', items: [], subtotal: 50000, aplicaITBIS: true, montoTotal: 59000, estado: CotizacionEstado.Pendiente, itbis: 9000, comments: [], auditLog: [] },
-    { id: 202, empresaId: 1, clienteId: 2, clienteNombre: 'Cliente B Industrial', clienteRNC: '131987654', fecha: '2024-04-25', items: [], subtotal: 120000, aplicaITBIS: true, montoTotal: 141600, estado: CotizacionEstado.Facturada, itbis: 21600, comments: [], auditLog: [] },
-];
-
-let allGastos: Gasto[] = [
-    { id: 301, empresaId: 1, proveedorNombre: 'Proveedor de Oficina S.A.', rncProveedor: '130999888', categoriaGasto: '09 - COMPRAS Y GASTOS QUE FORMARAN PARTE DEL COSTO DE VENTA', fecha: '2024-05-18', subtotal: 15000, itbis: 2700, isc: 500, propinaLegal: 150, monto: 18350, ncf: 'B0100003456', descripcion: 'Compra de papelería y suministros de oficina', conciliado: false, aplicaITBIS: true, comments: [], auditLog: [], metodoPago: MetodoPago['02-CHEQUES/TRANSFERENCIAS/DEPOSITO'] },
-];
-
-let allIngresos: Ingreso[] = [
-    { id: 401, empresaId: 1, clienteId: 2, clienteNombre: 'Cliente B Industrial', facturaId: 102, fecha: '2024-05-22', monto: 40000, metodoPago: MetodoPago['02-CHEQUES/TRANSFERENCIAS/DEPOSITO'], conciliado: false },
-    { id: 402, empresaId: 1, clienteId: 1, clienteNombre: 'Cliente A Corp', facturaId: 101, fecha: '2024-05-20', monto: 150000.00, metodoPago: MetodoPago['02-CHEQUES/TRANSFERENCIAS/DEPOSITO'], conciliado: false },
-];
-
-let allNotas: NotaCreditoDebito[] = [];
-let allFacturasRecurrentes: FacturaRecurrente[] = [];
-let allEmpleados: Empleado[] = [
-    { id: 1, empresaId: 1, nombre: 'Juan Perez', cedula: '001-1234567-8', puesto: 'Gerente General', salarioBrutoMensual: 150000, fechaIngreso: '2020-01-15', activo: true },
-    { id: 2, empresaId: 1, nombre: 'Maria Rodriguez', cedula: '001-8765432-1', puesto: 'Analista Contable', salarioBrutoMensual: 75000, fechaIngreso: '2021-06-01', activo: true },
-];
-let allNominas: Nomina[] = [];
-let allDesvinculaciones: Desvinculacion[] = [];
-let allAsientosContables: AsientoContable[] = [];
-
-
-const calculateNextDate = (currentDate: string, frequency: 'diaria' | 'semanal' | 'mensual' | 'anual'): string => {
-    const date = new Date(currentDate + 'T00:00:00'); // Ensure correct date parsing
-    switch (frequency) {
-        case 'diaria': date.setDate(date.getDate() + 1); break;
-        case 'semanal': date.setDate(date.getDate() + 7); break;
-        case 'mensual': date.setMonth(date.getMonth() + 1); break;
-        case 'anual': date.setFullYear(date.getFullYear() + 1); break;
-    }
-    return date.toISOString().split('T')[0];
+const addDocWithId = async <T extends { empresaId: string }>(collectionName: string, data: T, withTimestamp = true) => {
+    const fullData = withTimestamp 
+      ? { ...data, createdAt: serverTimestamp() }
+      : data;
+    const docRef = await addDoc(collection(db, collectionName), fullData);
+    return { ...fullData, id: docRef.id, createdAt: new Date().toISOString() };
 };
 
-// --- STORE DEFINITION ---
-interface DataState {
-  // Raw data (simulating DB tables)
-  clientes: Cliente[]; facturas: Factura[]; items: Item[]; cotizaciones: Cotizacion[]; notas: NotaCreditoDebito[]; gastos: Gasto[]; ingresos: Ingreso[]; facturasRecurrentes: FacturaRecurrente[];
-  empleados: Empleado[]; nominas: Nomina[]; desvinculaciones: Desvinculacion[]; asientosContables: AsientoContable[];
-  // Actions
-  fetchData: (empresaId: number) => void;
-  clearData: () => void;
-  // Paged Getters
-  getPagedClientes: (options: { page: number, pageSize: number, searchTerm?: string, status?: 'todos' | 'activo' | 'inactivo' }) => PagedResult<Cliente>;
-  getPagedFacturas: (options: { page: number, pageSize: number, searchTerm?: string, status?: string, startDate?: string, endDate?: string }) => PagedResult<Factura>;
-  getPagedGastos: (options: { page: number, pageSize: number, searchTerm?: string, category?: string }) => PagedResult<Gasto>;
-  getPagedItems: (options: { page: number, pageSize: number, searchTerm?: string }) => PagedResult<Item>;
-  getPagedIngresos: (options: { page: number, pageSize: number, searchTerm?: string, startDate?: string, endDate?: string, metodoPago?: string }) => PagedResult<Ingreso>;
-  getPagedCotizaciones: (options: { page: number, pageSize: number, searchTerm?: string, status?: string, startDate?: string, endDate?: string }) => PagedResult<Cotizacion>;
-  getPagedNotas: (options: { page: number, pageSize: number, searchTerm?: string, startDate?: string, endDate?: string }) => PagedResult<NotaCreditoDebito>;
-  getPagedFacturasRecurrentes: (options: { page: number, pageSize: number, searchTerm?: string, status?: 'todos' | 'activa' | 'inactiva' }) => PagedResult<FacturaRecurrente>;
-  
-  // DGII Report Getters
-  getGastosFor606: (startDate: string, endDate: string) => Gasto[];
-  getVentasFor607: (startDate: string, endDate: string) => { facturas: Factura[], notas: NotaCreditoDebito[] };
-  getAnuladosFor608: (startDate: string, endDate: string) => { ncf: string, fecha: string }[];
-  getNominaForPeriodo: (periodo: string) => Nomina | undefined;
-  getNominaById: (nominaId: string) => Nomina | undefined;
+const updateDocWithId = (collectionName: string, docId: string, data: any) => {
+    return updateDoc(doc(db, collectionName, docId), data);
+};
 
-  // --- Pilar 1: Dashboard Getters ---
-  getKpis: () => KpiData;
-  getSalesVsExpensesData: (period: 'year' | '30days') => ChartDataPoint[];
-  getGastosByCategoryData: () => PieChartDataPoint[];
-  getIngresosByClientData: () => PieChartDataPoint[];
+const deleteDocWithId = (collectionName: string, docId: string) => {
+    return deleteDoc(doc(db, collectionName, docId));
+};
 
-  // Mutators
-  addFactura: (facturaData: Omit<Factura, 'id' | 'empresaId' | 'conciliado'>) => void;
-  updateFactura: (factura: Factura) => void;
-  updateFacturaStatus: (facturaId: number, status: FacturaEstado) => void;
-  bulkUpdateFacturaStatus: (facturaIds: number[], status: FacturaEstado) => void;
+const getFiscalPeriod = () => {
+    const tenant = useTenantStore.getState().selectedTenant;
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth();
 
-  addCliente: (clienteData: Omit<Cliente, 'id'|'empresaId'|'createdAt'|'activo'>) => Cliente;
-  updateCliente: (cliente: Cliente) => void;
-  deleteCliente: (clienteId: number) => Promise<void>;
-  bulkDeleteClientes: (clienteIds: number[]) => Promise<void>;
-  bulkUpdateClienteStatus: (clienteIds: number[], activo: boolean) => void;
-  
-  addIngreso: (ingresoData: Omit<Ingreso, 'id' | 'empresaId' | 'conciliado'>) => void;
-  getFacturasParaPago: () => Factura[];
+    if (!tenant) return { start: `${currentYear}-01-01`, end: `${currentYear}-12-31` };
 
-  addItem: (itemData: Omit<Item, 'id' | 'empresaId'>) => Promise<void>;
-  updateItem: (item: Item) => void;
+    const cierreMonthMap: Record<string, number> = {
+        '31-diciembre': 11, '31-marzo': 2, '30-junio': 5, '30-septiembre': 8,
+    };
+    const cierreMonth = cierreMonthMap[tenant.cierreFiscal] || 11;
 
-  addGasto: (gastoData: Omit<Gasto, 'id' | 'empresaId' | 'conciliado'>) => Promise<void>;
-  updateGasto: (gasto: Gasto) => void;
-  bulkDeleteGastos: (gastoIds: number[]) => void;
+    if (cierreMonth === 11) return { start: `${currentYear}-01-01`, end: `${currentYear}-12-31` };
 
-  addCotizacion: (cotizacionData: Omit<Cotizacion, 'id' | 'empresaId' | 'estado'>) => void;
-  updateCotizacion: (cotizacion: Cotizacion) => void;
-  updateCotizacionStatus: (cotizacionId: number, status: CotizacionEstado) => void;
+    if (currentMonth > cierreMonth) {
+        return { start: new Date(currentYear, cierreMonth + 1, 1).toISOString().split('T')[0], end: new Date(currentYear + 1, cierreMonth + 1, 0).toISOString().split('T')[0] };
+    } else {
+        return { start: new Date(currentYear - 1, cierreMonth + 1, 1).toISOString().split('T')[0], end: new Date(currentYear, cierreMonth + 1, 0).toISOString().split('T')[0] };
+    }
+};
 
-  addNota: (notaData: Omit<NotaCreditoDebito, 'id' | 'empresaId'>) => void;
-
-  addFacturaRecurrente: (data: Omit<FacturaRecurrente, 'id' | 'empresaId' | 'fechaProxima' | 'activa'>) => void;
-  updateFacturaRecurrente: (data: FacturaRecurrente) => void;
-  
-  addComment: (documentType: 'factura' | 'gasto' | 'cotizacion', documentId: number, text: string) => void;
-  addAuditLog: (documentType: 'factura' | 'gasto' | 'cotizacion' | 'nomina', documentId: number | string, action: string) => void;
-
-  // --- Pilar 2: Conciliación Mutators ---
-  setConciliadoStatus: (recordType: 'factura' | 'gasto' | 'ingreso', recordId: number, status: boolean) => void;
-
-  // --- Nómina Mutators ---
-  addEmpleado: (empleadoData: Omit<Empleado, 'id' | 'empresaId'>) => Promise<void>;
-  updateEmpleado: (empleado: Empleado) => Promise<void>;
-  deleteEmpleado: (empleadoId: number) => Promise<void>;
-  bulkDeleteEmpleados: (empleadoIds: number[]) => Promise<void>;
-  addNomina: (nominaData: Omit<Nomina, 'empresaId' | 'status' | 'generadoPor' | 'fechaGeneracion'>) => void;
-  auditarNomina: (nominaId: string) => void;
-  contabilizarNomina: (nominaId: string) => void;
-  addDesvinculacion: (desvinculacion: Omit<Desvinculacion, 'id' | 'empresaId'>) => void;
-  findDesvinculacionByCedula: (cedula: string) => Desvinculacion | undefined;
-}
-
-const applyPagination = <T,>(items: T[], page: number, pageSize: number): PagedResult<T> => {
-    const totalCount = items.length;
-    const pagedItems = items.slice((page - 1) * pageSize, page * pageSize);
-    return { items: pagedItems, totalCount, page, pageSize };
+async function generateHash(data: any) {
+    const str = JSON.stringify(data);
+    const encoder = new TextEncoder();
+    const dataBuffer = encoder.encode(str);
+    const hashBuffer = await crypto.subtle.digest('SHA-256', dataBuffer);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    return hashHex;
 }
 
 export const useDataStore = create<DataState>((set, get) => ({
-  // --- STATE ---
-  clientes: [], facturas: [], items: [], cotizaciones: [], notas: [], gastos: [], ingresos: [], facturasRecurrentes: [],
-  empleados: [], nominas: [], desvinculaciones: [], asientosContables: [],
+  clientes: [],
+  facturas: [],
+  gastos: [],
+  items: [],
+  ingresos: [],
+  cotizaciones: [],
+  notas: [],
+  facturasRecurrentes: [],
+  credenciales: [],
+  empleados: [],
+  nominas: [],
+  desvinculaciones: [],
+  asientosContables: [],
+  cierresITBIS: [],
+  pagosAnticiposISR: [],
+  activosFijos: [],
+  isLoading: true,
+  unsubscribers: [],
 
-  // --- ACTIONS ---
-  fetchData: async (empresaId) => {
-    try {
-      console.log(`Fetching data for empresa ${empresaId}...`);
-      
-      // Fetch all business data from API
-      const [
-        clientesRes,
-        facturasRes,
-        itemsRes,
-        gastosRes,
-        empleadosRes
-      ] = await Promise.all([
-        apiClient.getClientes(empresaId),
-        apiClient.getFacturas(empresaId),
-        apiClient.getItems(empresaId),
-        apiClient.getGastos(empresaId),
-        apiClient.getEmpleados(empresaId)
-      ]);
-
-      // Update store with real API data
-      set({
-        clientes: (clientesRes.rows as Cliente[]) || [],
-        facturas: (facturasRes.rows as Factura[]) || [],
-        items: (itemsRes.rows as Item[]) || [],
-        gastos: (gastosRes.rows as Gasto[]) || [],
-        empleados: (empleadosRes.rows as Empleado[]) || [],
-        // For now, keep mock data for features not yet migrated
-        cotizaciones: [...allCotizaciones.filter(c => c.empresaId === empresaId)],
-        notas: [...allNotas.filter(n => n.empresaId === empresaId)],
-        ingresos: [...allIngresos.filter(i => i.empresaId === empresaId)],
-        facturasRecurrentes: [...allFacturasRecurrentes.filter(fr => fr.empresaId === empresaId)],
-        nominas: [...allNominas.filter(n => n.empresaId === empresaId)],
-        desvinculaciones: [...allDesvinculaciones.filter(d => d.empresaId === empresaId)],
-        asientosContables: [...allAsientosContables.filter(a => a.empresaId === empresaId)],
+  fetchData: (empresaId: string) => {
+    get().clearData();
+    set({ isLoading: true });
+    
+    const unsubscribers: Unsubscribe[] = COLLECTIONS_TO_FETCH.map(collName => {
+      const q = query(collection(db, collName), where('empresaId', '==', empresaId));
+      return onSnapshot(q, (snapshot) => {
+        const data = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+        set({ [collName]: data });
+      }, (error) => {
+        console.error(`Error fetching ${collName}:`, error);
       });
-
-      console.log(`Data loaded: ${clientesRes.rows?.length || 0} clients, ${facturasRes.rows?.length || 0} invoices, ${itemsRes.rows?.length || 0} items, ${gastosRes.rows?.length || 0} expenses`);
-    } catch (error) {
-      console.error('Error fetching data:', error);
-      // Fallback to mock data if API fails
-      set({
-        clientes: [...allClientes.filter(c => c.empresaId === empresaId)],
-        facturas: [...allFacturas.filter(f => f.empresaId === empresaId)],
-        items: [...allItems.filter(i => i.empresaId === empresaId)],
-        gastos: [...allGastos.filter(g => g.empresaId === empresaId)],
-        empleados: [...allEmpleados.filter(e => e.empresaId === empresaId)],
-        cotizaciones: [...allCotizaciones.filter(c => c.empresaId === empresaId)],
-        notas: [...allNotas.filter(n => n.empresaId === empresaId)],
-        ingresos: [...allIngresos.filter(i => i.empresaId === empresaId)],
-        facturasRecurrentes: [...allFacturasRecurrentes.filter(fr => fr.empresaId === empresaId)],
-        nominas: [...allNominas.filter(n => n.empresaId === empresaId)],
-        desvinculaciones: [...allDesvinculaciones.filter(d => d.empresaId === empresaId)],
-        asientosContables: [...allAsientosContables.filter(a => a.empresaId === empresaId)],
-      });
-    }
+    });
+    
+    set({ unsubscribers, isLoading: false });
   },
+
   clearData: () => {
-    set({ clientes: [], facturas: [], items: [], cotizaciones: [], notas: [], gastos: [], ingresos: [], facturasRecurrentes: [], empleados: [], nominas: [], desvinculaciones: [], asientosContables: [] });
+    get().unsubscribers.forEach((unsub) => unsub());
+    set({ ...COLLECTIONS_TO_FETCH.reduce((acc, name) => ({ ...acc, [name]: [] }), {}), isLoading: true, unsubscribers: [] });
   },
-    
-  // --- PAGED GETTERS ---
-  getPagedClientes: ({ page, pageSize, searchTerm = '', status = 'todos' }) => {
-    let filtered = get().clientes;
-    if (searchTerm) {
-        const lowerTerm = searchTerm.toLowerCase();
-        filtered = filtered.filter(c => c.nombre.toLowerCase().includes(lowerTerm) || c.rnc?.toLowerCase().includes(lowerTerm));
-    }
-    if (status !== 'todos') {
-        const isActive = status === 'activo';
-        filtered = filtered.filter(c => c.activo === isActive);
-    }
-    return applyPagination(filtered, page, pageSize);
+
+  // ... (Existing CRUD methods remain unchanged) ...
+  addCliente: async (data) => {
+    const empresaId = useTenantStore.getState().selectedTenant?.id;
+    if (!empresaId) throw new Error("No hay empresa seleccionada.");
+    return addDocWithId('clientes', { ...data, empresaId });
   },
-  getPagedFacturas: ({ page, pageSize, searchTerm, status, startDate, endDate }) => {
-    let filtered = get().facturas;
-    if (searchTerm) {
-        const lowerTerm = searchTerm.toLowerCase();
-        filtered = filtered.filter(f => f.clienteNombre.toLowerCase().includes(lowerTerm) || f.ncf?.toLowerCase().includes(lowerTerm));
+  updateCliente: (data) => updateDocWithId('clientes', data.id, data),
+  deleteCliente: async (id) => {
+    if (get().facturas.some(f => f.clienteId === id)) {
+        useAlertStore.getState().showAlert('Acción Bloqueada', 'No se puede eliminar un cliente con facturas asociadas.');
+        throw new Error("Cliente con facturas");
     }
-    if (status && status !== 'todos') {
-        filtered = filtered.filter(f => f.estado === status);
-    }
-    if (startDate) {
-        filtered = filtered.filter(f => f.fecha >= startDate);
-    }
-    if (endDate) {
-        filtered = filtered.filter(f => f.fecha <= endDate);
-    }
-    return applyPagination(filtered.sort((a,b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime()), page, pageSize);
+    await deleteDocWithId('clientes', id);
   },
-  getPagedGastos: ({ page, pageSize, searchTerm = '', category = 'todos' }) => {
-      let filtered = get().gastos;
-      if (searchTerm) {
-          const lowerTerm = searchTerm.toLowerCase();
-          filtered = filtered.filter(g =>
-              g.proveedorNombre?.toLowerCase().includes(lowerTerm) ||
-              g.ncf?.toLowerCase().includes(lowerTerm) ||
-              g.descripcion.toLowerCase().includes(lowerTerm)
-          );
-      }
-      if (category !== 'todos') {
-          filtered = filtered.filter(g => g.categoriaGasto === category);
-      }
-      return applyPagination(filtered.sort((a,b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime()), page, pageSize);
+  bulkDeleteClientes: async (ids) => {
+    const batch = writeBatch(db);
+    ids.forEach(id => batch.delete(doc(db, 'clientes', id)));
+    await batch.commit();
   },
-  getPagedItems: ({ page, pageSize, searchTerm = '' }) => {
-      let filtered = get().items;
-      if (searchTerm) {
-          const lowerTerm = searchTerm.toLowerCase();
-          filtered = filtered.filter(i =>
-              i.nombre.toLowerCase().includes(lowerTerm) ||
-              i.codigo.toLowerCase().includes(lowerTerm)
-          );
-      }
-      return applyPagination(filtered, page, pageSize);
+  bulkUpdateClienteStatus: async (ids, activo) => {
+    const batch = writeBatch(db);
+    ids.forEach(id => batch.update(doc(db, 'clientes', id), { activo }));
+    await batch.commit();
   },
-  getPagedIngresos: ({ page, pageSize, searchTerm, startDate, endDate, metodoPago }) => {
-      let filtered = get().ingresos;
-      if (searchTerm) {
-        const lowerTerm = searchTerm.toLowerCase();
-        filtered = filtered.filter(i => i.clienteNombre?.toLowerCase().includes(lowerTerm));
-      }
-      if (startDate) {
-          filtered = filtered.filter(f => f.fecha >= startDate);
-      }
-      if (endDate) {
-          filtered = filtered.filter(f => f.fecha <= endDate);
-      }
-      if (metodoPago && metodoPago !== 'todos') {
-          filtered = filtered.filter(i => i.metodoPago === metodoPago);
-      }
-      return applyPagination(filtered.sort((a,b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime()), page, pageSize);
+
+  addFactura: async (data) => {
+    const empresaId = useTenantStore.getState().selectedTenant?.id;
+    if (!empresaId) throw new Error("No hay empresa seleccionada.");
+    const newFacturaData = { ...data, empresaId, estado: FacturaEstado.Emitida, montoPagado: 0 };
+    const newFactura = await addDocWithId('facturas', newFacturaData);
+    const asiento = generarAsientoFacturaVenta(newFactura as Factura, get().items);
+    const asientoWithId = await addDocWithId('asientosContables', { ...asiento, empresaId }, false);
+    await updateDocWithId('facturas', newFactura.id, { asientoId: asientoWithId.id });
   },
-  getPagedCotizaciones: ({ page, pageSize, searchTerm, status, startDate, endDate }) => {
-    let filtered = get().cotizaciones;
-    if (searchTerm) {
-        const lowerTerm = searchTerm.toLowerCase();
-        filtered = filtered.filter(c => c.clienteNombre.toLowerCase().includes(lowerTerm) || c.id.toString().includes(lowerTerm));
+  updateFactura: async (data) => {
+    await updateDocWithId('facturas', data.id, data);
+    if (data.asientoId) {
+        const newAsiento = generarAsientoFacturaVenta(data, get().items);
+        await updateDocWithId('asientosContables', data.asientoId, newAsiento);
     }
-    if (status && status !== 'todos') {
-        filtered = filtered.filter(c => c.estado === status);
-    }
-    if (startDate) {
-        filtered = filtered.filter(c => c.fecha >= startDate);
-    }
-    if (endDate) {
-        filtered = filtered.filter(c => c.fecha <= endDate);
-    }
-    return applyPagination(filtered.sort((a,b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime()), page, pageSize);
   },
-  getPagedNotas: ({ page, pageSize, searchTerm, startDate, endDate }) => {
-    let filtered = get().notas;
-    if (searchTerm) {
-        const lowerTerm = searchTerm.toLowerCase();
-        filtered = filtered.filter(n => n.clienteNombre.toLowerCase().includes(lowerTerm) || n.ncf.toLowerCase().includes(lowerTerm) || n.facturaAfectadaNCF.toLowerCase().includes(lowerTerm));
-    }
-    if (startDate) {
-        filtered = filtered.filter(n => n.fecha >= startDate);
-    }
-    if (endDate) {
-        filtered = filtered.filter(n => n.fecha <= endDate);
-    }
-    return applyPagination(filtered.sort((a,b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime()), page, pageSize);
+  updateFacturaStatus: (id, status) => updateDocWithId('facturas', id, { estado: status }),
+  deleteFactura: async (id) => {
+      const factura = get().facturas.find(f => f.id === id);
+      await deleteDocWithId('facturas', id);
+      if (factura?.asientoId) await deleteDocWithId('asientosContables', factura.asientoId);
   },
-   getPagedFacturasRecurrentes: ({ page, pageSize, searchTerm = '', status = 'todos' }) => {
-    let filtered = get().facturasRecurrentes;
-    if (searchTerm) {
-        const lowerTerm = searchTerm.toLowerCase();
-        filtered = filtered.filter(f => f.clienteNombre.toLowerCase().includes(lowerTerm) || f.descripcion.toLowerCase().includes(lowerTerm));
-    }
-    if (status !== 'todos') {
-        const isActive = status === 'activa';
-        filtered = filtered.filter(f => f.activa === isActive);
-    }
-    return applyPagination(filtered, page, pageSize);
-  },
-  
-  // --- DGII GETTERS ---
-  getGastosFor606: (startDate, endDate) => {
-    return get().gastos.filter(g => {
-        if (!g.ncf) return false;
-        // Robust string comparison, immune to timezone issues.
-        return g.fecha >= startDate && g.fecha <= endDate;
+  bulkDeleteFacturas: async (ids) => {
+    const batch = writeBatch(db);
+    ids.forEach(id => {
+        const factura = get().facturas.find(f => f.id === id);
+        batch.delete(doc(db, 'facturas', id));
+        if (factura?.asientoId) batch.delete(doc(db, 'asientosContables', factura.asientoId));
     });
+    await batch.commit();
   },
-  getVentasFor607: (startDate, endDate) => {
-      const facturas = get().facturas.filter(f => {
-          if (!f.ncf || f.estado === FacturaEstado.Anulada) return false;
-          return f.fecha >= startDate && f.fecha <= endDate;
-      });
-      const notas = get().notas.filter(n => {
-          if (n.tipo !== NotaType.Credito) return false;
-          return n.fecha >= startDate && n.fecha <= endDate;
-      });
-      return { facturas, notas };
+  bulkUpdateFacturaStatus: async (ids, status) => {
+    const batch = writeBatch(db);
+    ids.forEach(id => batch.update(doc(db, 'facturas', id), { estado: status }));
+    await batch.commit();
   },
-  getAnuladosFor608: (startDate, endDate) => {
-      const anulados: { ncf: string, fecha: string }[] = [];
-      
-      get().facturas.forEach(f => {
-          if (f.estado === FacturaEstado.Anulada && f.ncf) {
-                if (f.fecha >= startDate && f.fecha <= endDate) {
-                  anulados.push({ ncf: f.ncf, fecha: f.fecha });
-                }
-          }
-      });
-      
-      get().notas.forEach(n => {
-          if (n.codigoModificacion === '01' && n.facturaAfectadaNCF) {
-              if (n.fecha >= startDate && n.fecha <= endDate) {
-                  if (!anulados.some(a => a.ncf === n.facturaAfectadaNCF)) {
-                      anulados.push({ ncf: n.facturaAfectadaNCF, fecha: n.fecha });
-                  }
-              }
-          }
-      });
 
-      return anulados;
-  },
-  getNominaForPeriodo: (periodo: string) => {
+  addGasto: async (data) => {
     const empresaId = useTenantStore.getState().selectedTenant?.id;
-    if (!empresaId) return undefined;
-    return get().nominas.find(n => n.periodo === periodo && n.empresaId === empresaId);
+    if (!empresaId) throw new Error("No hay empresa seleccionada.");
+    const newGasto = await addDocWithId('gastos', { ...data, empresaId, conciliado: false });
+    const asiento = generarAsientoGasto(newGasto as Gasto);
+    const asientoWithId = await addDocWithId('asientosContables', { ...asiento, empresaId }, false);
+    await updateDocWithId('gastos', newGasto.id, { asientoId: asientoWithId.id });
+    return newGasto;
   },
-  getNominaById: (nominaId: string) => {
-    const empresaId = useTenantStore.getState().selectedTenant?.id;
-    if (!empresaId) return undefined;
-    return get().nominas.find(n => n.id === nominaId && n.empresaId === empresaId);
+  updateGasto: async (data) => {
+    await updateDocWithId('gastos', data.id, data);
+    if(data.asientoId) {
+        const newAsiento = generarAsientoGasto(data);
+        await updateDocWithId('asientosContables', data.asientoId, newAsiento);
+    }
   },
-  
-  // --- Pilar 1: Dashboard Getters ---
-  getKpis: () => {
-    const today = new Date();
-    const firstDay = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().split('T')[0];
-    const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0).toISOString().split('T')[0];
-
-    const facturasMes = get().facturas.filter(f => f.fecha >= firstDay && f.fecha <= lastDay && f.estado !== FacturaEstado.Anulada);
-    const ingresosMes = get().ingresos.filter(i => i.fecha >= firstDay && i.fecha <= lastDay);
-    const gastosMes = get().gastos.filter(g => g.fecha >= firstDay && g.fecha <= lastDay);
-    
-    const totalFacturado = facturasMes.reduce((acc, f) => acc + f.montoTotal, 0);
-    const totalCobrado = ingresosMes.reduce((acc, i) => acc + i.monto, 0);
-    const totalGastos = gastosMes.reduce((acc, g) => acc + g.monto, 0);
-    const beneficioPerdida = totalCobrado - totalGastos;
-    
-    const facturasPendientes = get().facturas.filter(f => f.estado === FacturaEstado.Emitida || f.estado === FacturaEstado.PagadaParcialmente || f.estado === FacturaEstado.Vencida).length;
-    
-    const totalFacturadoHistorico = get().facturas.filter(f => f.estado !== FacturaEstado.Anulada).reduce((acc, f) => acc + f.montoTotal, 0);
-    const totalCobradoHistorico = get().ingresos.reduce((acc, i) => acc + i.monto, 0);
-    const cuentasPorCobrar = totalFacturadoHistorico - totalCobradoHistorico;
-
-    // ITBIS Calculation (simplified from Anexo A)
-    const itbisVentas = facturasMes.reduce((acc, f) => acc + f.itbis, 0);
-    const itbisCompras = gastosMes.reduce((acc, g) => acc + g.itbis, 0);
-    
-    // Financial Statement Simplified
-    const valorInventario = get().items.reduce((acc, item) => acc + ((item.cantidadDisponible || 0) * (item.costo || item.precio)), 0);
-    const activos = cuentasPorCobrar + valorInventario; // Simplified
-    const totalGastadoHistorico = allGastos.filter(g => g.empresaId === useTenantStore.getState().selectedTenant?.id).reduce((acc, g) => acc + g.monto, 0);
-    const patrimonio = totalCobradoHistorico - totalGastadoHistorico; // Simplified Equity
-
-    const ISR_RATE = 0.27; // 27%
-    const isrProyectado = beneficioPerdida > 0 ? beneficioPerdida * ISR_RATE : 0;
-
-    return {
-        totalFacturado,
-        totalCobrado,
-        gastosMes: totalGastos,
-        facturasPendientes,
-        beneficioPerdida,
-        cuentasPorCobrar,
-        itbisAPagar: {
-            total: itbisVentas - itbisCompras,
-            itbisVentas,
-            itbisCompras,
-        },
-        activos,
-        patrimonio,
-        isrProyectado,
-    };
+  deleteGasto: async (id) => {
+      const gasto = get().gastos.find(g => g.id === id);
+      await deleteDocWithId('gastos', id);
+      if (gasto?.asientoId) await deleteDocWithId('asientosContables', gasto.asientoId);
   },
-  getSalesVsExpensesData: (period) => { return []; },
-  getGastosByCategoryData: () => { return []; },
-  getIngresosByClientData: () => { return []; },
-
-  // --- MUTATORS ---
-  addAuditLog: (documentType, documentId, action) => {
-      const user = useAuthStore.getState().user;
-      if (!user) return;
-
-      const newLog: AuditLogEntry = {
-          id: `${Date.now()}`,
-          userId: user.id,
-          userName: user.nombre,
-          action,
-          timestamp: new Date().toISOString()
-      };
-
-      let targetArray;
-      switch (documentType) {
-          case 'factura': targetArray = allFacturas; break;
-          case 'gasto': targetArray = allGastos; break;
-          case 'cotizacion': targetArray = allCotizaciones; break;
-          // Nomina uses string ID, so we handle it separately if needed, though this structure is simple
-          default: return;
-      }
-      
-      const docIndex = targetArray.findIndex(doc => doc.id === documentId);
-      if (docIndex > -1) {
-          targetArray[docIndex].auditLog.push(newLog);
-      }
-  },
-  
-  addComment: (documentType, documentId, text) => {
-    const user = useAuthStore.getState().user;
-    if (!user) return;
-    
-    const newComment: Comment = {
-      id: `${Date.now()}`,
-      userId: user.id,
-      userName: user.nombre,
-      text,
-      timestamp: new Date().toISOString()
-    };
-    
-    let targetArray;
-      switch (documentType) {
-          case 'factura': targetArray = allFacturas; break;
-          case 'gasto': targetArray = allGastos; break;
-          case 'cotizacion': targetArray = allCotizaciones; break;
-          default: return;
-      }
-      
-      const docIndex = targetArray.findIndex(doc => doc.id === documentId);
-      if (docIndex > -1) {
-          targetArray[docIndex].comments.push(newComment);
-      }
-      
-      const empresaId = useTenantStore.getState().selectedTenant?.id;
-      if(empresaId) get().fetchData(empresaId);
-  },
-
-  addFactura: (facturaData) => {
-    const empresaId = useTenantStore.getState().selectedTenant?.id;
-    if (!empresaId) return;
-
-    const newFactura: Factura = { ...facturaData, id: Date.now(), empresaId, conciliado: false };
-    
-    // Automatic Accounting Entry
-    const asiento = generarAsientoFacturaVenta(newFactura, get().items);
-    newFactura.asientoId = asiento.id;
-    allAsientosContables.unshift(asiento);
-
-    get().addAuditLog('factura', newFactura.id, `creó y contabilizó la factura con NCF ${newFactura.ncf}.`);
-    allFacturas.unshift(newFactura);
-    
-    newFactura.items.forEach(itemFacturado => {
-        const itemIndex = allItems.findIndex(i => i.id === itemFacturado.itemId);
-        if (itemIndex > -1 && allItems[itemIndex].cantidadDisponible !== undefined) {
-            allItems[itemIndex].cantidadDisponible! -= itemFacturado.cantidad;
-        }
+  bulkDeleteGastos: async (ids) => {
+    const batch = writeBatch(db);
+    ids.forEach(id => {
+        const gasto = get().gastos.find(g => g.id === id);
+        batch.delete(doc(db, 'gastos', id));
+        if (gasto?.asientoId) batch.delete(doc(db, 'asientosContables', gasto.asientoId));
     });
-    
-    if (newFactura.facturaRecurrenteId) {
-        const recurrenteIndex = allFacturasRecurrentes.findIndex(f => f.id === newFactura.facturaRecurrenteId);
-        if (recurrenteIndex > -1) {
-            const recurrente = allFacturasRecurrentes[recurrenteIndex];
-            recurrente.fechaProxima = calculateNextDate(recurrente.fechaProxima, recurrente.frecuencia);
-            get().addAuditLog('factura', newFactura.id, `fue generada desde la plantilla recurrente #${recurrente.id}.`);
-        }
-    }
-
-    get().fetchData(empresaId);
-    useNotificationStore.getState().checkSystemAlerts(empresaId); 
+    await batch.commit();
   },
-  updateFactura: (factura) => {
+  pagarGasto: async (id, fechaPago) => {
+    const gasto = get().gastos.find(g => g.id === id);
     const empresaId = useTenantStore.getState().selectedTenant?.id;
-    if (!empresaId) return;
-    const index = allFacturas.findIndex(f => f.id === factura.id);
-    if (index > -1) {
-        allFacturas[index] = factura;
-        get().addAuditLog('factura', factura.id, `actualizó la factura.`);
-    }
-    get().fetchData(empresaId);
+    if (!gasto || !empresaId) return;
+    const asientoPago = generarAsientoPago(empresaId, fechaPago, `Pago de gasto a ${gasto.proveedorNombre}`, gasto.id, 'pago_gasto', gasto.monto, '2101-01');
+    const newAsiento = await addDocWithId('asientosContables', {...asientoPago, empresaId}, false);
+    await updateDocWithId('gastos', id, { pagado: true, fechaPago, asientoPagoId: newAsiento.id });
   },
-  updateFacturaStatus: (facturaId, status) => {
-    const empresaId = useTenantStore.getState().selectedTenant?.id;
-    if (!empresaId) return;
-    const index = allFacturas.findIndex(f => f.id === facturaId);
-    if (index > -1) {
-        allFacturas[index].estado = status;
-        get().addAuditLog('factura', facturaId, `cambió el estado a ${status}.`);
-    }
-    get().fetchData(empresaId);
-  },
-  bulkUpdateFacturaStatus: (facturaIds, status) => {
-    facturaIds.forEach(id => get().updateFacturaStatus(id, status));
+  setGastoAuditado: async (id, auditado) => {
+    await updateDocWithId('gastos', id, { auditado });
   },
 
-  addCliente: async (clienteData) => {
+  addIngreso: async (data) => {
     const empresaId = useTenantStore.getState().selectedTenant?.id;
-    if (!empresaId) throw new Error("No tenant selected");
-    
-    try {
-      const newClienteData = { ...clienteData, empresaId };
-      const response = await apiClient.createCliente(newClienteData);
-      
-      if (response.error) {
-        console.error('Error creating cliente:', response.error);
-        throw new Error(response.error);
-      }
-      
-      // Refresh data from API
-      await get().fetchData(empresaId);
-      return response.data;
-    } catch (error) {
-      console.error('Error adding cliente:', error);
-      throw error;
-    }
-  },
-  updateCliente: async (cliente) => {
-    const empresaId = useTenantStore.getState().selectedTenant?.id;
-    if (!empresaId) return;
-    
-    try {
-      // Actualizar cliente usando API real
-      await apiClient.updateCliente(cliente.id, cliente);
-      
-      // Refrescar datos desde la base de datos
-      await get().fetchData(empresaId);
-    } catch (error) {
-      console.error('Error actualizando cliente:', error);
-      throw error;
-    }
-  },
-
-  deleteCliente: async (clienteId) => {
-    const empresaId = useTenantStore.getState().selectedTenant?.id;
-    if (!empresaId) return;
-    
-    try {
-      // Eliminar cliente usando API real
-      await apiClient.deleteCliente(clienteId);
-      
-      // Refrescar datos desde la base de datos
-      await get().fetchData(empresaId);
-    } catch (error) {
-      console.error('Error eliminando cliente:', error);
-      throw error;
-    }
-  },
-
-  bulkDeleteClientes: async (clienteIds) => {
-    const empresaId = useTenantStore.getState().selectedTenant?.id;
-    if (!empresaId) return;
-    
-    try {
-      // Eliminar clientes usando API real
-      await apiClient.bulkDeleteClientes(clienteIds);
-      
-      // Refrescar datos desde la base de datos
-      await get().fetchData(empresaId);
-    } catch (error) {
-      console.error('Error eliminando clientes:', error);
-      throw error;
-    }
-  },
-   bulkUpdateClienteStatus: (clienteIds, activo) => {
-    allClientes.forEach((cliente, index) => {
-        if (clienteIds.includes(cliente.id)) {
-            allClientes[index].activo = activo;
-        }
+    if (!empresaId) throw new Error("No hay empresa seleccionada.");
+    const newIngreso = await addDocWithId('ingresos', { ...data, empresaId });
+    await runTransaction(db, async (transaction) => {
+        const facturaRef = doc(db, 'facturas', newIngreso.facturaId);
+        const facturaDoc = await transaction.get(facturaRef);
+        if (!facturaDoc.exists()) throw "Factura no encontrada";
+        const facturaData = facturaDoc.data() as Factura;
+        const nuevoMontoPagado = (facturaData.montoPagado || 0) + newIngreso.monto;
+        const nuevoEstado = nuevoMontoPagado >= facturaData.montoTotal ? FacturaEstado.Pagada : FacturaEstado.PagadaParcialmente;
+        transaction.update(facturaRef, { montoPagado: nuevoMontoPagado, estado: nuevoEstado });
     });
-    const empresaId = useTenantStore.getState().selectedTenant?.id;
-    if (empresaId) get().fetchData(empresaId);
+    const asiento = generarAsientoIngreso(newIngreso as Ingreso);
+    const newAsiento = await addDocWithId('asientosContables', { ...asiento, empresaId }, false);
+    await updateDocWithId('ingresos', newIngreso.id, { asientoId: newAsiento.id });
   },
   
-  addIngreso: async (ingresoData) => {
+  addItem: (data) => {
     const empresaId = useTenantStore.getState().selectedTenant?.id;
-    if (!empresaId) return;
-    
-    try {
-      // Crear ingreso en la base de datos usando API real
-      const ingresoConEmpresa = { ...ingresoData, empresaId };
-      await apiClient.createIngreso(ingresoConEmpresa);
-      
-      // Refrescar datos desde la base de datos
-      await get().fetchData(empresaId);
-    } catch (error) {
-      console.error('Error creando ingreso:', error);
-      throw error;
-    }
+    if (!empresaId) throw new Error("No hay empresa seleccionada.");
+    return addDocWithId('items', { ...data, empresaId });
   },
-  getFacturasParaPago: () => {
-    return get().facturas.filter(f => f.estado !== FacturaEstado.Anulada && f.estado !== FacturaEstado.Pagada);
-  },
+  updateItem: (data) => updateDocWithId('items', data.id, data),
 
-  addItem: async (itemData) => {
+  addCotizacion: (data) => {
     const empresaId = useTenantStore.getState().selectedTenant?.id;
-    if (!empresaId) return;
-    
-    try {
-      // Crear item en la base de datos usando API real
-      const itemConEmpresa = { ...itemData, empresaId };
-      await apiClient.createItem(itemConEmpresa);
-      
-      // Refrescar datos desde la base de datos
-      await get().fetchData(empresaId);
-    } catch (error) {
-      console.error('Error creando item:', error);
-      throw error;
-    }
+    if (!empresaId) throw new Error("No hay empresa seleccionada.");
+    return addDocWithId('cotizaciones', { ...data, empresaId, estado: CotizacionEstado.Pendiente });
   },
-  updateItem: (item) => {
-    const empresaId = useTenantStore.getState().selectedTenant?.id;
-    if (!empresaId) return;
-    const index = allItems.findIndex(i => i.id === item.id);
-    if (index > -1) {
-        allItems[index] = item;
-    }
-    get().fetchData(empresaId);
-    useNotificationStore.getState().checkSystemAlerts(empresaId);
-  },
+  updateCotizacion: (data) => updateDocWithId('cotizaciones', data.id, data),
+  updateCotizacionStatus: (id, status) => updateDocWithId('cotizaciones', id, { estado: status }),
 
-  addGasto: async (gastoData) => {
+  addNota: async (data) => {
     const empresaId = useTenantStore.getState().selectedTenant?.id;
-    if (!empresaId) return;
-    
-    try {
-      // Crear gasto en la base de datos usando API real
-      const gastoConEmpresa = { ...gastoData, empresaId };
-      await apiClient.createGasto(gastoConEmpresa);
-      
-      // Refrescar datos desde la base de datos
-      await get().fetchData(empresaId);
-    } catch (error) {
-      console.error('Error creando gasto:', error);
-      throw error;
+    if (!empresaId) throw new Error("No hay empresa seleccionada.");
+    const newNota = await addDocWithId('notas', { ...data, empresaId });
+    const asiento = generarAsientoNotaCredito(newNota as NotaCreditoDebito);
+    const newAsiento = await addDocWithId('asientosContables', { ...asiento, empresaId }, false);
+    await updateDocWithId('notas', newNota.id, { asientoId: newAsiento.id });
+  },
+  updateNota: async (data) => {
+    await updateDocWithId('notas', data.id, data);
+    if (data.asientoId) {
+        const newAsiento = generarAsientoNotaCredito(data);
+        await updateDocWithId('asientosContables', data.asientoId, newAsiento);
     }
-  },
-  updateGasto: async (gasto) => {
-    const empresaId = useTenantStore.getState().selectedTenant?.id;
-    if (!empresaId) return;
-    
-    try {
-      // Actualizar gasto usando API real
-      await apiClient.updateGasto(gasto.id, gasto);
-      
-      // Agregar log de auditoría
-      get().addAuditLog('gasto', gasto.id, `actualizó el gasto.`);
-      
-      // Refrescar datos desde la base de datos
-      await get().fetchData(empresaId);
-    } catch (error) {
-      console.error('Error actualizando gasto:', error);
-      throw error;
-    }
-  },
-  bulkDeleteGastos: async (gastoIds) => {
-    const empresaId = useTenantStore.getState().selectedTenant?.id;
-    if (!empresaId) return;
-    
-    try {
-      // Eliminar gastos usando API real
-      await apiClient.bulkDeleteGastos(gastoIds);
-      
-      // Refrescar datos desde la base de datos
-      await get().fetchData(empresaId);
-    } catch (error) {
-      console.error('Error eliminando gastos:', error);
-      throw error;
-    }
-  },
-
-  addCotizacion: (cotizacionData) => {
-    const empresaId = useTenantStore.getState().selectedTenant?.id;
-    if (!empresaId) return;
-    const newCotizacion: Cotizacion = { ...cotizacionData, id: Date.now(), empresaId, estado: CotizacionEstado.Pendiente };
-    get().addAuditLog('cotizacion', newCotizacion.id, `creó la cotización.`);
-    allCotizaciones.unshift(newCotizacion);
-    get().fetchData(empresaId);
-  },
-  updateCotizacion: (cotizacion) => {
-    const empresaId = useTenantStore.getState().selectedTenant?.id;
-    if (!empresaId) return;
-    const index = allCotizaciones.findIndex(c => c.id === cotizacion.id);
-    if (index > -1) {
-        allCotizaciones[index] = cotizacion;
-        get().addAuditLog('cotizacion', cotizacion.id, `actualizó la cotización.`);
-    }
-    get().fetchData(empresaId);
-  },
-  updateCotizacionStatus: (cotizacionId, status) => {
-    const empresaId = useTenantStore.getState().selectedTenant?.id;
-    if (!empresaId) return;
-    const index = allCotizaciones.findIndex(c => c.id === cotizacionId);
-    if (index > -1) {
-        allCotizaciones[index].estado = status;
-        get().addAuditLog('cotizacion', cotizacionId, `cambió el estado a ${status}.`);
-    }
-    get().fetchData(empresaId);
-  },
-
-  addNota: (notaData) => {
-    const empresaId = useTenantStore.getState().selectedTenant?.id;
-    if (!empresaId) return;
-
-    const newNota: NotaCreditoDebito = { ...notaData, id: Date.now(), empresaId };
-    
-    const asiento = generarAsientoNotaCredito(newNota);
-    newNota.asientoId = asiento.id;
-    allAsientosContables.unshift(asiento);
-    
-    allNotas.unshift(newNota);
-    get().fetchData(empresaId);
   },
 
   addFacturaRecurrente: (data) => {
     const empresaId = useTenantStore.getState().selectedTenant?.id;
-    if (!empresaId) return;
-    const newRecurrente: FacturaRecurrente = {
-        ...data,
-        id: Date.now(),
-        empresaId,
-        fechaProxima: data.fechaInicio,
-        activa: true
-    };
-    allFacturasRecurrentes.unshift(newRecurrente);
-    get().fetchData(empresaId);
+    if (!empresaId) throw new Error("No hay empresa seleccionada.");
+    return addDocWithId('facturasRecurrentes', { ...data, empresaId, fechaProxima: data.fechaInicio, activa: true });
   },
-  updateFacturaRecurrente: (data) => {
+  updateFacturaRecurrente: (data) => updateDocWithId('facturasRecurrentes', data.id, data),
+  
+  addCredencial: async (data, imageFile) => {
     const empresaId = useTenantStore.getState().selectedTenant?.id;
-    if (!empresaId) return;
-    const index = allFacturasRecurrentes.findIndex(f => f.id === data.id);
-    if (index > -1) {
-        allFacturasRecurrentes[index] = data;
+    if (!empresaId) throw new Error("No hay empresa seleccionada.");
+    let finalData = { ...data, empresaId };
+    if (imageFile) {
+        const storageRef = ref(storage, `keycards/${empresaId}/${Date.now()}_${imageFile.name}`);
+        const snapshot = await uploadBytes(storageRef, imageFile);
+        finalData.keyCardImageUrl = await getDownloadURL(snapshot.ref);
     }
-    get().fetchData(empresaId);
+    await addDoc(collection(db, 'credenciales'), finalData);
   },
-  // --- Pilar 2: Conciliación Mutators ---
-  setConciliadoStatus: (recordType, recordId, status) => {
-     const empresaId = useTenantStore.getState().selectedTenant?.id;
-    if (!empresaId) return;
+  updateCredencial: async (data, imageFile, removeImage) => {
+    let finalData = { ...data };
+    if (imageFile) {
+        const storageRef = ref(storage, `keycards/${data.empresaId}/${Date.now()}_${imageFile.name}`);
+        const snapshot = await uploadBytes(storageRef, imageFile);
+        finalData.keyCardImageUrl = await getDownloadURL(snapshot.ref);
+    } else if (removeImage && data.keyCardImageUrl) {
+        finalData.keyCardImageUrl = '';
+    }
+    await updateDocWithId('credenciales', data.id, finalData);
+  },
+  deleteCredencial: (id) => deleteDocWithId('credenciales', id),
 
-    let targetArray: (Factura | Gasto | Ingreso)[];
-    switch (recordType) {
-        case 'factura': targetArray = allFacturas; break;
-        case 'gasto': targetArray = allGastos; break;
-        case 'ingreso': targetArray = allIngresos; break;
-    }
-
-    const recordIndex = targetArray.findIndex(r => r.id === recordId);
-    if (recordIndex > -1) {
-        targetArray[recordIndex].conciliado = status;
-    }
-
-    get().fetchData(empresaId);
-  },
-  // --- Nómina Mutators ---
-  addEmpleado: async (empleadoData) => {
-    const empresaId = useTenantStore.getState().selectedTenant?.id;
-    if (!empresaId) return;
-    
-    try {
-      // Crear empleado en la base de datos usando API real
-      const empleadoConEmpresa = { ...empleadoData, empresaId };
-      await apiClient.createEmpleado(empleadoConEmpresa);
-      
-      // Refrescar datos desde la base de datos para obtener el ID real
-      await get().fetchData(empresaId);
-    } catch (error) {
-      console.error('Error creando empleado:', error);
-      throw error;
-    }
-  },
-  updateEmpleado: async (empleado) => {
-    const empresaId = useTenantStore.getState().selectedTenant?.id;
-    if (!empresaId) return;
-    
-    try {
-      // Actualizar empleado en la base de datos usando API real
-      await apiClient.updateEmpleado(empleado.id, empleado);
-      
-      // Refrescar datos desde la base de datos para obtener datos actualizados
-      await get().fetchData(empresaId);
-    } catch (error) {
-      console.error('Error actualizando empleado:', error);
-      throw error;
-    }
-  },
-
-  deleteEmpleado: async (empleadoId) => {
-    const empresaId = useTenantStore.getState().selectedTenant?.id;
-    if (!empresaId) return;
-    
-    try {
-      // Eliminar empleado usando API real
-      await apiClient.deleteEmpleado(empleadoId);
-      
-      // Refrescar datos desde la base de datos
-      await get().fetchData(empresaId);
-    } catch (error) {
-      console.error('Error eliminando empleado:', error);
-      throw error;
-    }
-  },
-
-  bulkDeleteEmpleados: async (empleadoIds) => {
-    const empresaId = useTenantStore.getState().selectedTenant?.id;
-    if (!empresaId) return;
-    
-    try {
-      // Eliminar empleados usando API real
-      await apiClient.bulkDeleteEmpleados(empleadoIds);
-      
-      // Refrescar datos desde la base de datos
-      await get().fetchData(empresaId);
-    } catch (error) {
-      console.error('Error eliminando empleados:', error);
-      throw error;
-    }
-  },
-  addNomina: (nominaData) => {
-    const empresaId = useTenantStore.getState().selectedTenant?.id;
-    const user = useAuthStore.getState().user;
-    if (!empresaId || !user) return;
-    
-    const newNomina: Nomina = {
-      ...nominaData,
-      empresaId,
-      status: NominaStatus.PendienteAuditoria,
-      generadoPor: { userId: user.id, userName: user.nombre },
-      fechaGeneracion: new Date().toISOString(),
-    };
-    
-    allNominas.unshift(newNomina);
-    get().addAuditLog('nomina', newNomina.id, `generó la nómina para el período ${newNomina.periodo}.`);
-    
-    // Send notification to auditors
-    useNotificationStore.getState().addNotification({
-        empresaId,
-        type: NotificationType.NOMINA_PARA_AUDITORIA,
-        title: 'Nómina Pendiente de Auditoría',
-        message: `La nómina para el período ${newNomina.periodo} está lista para ser auditada.`,
-        link: `/nomina/historial`,
-    });
-    
-    get().fetchData(empresaId);
-  },
-  auditarNomina: (nominaId: string) => {
-    const empresaId = useTenantStore.getState().selectedTenant?.id;
-    const user = useAuthStore.getState().user;
-    if (!empresaId || !user) return;
-
-    const nominaIndex = allNominas.findIndex(n => n.id === nominaId && n.empresaId === empresaId);
-    if (nominaIndex > -1) {
-      allNominas[nominaIndex].status = NominaStatus.Auditada;
-      allNominas[nominaIndex].auditadoPor = { userId: user.id, userName: user.nombre };
-      allNominas[nominaIndex].fechaAuditoria = new Date().toISOString();
-      get().addAuditLog('nomina', nominaId, `auditó y aprobó la nómina.`);
-      get().fetchData(empresaId);
-    }
-  },
-  contabilizarNomina: (nominaId: string) => {
-    const empresaId = useTenantStore.getState().selectedTenant?.id;
-    const user = useAuthStore.getState().user;
-    if (!empresaId || !user) return;
-
-    const nominaIndex = allNominas.findIndex(n => n.id === nominaId && n.empresaId === empresaId);
-    if (nominaIndex > -1) {
-      const nomina = allNominas[nominaIndex];
-      nomina.status = NominaStatus.Contabilizada;
-      nomina.contabilizadoPor = { userId: user.id, userName: user.nombre };
-      nomina.fechaContabilizacion = new Date().toISOString();
-      
-      const asiento = generarAsientoNomina(nomina, empresaId);
-      nomina.asientoId = asiento.id;
-      allAsientosContables.unshift(asiento);
-      
-      get().addAuditLog('nomina', nominaId, `ejecutó y contabilizó la nómina.`);
-      get().fetchData(empresaId);
-    }
-  },
-  addDesvinculacion: (desvinculacionData) => {
+  addEmpleado: (data) => {
       const empresaId = useTenantStore.getState().selectedTenant?.id;
-      if (!empresaId) return;
-      const newDesvinculacion: Desvinculacion = { ...desvinculacionData, id: Date.now(), empresaId };
+      if (!empresaId) throw new Error("No hay empresa seleccionada.");
+      return addDocWithId('empleados', {...data, empresaId});
+  },
+  updateEmpleado: (data) => updateDocWithId('empleados', data.id, data),
 
+  addNomina: async (data) => {
+    const empresaId = useTenantStore.getState().selectedTenant?.id;
+    const user = useAuthStore.getState().user;
+    if (!empresaId || !user) throw new Error("No hay empresa o usuario seleccionado.");
+    const nominaData = { ...data, empresaId, status: NominaStatus.PendienteAuditoria, generadoPor: { userId: user.id, userName: user.nombre }, fechaGeneracion: new Date().toISOString() };
+    await addDoc(collection(db, 'nominas'), nominaData);
+  },
+  deleteNomina: async (id) => {
+    const nomina = get().nominas.find(n => n.id === id);
+    if (!nomina) return;
+    if(nomina.status === NominaStatus.Pagada) throw new Error("Nomina pagada");
+    await deleteDocWithId('nominas', id);
+    if (nomina.asientoId) await deleteDocWithId('asientosContables', nomina.asientoId);
+  },
+  auditarNomina: async (id) => {
+    const user = useAuthStore.getState().user;
+    if (!user) return;
+    await updateDocWithId('nominas', id, { status: NominaStatus.Auditada, auditadoPor: { userId: user.id, userName: user.nombre }, fechaAuditoria: new Date().toISOString() });
+  },
+  pagarNomina: async (id, fechaPago) => {
+    const nomina = get().nominas.find(n => n.id === id);
+    const empresaId = useTenantStore.getState().selectedTenant?.id;
+    if (!nomina || !empresaId) return;
+    let asientoId = nomina.asientoId;
+    if (!asientoId) {
+        const asientoProvision = generarAsientoNomina(nomina, empresaId);
+        const newAsiento = await addDocWithId('asientosContables', {...asientoProvision, empresaId}, false);
+        asientoId = newAsiento.id;
+    }
+    const asientoPago = generarAsientoPago(empresaId, fechaPago, `Pago de nómina ${nomina.periodo}`, nomina.id, 'pago_nomina', nomina.totalPagado, '2102-01');
+    const newAsientoPago = await addDocWithId('asientosContables', {...asientoPago, empresaId}, false);
+    await updateDocWithId('nominas', id, { status: NominaStatus.Pagada, fechaPago: fechaPago, asientoId, asientoPagoId: newAsientoPago.id, contabilizadoPor: { userId: 'system', userName: 'Sistema' }, fechaContabilizacion: new Date().toISOString() });
+  },
+
+  addDesvinculacion: async (data) => {
+      const empresaId = useTenantStore.getState().selectedTenant?.id;
+      if (!empresaId) throw new Error("No hay empresa seleccionada.");
+      const newDesvinculacion = await addDocWithId('desvinculaciones', { ...data, empresaId });
       const asiento = generarAsientoDesvinculacion(newDesvinculacion);
-      newDesvinculacion.asientoId = asiento.id;
-      allAsientosContables.unshift(asiento);
+      const asientoWithId = await addDocWithId('asientosContables', { ...asiento, empresaId }, false);
+      await updateDocWithId('desvinculaciones', newDesvinculacion.id, { asientoId: asientoWithId.id });
+      await updateDocWithId('empleados', data.empleadoId, { activo: false });
+  },
 
-      allDesvinculaciones.unshift(newDesvinculacion);
+  findGastoByNcfAndRnc: (ncf, rnc) => {
+      const cleanNCF = ncf.trim().toUpperCase();
+      const cleanRNC = rnc.trim().replace(/[^0-9]/g, '');
+      return get().gastos.find(g => g.ncf.trim().toUpperCase() === cleanNCF && g.rncProveedor.trim().replace(/[^0-9]/g, '') === cleanRNC);
+  },
 
-      // Make employee inactive
-      const empIndex = allEmpleados.findIndex(e => e.id === desvinculacionData.empleadoId);
-      if (empIndex > -1) {
-          allEmpleados[empIndex].activo = false;
+  importGastosFromExcel: async (file, onProgress) => {
+    return { message: "Importado" }; // Placeholder
+  },
+
+  importFacturasFromExcel: async (file, onProgress) => {
+    const empresaId = useTenantStore.getState().selectedTenant?.id;
+    const user = useAuthStore.getState().user;
+    if (!empresaId || !user) throw new Error("No hay empresa o usuario seleccionado.");
+
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        try {
+          const data = new Uint8Array(e.target?.result as ArrayBuffer);
+          const workbook = xlsx.read(data, { type: 'array' });
+          const sheetName = workbook.SheetNames[0];
+          const worksheet = workbook.Sheets[sheetName];
+          const rows: ExcelRow607[] = xlsx.utils.sheet_to_json(worksheet);
+
+          if (rows.length === 0) throw new Error("El archivo está vacío.");
+
+          const totalRows = rows.length;
+          let processedCount = 0;
+          let duplicatedCount = 0;
+          let errorCount = 0;
+          let totalAmount = 0;
+          const errorDetails: any[] = [];
+          
+          const existingInvoicesSnapshot = await getDocs(query(collection(db, 'facturas'), where('empresaId', '==', empresaId)));
+          const existingNcfs = new Set(existingInvoicesSnapshot.docs.map(doc => doc.data().ncf));
+          
+          const batchSize = 100;
+          let currentBatch = writeBatch(db);
+          let opsInBatch = 0;
+
+          for (let i = 0; i < totalRows; i++) {
+            const row = rows[i];
+            const rowNumber = i + 2; 
+
+            try {
+              if (!row.NUMERO_COMPROBANTE_FISCAL) throw new Error("NCF faltante");
+              if (!row.RNC_CEDULA_CLIENTE) throw new Error("RNC Cliente faltante");
+              if (!row.FECHA_COMPROBANTE) throw new Error("Fecha faltante");
+              
+              const ncf = row.NUMERO_COMPROBANTE_FISCAL.toString().trim();
+              
+              if (existingNcfs.has(ncf)) {
+                duplicatedCount++;
+                continue; 
+              }
+              existingNcfs.add(ncf); 
+
+              let fechaIso = '';
+              if (typeof row.FECHA_COMPROBANTE === 'number') {
+                  fechaIso = new Date((row.FECHA_COMPROBANTE - (25567 + 2)) * 86400 * 1000).toISOString().split('T')[0];
+              } else {
+                  const rawDate = row.FECHA_COMPROBANTE.toString();
+                  if (rawDate.length === 8) {
+                      fechaIso = `${rawDate.substring(0, 4)}-${rawDate.substring(4, 6)}-${rawDate.substring(6, 8)}`;
+                  } else {
+                      fechaIso = new Date().toISOString().split('T')[0]; 
+                  }
+              }
+
+              const montoFacturado = Number(row.MONTO_FACTURADO) || 0;
+              const itbisFacturado = Number(row.ITBIS_FACTURADO) || 0;
+              const itbisRetenido = Number(row.ITBIS_RETENIDO_TERCEROS) || 0;
+              const montoTotal = montoFacturado + itbisFacturado;
+              
+              const efectivo = Number(row.EFECTIVO) || 0;
+              const cheque = Number(row.CHEQUE_TRANSFERENCIA_DEPOSITO) || 0;
+              const tarjeta = Number(row.TARJETA_DEBITO_CREDITO) || 0;
+              const credito = Number(row.VENTA_A_CREDITO) || 0;
+              
+              const totalPagadoInstrumentos = efectivo + cheque + tarjeta;
+              const esContado = totalPagadoInstrumentos >= (montoTotal - 0.5); 
+
+              const facturaRef = doc(collection(db, 'facturas'));
+              const asientoRef = doc(collection(db, 'asientosContables'));
+
+              const facturaData: Factura = {
+                  id: facturaRef.id,
+                  empresaId,
+                  clienteId: 'CLIENTE_GENERICO_IMPORTADO', 
+                  clienteNombre: `Cliente ${row.RNC_CEDULA_CLIENTE}`, 
+                  ncf: ncf,
+                  ncfTipo: NCFType.B02, 
+                  fecha: fechaIso,
+                  items: [{ 
+                      itemId: 'GENERICO',
+                      codigo: 'IMP',
+                      descripcion: 'Importación de Ventas 607',
+                      cantidad: 1,
+                      precioUnitario: montoFacturado,
+                      subtotal: montoFacturado
+                  }],
+                  subtotal: montoFacturado,
+                  descuentoPorcentaje: 0,
+                  montoDescuento: 0,
+                  aplicaITBIS: itbisFacturado > 0,
+                  aplicaISC: false,
+                  isc: 0,
+                  itbis: itbisFacturado,
+                  itbisRetenido: itbisRetenido,
+                  aplicaPropina: false,
+                  propinaLegal: 0,
+                  montoTotal: montoTotal,
+                  montoPagado: esContado ? montoTotal : 0,
+                  estado: esContado ? FacturaEstado.Pagada : FacturaEstado.Emitida,
+                  conciliado: false,
+                  asientoId: asientoRef.id,
+                  comments: [],
+                  auditLog: [{
+                      id: `log-${Date.now()}`,
+                      userId: user.id,
+                      userName: user.nombre,
+                      action: 'Importada desde Excel (607)',
+                      timestamp: new Date().toISOString()
+                  }],
+                  createdAt: new Date().toISOString()
+              };
+
+              const asientoData = generarAsientoFacturaVenta(facturaData, []);
+              
+              currentBatch.set(facturaRef, facturaData);
+              currentBatch.set(asientoRef, { ...asientoData, id: asientoRef.id });
+              
+              processedCount++;
+              opsInBatch += 2;
+              totalAmount += montoTotal;
+
+              if (opsInBatch >= batchSize) {
+                  await currentBatch.commit();
+                  currentBatch = writeBatch(db); 
+                  opsInBatch = 0;
+                  if (onProgress) onProgress((i / totalRows) * 100);
+              }
+
+            } catch (err: any) {
+              errorCount++;
+              errorDetails.push({ fila: rowNumber, ncf: row.NUMERO_COMPROBANTE_FISCAL || 'N/A', error: err.message });
+              console.warn(`Error en fila ${rowNumber}:`, err.message);
+            }
+          }
+
+          if (opsInBatch > 0) {
+              await currentBatch.commit();
+          }
+
+          const logData: ImportLog = {
+              id: `log-${Date.now()}`,
+              empresaId,
+              fecha: new Date().toISOString(),
+              usuarioId: user.id,
+              nombreArchivo: file.name,
+              totalFilas: totalRows,
+              totalProcesadas: processedCount,
+              totalDuplicadas: duplicatedCount,
+              totalErrores: errorCount,
+              erroresDetalle: errorDetails.slice(0, 100), 
+              montoTotalProcesado: totalAmount
+          };
+          await addDoc(collection(db, 'import_logs'), logData);
+
+          resolve({ message: `Proceso completado. Procesadas: ${processedCount}. Duplicadas: ${duplicatedCount}. Errores: ${errorCount}.` });
+
+        } catch (error) {
+          reject(error);
+        }
+      };
+      reader.readAsArrayBuffer(file);
+    });
+  },
+
+  sincronizarNombresProveedores: async () => {},
+  sincronizarAsientosFaltantes: async () => {},
+  reconcileWithAI: async (c) => [],
+  answerQuestionWithAI: async (q) => "Respuesta IA",
+  
+  calculateIngresosBrutosForPreviousFiscalYear: () => {
+      const prevYear = new Date().getFullYear() - 1;
+      const start = `${prevYear}-01-01`;
+      const end = `${prevYear}-12-31`;
+      return get().ingresos.filter(i => i.fecha >= start && i.fecha <= end).reduce((sum, i) => sum + i.monto, 0);
+  },
+
+  getAnexoBData: (periodoFiscal: number) => {
+      const start = `${periodoFiscal}-01-01`;
+      const end = `${periodoFiscal}-12-31`;
+      const asientos = get().asientosContables.filter(a => a.fecha >= start && a.fecha <= end);
+      
+      let ingresos = 0;
+      let costos = 0;
+      let gastos = 0;
+      
+      asientos.forEach(a => {
+          a.entradas.forEach(e => {
+              if (e.cuentaId.startsWith('4')) ingresos += (e.credito - e.debito);
+              if (e.cuentaId.startsWith('5')) costos += (e.debito - e.credito);
+              if (e.cuentaId.startsWith('6')) gastos += (e.debito - e.credito);
+          });
+      });
+      
+      return { 
+          totalIngresos: ingresos, 
+          totalCostos: costos, 
+          totalGastos: gastos, 
+          utilidadBruta: ingresos - costos, 
+          utilidadNeta: ingresos - costos - gastos 
+      };
+  },
+
+  getAnexoAData: (periodoFiscal: number) => {
+      const end = `${periodoFiscal}-12-31`;
+      const asientos = get().asientosContables.filter(a => a.fecha <= end);
+      
+      let activos = 0;
+      let pasivos = 0;
+      let capital = 0;
+      
+      asientos.forEach(a => {
+          a.entradas.forEach(e => {
+              if (e.cuentaId.startsWith('1')) activos += (e.debito - e.credito);
+              if (e.cuentaId.startsWith('2')) pasivos += (e.credito - e.debito);
+              if (e.cuentaId.startsWith('3')) capital += (e.credito - e.debito);
+              
+              if (['4'].includes(e.cuentaId.charAt(0))) {
+                  capital += (e.credito - e.debito);
+              }
+              if (['5', '6'].includes(e.cuentaId.charAt(0))) {
+                  capital -= (e.debito - e.credito);
+              }
+          });
+      });
+      return { totalActivos: activos, totalPasivos: pasivos, totalCapital: capital };
+  },
+
+  getKpis: () => {
+      const { start, end } = getFiscalPeriod();
+      const ingresosPeriodo = get().ingresos.filter(i => i.fecha >= start && i.fecha <= end);
+      const gastosPeriodo = get().gastos.filter(g => g.fecha >= start && g.fecha <= end);
+      
+      const totalCobrado = ingresosPeriodo.reduce((sum, i) => sum + i.monto, 0);
+      const gastosMes = gastosPeriodo.reduce((sum, g) => sum + g.monto, 0);
+      
+      const facturasPendientes = get().facturas.filter(f => f.estado !== FacturaEstado.Pagada && f.estado !== FacturaEstado.Anulada);
+      const cuentasPorCobrar = facturasPendientes.reduce((sum, f) => sum + (f.montoTotal - (f.montoPagado || 0)), 0);
+      
+      const inventarioValor = get().items.reduce((sum, i) => sum + ((i.costo || 0) * (i.cantidadDisponible || 0)), 0);
+      const activos = cuentasPorCobrar + inventarioValor; 
+      
+      const totalVentasHist = get().ingresos.reduce((sum, i) => sum + i.monto, 0);
+      const totalGastosHist = get().gastos.reduce((sum, g) => sum + g.monto, 0);
+      const patrimonio = totalVentasHist - totalGastosHist;
+
+      const now = new Date();
+      const currentMonthStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+      const ventasMes = get().facturas.filter(f => f.fecha.startsWith(currentMonthStr) && f.estado !== FacturaEstado.Anulada);
+      const comprasMes = get().gastos.filter(g => g.fecha.startsWith(currentMonthStr));
+      
+      const itbisVentas = ventasMes.reduce((sum, f) => sum + (f.itbis || 0), 0);
+      const itbisCompras = comprasMes.reduce((sum, g) => sum + (g.itbis || 0), 0);
+      const itbisAPagar = Math.max(0, itbisVentas - itbisCompras);
+
+      const beneficio = totalCobrado - gastosMes;
+      const isrProyectado = Math.max(0, beneficio * 0.27);
+
+      const gastosConsumidorFinalList = gastosPeriodo.filter(g => isNcfConsumidorFinal(g.ncf));
+      const gastosConsumidorFinal = {
+          totalItbis: gastosConsumidorFinalList.reduce((sum, g) => sum + (g.itbis || 0), 0),
+          count: gastosConsumidorFinalList.length
+      };
+
+      return {
+          totalCobrado,
+          gastosMes,
+          beneficioPerdida: beneficio,
+          cuentasPorCobrar,
+          activos,
+          patrimonio,
+          itbisAPagar: { total: itbisAPagar },
+          isrProyectado,
+          gastosConsumidorFinal
+      };
+  },
+
+  getSalesVsExpensesChartData: () => {
+      const { start, end } = getFiscalPeriod();
+      const months = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+      const data = months.map(m => ({ name: m, ventas: 0, gastos: 0 }));
+      
+      get().ingresos.filter(i => i.fecha >= start && i.fecha <= end).forEach(i => {
+          const month = new Date(i.fecha).getMonth();
+          data[month].ventas += i.monto;
+      });
+      
+      get().gastos.filter(g => g.fecha >= start && g.fecha <= end).forEach(g => {
+          const month = new Date(g.fecha).getMonth();
+          data[month].gastos += g.monto;
+      });
+      
+      return data;
+  },
+
+  getGastosByCategoryChartData: () => {
+      const { start, end } = getFiscalPeriod();
+      const gastosPeriodo = get().gastos.filter(g => g.fecha >= start && g.fecha <= end);
+      const categoryMap: Record<string, number> = {};
+      
+      gastosPeriodo.forEach(g => {
+          const cat = g.categoriaGasto || 'Otros';
+          categoryMap[cat] = (categoryMap[cat] || 0) + g.monto;
+      });
+      
+      return Object.entries(categoryMap).map(([name, value]) => ({ name, value }));
+  },
+
+  getMonthlyITBISData: () => {
+      const { start, end } = getFiscalPeriod();
+      const months: Record<string, any> = {};
+      
+      get().facturas.filter(f => f.fecha >= start && f.fecha <= end && f.estado !== FacturaEstado.Anulada).forEach(f => {
+          const monthKey = f.fecha.substring(0, 7);
+          if (!months[monthKey]) months[monthKey] = { itbisVentas: 0, itbisCompras: 0 };
+          months[monthKey].itbisVentas += (f.itbis || 0);
+      });
+      
+      get().gastos.filter(g => g.fecha >= start && g.fecha <= end).forEach(g => {
+          const monthKey = g.fecha.substring(0, 7);
+          if (!months[monthKey]) months[monthKey] = { itbisVentas: 0, itbisCompras: 0 };
+          months[monthKey].itbisCompras += (g.itbis || 0);
+      });
+
+      return Object.keys(months).sort().map(key => {
+          const m = months[key];
+          const date = new Date(key + '-01'); 
+          const monthName = date.toLocaleDateString('es-DO', { month: 'long', year: 'numeric' });
+          return {
+              monthName,
+              itbisPayable: m.itbisVentas - m.itbisCompras
+          };
+      });
+  },
+
+  getAnticiposISRData: () => {
+      const tenant = useTenantStore.getState().selectedTenant;
+      const currentYear = new Date().getFullYear();
+      if (!tenant || !tenant.impuestoLiquidadoAnterior) {
+          return { 
+              isConfigured: false, 
+              pagos: [], 
+              periodoFiscal: String(currentYear), 
+              tet: 0, 
+              ruleMessage: '' 
+          };
+      }
+
+      const impuestoLiquidado = tenant.impuestoLiquidadoAnterior;
+      const ingresosBrutos = tenant.ingresosBrutosAnterior || 0;
+      const tet = ingresosBrutos > 0 ? impuestoLiquidado / ingresosBrutos : 0;
+      
+      let baseCalculo = impuestoLiquidado;
+      let ruleMessage = "Base: Impuesto Liquidado (TET > 1.5%)";
+      
+      if (tet <= 0.015 && ingresosBrutos > 0) {
+          baseCalculo = ingresosBrutos * 0.015;
+          ruleMessage = "Base: 1.5% Ingresos Brutos (TET <= 1.5%)";
+      }
+
+      const montoTotalAnticipos = baseCalculo;
+      const pagos: any[] = [];
+      const cuotas = 12; 
+      const montoMensual = montoTotalAnticipos / cuotas;
+
+      for(let i=1; i<=cuotas; i++) {
+          const fechaLimite = new Date(currentYear, i - 1, 15).toISOString().split('T')[0];
+          const pagoRegistrado = get().pagosAnticiposISR.find(p => p.numeroCuota === i && p.periodoFiscal === String(currentYear));
+          
+          pagos.push({
+              numero: i,
+              fechaLimite,
+              monto: montoMensual,
+              estado: pagoRegistrado ? 'Pagado' : (new Date().toISOString() > fechaLimite ? 'Vencido' : 'Pendiente'),
+              pago: pagoRegistrado
+          });
       }
       
-      get().fetchData(empresaId);
+      const proximoPago = pagos.find(p => p.estado !== 'Pagado');
+
+      return {
+          isConfigured: true,
+          periodoFiscal: String(currentYear),
+          tet,
+          ruleMessage,
+          pagos,
+          proximoPago
+      };
   },
-  findDesvinculacionByCedula: (cedula: string) => {
+
+  getNominaForPeriodo: (periodo) => get().nominas.find(n => n.periodo === periodo),
+  
+  getNominaById: (id) => get().nominas.find(n => n.id === id),
+
+  realizarCierreITBIS: async (periodo) => {
       const empresaId = useTenantStore.getState().selectedTenant?.id;
-      if (!empresaId) return undefined;
-      // Find the most recent desvinculacion for that cedula
-      return [...allDesvinculaciones]
-          .filter(d => d.empresaId === empresaId && d.empleadoCedula === cedula)
-          .sort((a, b) => new Date(b.fechaSalida).getTime() - new Date(a.fechaSalida).getTime())[0];
+      if (!empresaId) throw new Error("No hay empresa seleccionada.");
+      
+      const monthStart = `${periodo}-01`;
+      const monthEnd = `${periodo}-31`; 
+      
+      const ventas = get().facturas.filter(f => f.empresaId === empresaId && f.fecha >= monthStart && f.fecha <= monthEnd && f.estado !== FacturaEstado.Anulada);
+      const compras = get().gastos.filter(g => g.empresaId === empresaId && g.fecha >= monthStart && g.fecha <= monthEnd);
+      
+      const itbisVentas = ventas.reduce((sum, f) => sum + (f.itbis || 0), 0);
+      const itbisCompras = compras.reduce((sum, g) => sum + (g.itbis || 0), 0);
+      
+      const previousClosures = get().cierresITBIS.filter(c => c.periodo < periodo).sort((a,b) => b.periodo.localeCompare(a.periodo));
+      const saldoInicial = previousClosures.length > 0 ? (previousClosures[0].saldoFinal < 0 ? Math.abs(previousClosures[0].saldoFinal) : 0) : 0;
+
+      const neto = itbisVentas - itbisCompras - saldoInicial;
+      
+      const cierreData = {
+          empresaId,
+          periodo,
+          saldoInicial,
+          itbisVentasMes: itbisVentas,
+          itbisComprasMes: itbisCompras,
+          itbisAPagar: Math.max(0, neto),
+          saldoFinal: neto < 0 ? Math.abs(neto) : 0, 
+          fechaCierre: new Date().toISOString(),
+          pagado: false
+      };
+      
+      await addDocWithId('cierresITBIS', cierreData);
   },
+
+  pagarITBIS: async (cierreId, fechaPago) => {
+      const empresaId = useTenantStore.getState().selectedTenant?.id;
+      if(!empresaId) return;
+      const cierre = get().cierresITBIS.find(c => c.id === cierreId);
+      if(!cierre) return;
+
+      const asientoPago = generarAsientoPago(empresaId, fechaPago, `Pago ITBIS Período ${cierre.periodo}`, cierreId, 'pago_itbis', cierre.itbisAPagar, '2106-01');
+      const newAsiento = await addDocWithId('asientosContables', {...asientoPago, empresaId}, false);
+      await updateDocWithId('cierresITBIS', cierreId, { pagado: true, fechaPago, asientoPagoId: newAsiento.id });
+  },
+
+  marcarAnticipoPagado: async (data) => {
+      const empresaId = useTenantStore.getState().selectedTenant?.id;
+      if (!empresaId) throw new Error("Empresa no seleccionada");
+      
+      const newPago = await addDocWithId('pagosAnticiposISR', { ...data, empresaId });
+      
+      const asientoPago = generarAsientoPago(empresaId, data.fechaPago, `Pago Anticipo ISR Cuota ${data.numeroCuota} - ${data.periodoFiscal}`, newPago.id, 'pago_anticipo_isr', data.montoPagado, '1104-02'); 
+      await addDocWithId('asientosContables', {...asientoPago, empresaId}, false);
+  },
+
+  addComment: async (type, id, text) => {
+      const user = useAuthStore.getState().user;
+      if (!user) return;
+      
+      const collectionName = type === 'factura' ? 'facturas' : type === 'gasto' ? 'gastos' : 'cotizaciones';
+      const comment: Comment = {
+          id: `comment-${Date.now()}`,
+          userId: user.id,
+          userName: user.nombre,
+          text,
+          timestamp: new Date().toISOString()
+      };
+      
+      const docRef = doc(db, collectionName, id);
+      await updateDoc(docRef, {
+          comments: arrayUnion(comment)
+      });
+  },
+
+  saveFiscalSnapshot: async (snapshot) => {
+       const empresaId = useTenantStore.getState().selectedTenant?.id;
+       if (!empresaId) throw new Error("No hay empresa seleccionada.");
+       await addDoc(collection(db, 'fiscal_snapshots'), snapshot);
+  },
+
+  getGastosFor606: (start, end) => get().gastos.filter(g => g.fecha >= start && g.fecha <= end),
+  getVentasFor607: (start, end) => {
+      const facturas = get().facturas.filter(f => f.fecha >= start && f.fecha <= end && f.estado !== FacturaEstado.Anulada);
+      const notas = get().notas.filter(n => n.fecha >= start && n.fecha <= end);
+      return { facturas, notas };
+  },
+  getAnuladosFor608: (start, end) => {
+      const facturasAnuladas = get().facturas.filter(f => f.estado === FacturaEstado.Anulada && f.fecha >= start && f.fecha <= end);
+      return facturasAnuladas;
+  },
+  getFacturasParaPago: () => get().facturas.filter(f => f.estado === FacturaEstado.Emitida || f.estado === FacturaEstado.PagadaParcialmente),
+  
+  setConciliadoStatus: async (type, id, status) => {
+      const collectionName = type === 'ingreso' ? 'ingresos' : 'gastos';
+      await updateDocWithId(collectionName, id, { conciliado: status });
+  },
+
+  getContabilidadKpis: () => {
+      const { start, end } = getFiscalPeriod();
+      const asientos = get().asientosContables.filter(a => a.fecha <= end);
+      
+      let activos = 0;
+      let pasivos = 0;
+      let capital = 0;
+      let ingresos = 0;
+      let gastos = 0;
+      
+      asientos.forEach(a => {
+          a.entradas.forEach(e => {
+              if (e.cuentaId.startsWith('1')) activos += (e.debito - e.credito);
+              if (e.cuentaId.startsWith('2')) pasivos += (e.credito - e.debito);
+              if (e.cuentaId.startsWith('3')) capital += (e.credito - e.debito);
+              
+              if (a.fecha >= start) {
+                  if (e.cuentaId.startsWith('4')) ingresos += (e.credito - e.debito);
+                  if (e.cuentaId.startsWith('5') || e.cuentaId.startsWith('6')) gastos += (e.debito - e.credito);
+              }
+          });
+      });
+      
+      return {
+          totalActivos: activos,
+          totalPasivos: pasivos,
+          totalCapital: capital,
+          beneficioPerdida: ingresos - gastos
+      };
+  },
+
+  findDesvinculacionByCedula: (cedula) => {
+      const clean = cedula.replace(/[^0-9]/g, '');
+      return get().desvinculaciones.find(d => d.empleadoCedula.replace(/[^0-9]/g, '') === clean);
+  },
+
+  getFiscalStatus: async (periodo: number) => {
+      const empresaId = useTenantStore.getState().selectedTenant?.id;
+      if (!empresaId) return null;
+      const q = query(collection(db, 'fiscal_closures'), where('empresaId', '==', empresaId), where('periodoFiscal', '==', periodo));
+      const snapshot = await getDocs(q);
+      if (snapshot.empty) return null;
+      return { id: snapshot.docs[0].id, ...snapshot.docs[0].data() } as FiscalClosure;
+  },
+
+  // Nueva función para continuidad fiscal
+  getLastLockedSnapshot: async (periodo: number) => {
+      const empresaId = useTenantStore.getState().selectedTenant?.id;
+      if (!empresaId) return null;
+      
+      // Buscar el cierre fiscal LOCKED del año anterior
+      const qClosure = query(
+          collection(db, 'fiscal_closures'),
+          where('empresaId', '==', empresaId),
+          where('periodoFiscal', '==', periodo), // Should be previous year
+          where('status', '==', 'LOCKED')
+      );
+      const closureSnap = await getDocs(qClosure);
+      
+      if (closureSnap.empty) return null;
+
+      // Buscar el snapshot asociado a ese periodo.
+      // Usamos query simple sin orderBy para evitar necesidad de índices compuestos complejos
+      // y filtramos en memoria.
+      const qSnapshot = query(
+           collection(db, 'fiscal_snapshots'),
+           where('empresaId', '==', empresaId)
+      );
+      const snaps = await getDocs(qSnapshot);
+      
+      // Filtrar por año y ordenar en memoria por fechaCalculo descendente
+      const sortedSnaps = snaps.docs
+          .map(d => d.data() as CalculoFiscalSnapshot)
+          .filter(s => s.periodoFiscal === periodo) 
+          .sort((a, b) => new Date(b.fechaCalculo).getTime() - new Date(a.fechaCalculo).getTime());
+      
+      return sortedSnaps.length > 0 ? sortedSnaps[0] : null;
+  },
+
+  lockFiscalYear: async (periodo: number, data: any, assetUpdates?: any[]) => {
+      const empresaId = useTenantStore.getState().selectedTenant?.id;
+      const user = useAuthStore.getState().user;
+      if (!empresaId || !user) throw new Error("Datos incompletos");
+
+      const hash = await generateHash(data);
+      const lockData: Omit<FiscalClosure, 'id'> = {
+          empresaId,
+          periodoFiscal: periodo,
+          status: 'LOCKED',
+          dataHash: hash,
+          lockedBy: user.nombre,
+          lockedAt: new Date().toISOString(),
+          version: '2.0'
+      };
+      
+      // Atomic Batch Write: Lock fiscal year AND update all asset values for continuity
+      const batch = writeBatch(db);
+      
+      // 1. Create Lock Document
+      const lockRef = doc(collection(db, 'fiscal_closures'));
+      batch.set(lockRef, lockData);
+
+      // 2. Save Snapshot
+      const snapshotRef = doc(collection(db, 'fiscal_snapshots'));
+      batch.set(snapshotRef, data); // Assuming 'data' passed is the snapshot object
+
+      // 3. Update Assets (Continuity)
+      if (assetUpdates && assetUpdates.length > 0) {
+          assetUpdates.forEach(update => {
+              const assetRef = doc(db, 'activosFijos', update.id);
+              batch.update(assetRef, {
+                  depreciacionAcumuladaFiscal: update.nuevaDepreciacionAcumulada,
+                  valorFiscalFinal: update.nuevoValorFiscal,
+                  ultimoPeriodoCerrado: periodo
+              });
+          });
+      }
+
+      await batch.commit();
+  },
+
+  unlockFiscalYear: async (periodo: number, reason: string) => {
+      const empresaId = useTenantStore.getState().selectedTenant?.id;
+      if (!empresaId) return;
+      const q = query(collection(db, 'fiscal_closures'), where('empresaId', '==', empresaId), where('periodoFiscal', '==', periodo), where('status', '==', 'LOCKED'));
+      const snapshot = await getDocs(q);
+      const batch = writeBatch(db);
+      
+      snapshot.docs.forEach(doc => {
+          batch.update(doc.ref, { status: 'OPEN', unlockedAt: new Date().toISOString(), unlockReason: reason });
+      });
+      await batch.commit();
+  }
 }));

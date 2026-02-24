@@ -1,259 +1,213 @@
 
-
-import React, { useMemo, useState, useEffect } from 'react';
-import { Card, CardHeader, CardContent, CardTitle } from '../../components/ui/Card';
-import { useTenantStore } from '../../stores/useTenantStore';
-import { useDataStore } from '../../stores/useDataStore';
-import { useSettingsStore } from '../../stores/useSettingsStore';
+import React, { useMemo, useState } from 'react';
+import { Card, CardHeader, CardContent, CardTitle } from '../../components/ui/Card.tsx';
+import { useTenantStore } from '../../stores/useTenantStore.ts';
+import { useDataStore } from '../../stores/useDataStore.ts';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
-import { 
-  KPIWidget, 
-  AlertWidget, 
-  CashFlowChart, 
-  RevenueBreakdown, 
-  PerformanceMetrics, 
-  SalesTargetWidget 
-} from '../../components/analytics/AnalyticsWidgets';
-import { 
-  calculateAdvancedKPIs, 
-  getTimeSeriesData, 
-  getRevenueBreakdown 
-} from '../../utils/analyticsCalculations';
-import { InformationCircleIcon, IngresosIcon, ReportesIcon, ClientesIcon } from '../../components/icons/Icons';
-import { MetaVentas } from '../../types';
+import { formatCurrency } from '../../utils/formatters.ts';
+import { Link } from 'react-router-dom';
+import Button from '../../components/ui/Button.tsx';
+import { ConfiguracionIcon } from '../../components/icons/Icons.tsx';
+import CustomizeDashboardModal from './CustomizeDashboardModal.tsx';
+import { useDashboardSettingsStore } from '../../stores/useDashboardSettingsStore.ts';
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8'];
 
 const DashboardPage: React.FC = () => {
   const { selectedTenant } = useTenantStore();
-  const { getKpis } = useDataStore();
-  const { settings } = useSettingsStore();
+  const dataStore = useDataStore();
+  const { hiddenCards } = useDashboardSettingsStore();
+  const [isCustomizeModalOpen, setIsCustomizeModalOpen] = useState(false);
 
-  const tenantSettings = useMemo(() => {
-    if (selectedTenant) return settings[selectedTenant.id];
-    return { accentColor: '#005A9C' };
-  }, [selectedTenant, settings]);
-
-  const { facturas, gastos, ingresos } = useDataStore();
-  const kpis = useMemo(() => getKpis(), [getKpis]);
-
-  // Datos analíticos avanzados
-  const advancedKPIs = useMemo(() => {
-    if (!selectedTenant) return null;
-    return calculateAdvancedKPIs(
-      facturas.filter(f => f.empresaId === selectedTenant.id),
-      gastos.filter(g => g.empresaId === selectedTenant.id),
-      ingresos.filter(i => i.empresaId === selectedTenant.id)
-    );
-  }, [facturas, gastos, ingresos, selectedTenant]);
-
-  const timeSeriesData = useMemo(() => {
-    if (!selectedTenant) return [];
-    return getTimeSeriesData(
-      facturas.filter(f => f.empresaId === selectedTenant.id),
-      gastos.filter(g => g.empresaId === selectedTenant.id),
-      ingresos.filter(i => i.empresaId === selectedTenant.id)
-    );
-  }, [facturas, gastos, ingresos, selectedTenant]);
-
-  const revenueBreakdown = useMemo(() => {
-    if (!selectedTenant) return [];
-    return getRevenueBreakdown(
-      facturas.filter(f => f.empresaId === selectedTenant.id)
-    );
-  }, [facturas, selectedTenant]);
-
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('es-DO', { style: 'currency', currency: 'DOP' }).format(value);
-  };
-
-  // Datos históricos para comparaciones de tendencias
-  const previousMonthKPIs = useMemo(() => {
-    if (!selectedTenant) return null;
-    const now = new Date();
-    const previousStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-    const previousEnd = new Date(now.getFullYear(), now.getMonth(), 0);
-    
-    return calculateAdvancedKPIs(
-      facturas.filter(f => f.empresaId === selectedTenant.id),
-      gastos.filter(g => g.empresaId === selectedTenant.id),
-      ingresos.filter(i => i.empresaId === selectedTenant.id),
-      previousStart,
-      previousEnd
-    );
-  }, [facturas, gastos, ingresos, selectedTenant]);
-
-  // Meta de ventas (puede configurarse posteriormente)
-  // Estado para meta de ventas personalizada
-  const [metaVentas, setMetaVentas] = useState<MetaVentas | null>(null);
-  
-  // Cargar meta de ventas del mes actual
-  useEffect(() => {
-    const cargarMetaActual = async () => {
-      if (!selectedTenant) return;
-      
-      try {
-        const response = await fetch(`/api/metas-ventas/actual?empresaId=${selectedTenant.id}`);
-        if (response.ok) {
-          const meta = await response.json();
-          setMetaVentas(meta);
-        }
-      } catch (error) {
-        console.error('Error cargando meta de ventas:', error);
-        // Usar meta por defecto si no se puede cargar
-        setMetaVentas({
-          id: 0,
-          empresaId: selectedTenant.id,
-          ano: new Date().getFullYear(),
-          mes: new Date().getMonth() + 1,
-          metaMensual: 500000, // Meta por defecto
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString()
-        });
-      }
-    };
-
-    cargarMetaActual();
+  const accentColor = useMemo(() => {
+    return selectedTenant?.accentColor || '#005A9C';
   }, [selectedTenant]);
 
-  const salesTarget = metaVentas?.metaMensual || 500000; // DOP
-  
-  if (!advancedKPIs) {
-    return <div>Cargando datos analíticos...</div>;
-  }
+  const kpis = useMemo(() => dataStore.getKpis(), [dataStore]);
+  const salesVsExpensesData = useMemo(() => dataStore.getSalesVsExpensesChartData(), [dataStore]);
+  const gastosByCategoryData = useMemo(() => dataStore.getGastosByCategoryChartData(), [dataStore]);
+  const monthlyITBISData = useMemo(() => dataStore.getMonthlyITBISData(), [dataStore]);
+  const anticiposISRData = useMemo(() => dataStore.getAnticiposISRData(), [dataStore]);
 
-  // Calcular tendencias
-  const getTrend = (current: number, previous: number | null) => {
-    if (!previous || previous === 0) return undefined;
-    const percentage = ((current - previous) / previous) * 100;
-    return {
-      current,
-      previous,
-      percentage: Math.abs(percentage),
-      isPositive: percentage >= 0
-    };
+  const formatCurrencyForTooltip = (value: number) => {
+    if (isNaN(value)) value = 0;
+    return new Intl.NumberFormat('es-DO', { style: 'currency', currency: 'DOP' }).format(value);
   };
-
+  
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold text-secondary-800">Dashboard Analítico - {selectedTenant?.nombre}</h1>
-        <div className="text-sm text-secondary-500">
-          Última actualización: {new Date().toLocaleString('es-DO')}
-        </div>
+    <div>
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-3xl font-bold text-secondary-800">Dashboard de {selectedTenant?.nombre}</h1>
+        <Button variant="secondary" onClick={() => setIsCustomizeModalOpen(true)} leftIcon={<ConfiguracionIcon />}>
+          Personalizar
+        </Button>
       </div>
       
-      {/* KPIs Principales con Tendencias */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <KPIWidget
-          title="Ingresos del Mes"
-          value={advancedKPIs.totalRevenue}
-          formatter={formatCurrency}
-          color="text-green-600"
-          trend={getTrend(advancedKPIs.totalRevenue, previousMonthKPIs?.totalRevenue || null)}
-          icon={<IngresosIcon className="h-5 w-5" />}
-          subtitle="Facturación total"
-        />
-        <KPIWidget
-          title="Gastos del Mes"
-          value={advancedKPIs.totalExpenses}
-          formatter={formatCurrency}
-          color="text-red-600"
-          trend={getTrend(advancedKPIs.totalExpenses, previousMonthKPIs?.totalExpenses || null)}
-          icon={<ReportesIcon className="h-5 w-5" />}
-          subtitle="Gastos operacionales"
-        />
-        <KPIWidget
-          title="Ganancia Neta"
-          value={advancedKPIs.netProfit}
-          formatter={formatCurrency}
-          color={advancedKPIs.netProfit >= 0 ? "text-green-600" : "text-red-600"}
-          trend={getTrend(advancedKPIs.netProfit, previousMonthKPIs?.netProfit || null)}
-          icon={<InformationCircleIcon className="h-5 w-5" />}
-          subtitle="Ingresos - Gastos"
-        />
-        <KPIWidget
-          title="Clientes Activos"
-          value={timeSeriesData.length > 0 ? timeSeriesData[timeSeriesData.length - 1]?.clientes || 0 : 0}
-          formatter={(v) => v.toString()}
-          color="text-blue-600"
-          icon={<ClientesIcon className="h-5 w-5" />}
-          subtitle="Este período"
-        />
+        {!hiddenCards.has('kpi_cobrado') && (
+            <Card>
+              <CardHeader><CardTitle>Total Cobrado (Periodo Fiscal)</CardTitle></CardHeader>
+              <CardContent><p className="text-3xl font-bold text-green-600">{formatCurrency(kpis.totalCobrado)}</p></CardContent>
+            </Card>
+        )}
+        {!hiddenCards.has('kpi_gastos') && (
+            <Card>
+              <CardHeader><CardTitle>Total Gastos (Periodo Fiscal)</CardTitle></CardHeader>
+              <CardContent><p className="text-3xl font-bold text-red-600">{formatCurrency(kpis.gastosMes)}</p></CardContent>
+            </Card>
+        )}
+        {!hiddenCards.has('kpi_beneficio') && (
+            <Card>
+                <CardHeader><CardTitle>Beneficio/Pérdida (Periodo Fiscal)</CardTitle></CardHeader>
+                <CardContent>
+                    <p className={`text-3xl font-bold ${kpis.beneficioPerdida >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                        {formatCurrency(kpis.beneficioPerdida)}
+                    </p>
+                    <p className="text-xs text-secondary-500 mt-1">Cobros - Gastos del periodo</p>
+                </CardContent>
+             </Card>
+        )}
+        {!hiddenCards.has('kpi_por_cobrar') && (
+             <Card>
+                <CardHeader><CardTitle>Cuentas por Cobrar</CardTitle></CardHeader>
+                <CardContent>
+                    <p className="text-2xl font-bold text-yellow-600">{formatCurrency(kpis.cuentasPorCobrar)}</p>
+                    <p className="text-xs text-secondary-500 mt-1">Total pendiente de clientes</p>
+                </CardContent>
+             </Card>
+        )}
       </div>
 
-      {/* Meta de Ventas y Alertas */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <SalesTargetWidget
-          target={salesTarget}
-          current={advancedKPIs.totalRevenue}
-          period="Este Mes"
-        />
-        <AlertWidget alerts={advancedKPIs.alerts} />
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mt-6">
+        {!hiddenCards.has('health_activos') && (
+             <Card>
+                <CardHeader><CardTitle>Activos (Estimado)</CardTitle></CardHeader>
+                <CardContent>
+                    <p className="text-2xl font-bold text-blue-600">{formatCurrency(kpis.activos)}</p>
+                    <p className="text-xs text-secondary-500 mt-1">Cuentas por Cobrar + Inventario</p>
+                </CardContent>
+             </Card>
+        )}
+        {!hiddenCards.has('health_anticipo_isr') && (
+            <Card>
+                <CardHeader><CardTitle>Próximo Anticipo ISR</CardTitle></CardHeader>
+                <CardContent>
+                    {anticiposISRData.proximoPago ? (
+                        <>
+                            <p className="text-2xl font-bold text-orange-600">{formatCurrency(anticiposISRData.proximoPago.monto)}</p>
+                            <p className="text-xs text-secondary-500 mt-1">
+                                Vence el {new Date(anticiposISRData.proximoPago.fechaLimite + 'T00:00:00').toLocaleDateString('es-DO')}
+                            </p>
+                            <Link to="/dashboard/contabilidad/anticipos-isr" className="text-xs text-primary hover:underline mt-2 block">Ver detalles</Link>
+                        </>
+                    ) : (
+                        <>
+                            <p className="text-sm text-secondary-500">No hay anticipos pendientes o no se ha configurado el impuesto liquidado anterior.</p>
+                            <Link to="/dashboard/configuracion/empresas" className="text-xs text-primary hover:underline mt-2 block">Configurar</Link>
+                        </>
+                    )}
+                </CardContent>
+            </Card>
+        )}
+        {!hiddenCards.has('health_patrimonio') && (
+             <Card>
+                <CardHeader><CardTitle>Patrimonio (Estimado)</CardTitle></CardHeader>
+                <CardContent>
+                    <p className="text-2xl font-bold text-purple-600">{formatCurrency(kpis.patrimonio)}</p>
+                    <p className="text-xs text-secondary-500 mt-1">Total Cobrado - Total Gastado (Histórico)</p>
+                </CardContent>
+             </Card>
+        )}
+        {!hiddenCards.has('health_impuestos') && (
+             <Card>
+                <CardHeader><CardTitle>Proyección Impuestos (Periodo)</CardTitle></CardHeader>
+                <CardContent>
+                    <div className="space-y-2">
+                        <div>
+                            <p className="text-xs text-secondary-500">ITBIS a Pagar</p>
+                            <p className={`text-lg font-bold ${kpis.itbisAPagar.total >= 0 ? 'text-red-600' : 'text-green-600'}`}>
+                                {formatCurrency(kpis.itbisAPagar.total)}
+                            </p>
+                        </div>
+                        <div>
+                            <p className="text-xs text-secondary-500">ISR Proyectado (27%)</p>
+                            <p className="text-lg font-bold text-red-600">{formatCurrency(kpis.isrProyectado)}</p>
+                        </div>
+                    </div>
+                </CardContent>
+             </Card>
+        )}
+        {!hiddenCards.has('health_itbis_no_deducible') && (
+             <Card>
+                <CardHeader><CardTitle>ITBIS No Deducible (B02)</CardTitle></CardHeader>
+                <CardContent>
+                    <p className="text-2xl font-bold text-orange-600">{formatCurrency(kpis.gastosConsumidorFinal.totalItbis)}</p>
+                    <p className="text-xs text-secondary-500 mt-1">
+                        En {kpis.gastosConsumidorFinal.count} {kpis.gastosConsumidorFinal.count === 1 ? 'factura' : 'facturas'} de consumo este periodo.
+                    </p>
+                </CardContent>
+             </Card>
+        )}
       </div>
 
-      {/* Métricas de Rendimiento */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Métricas de Rendimiento</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <PerformanceMetrics 
-            metrics={{
-              averageInvoiceValue: advancedKPIs.averageInvoiceValue,
-              collectionEfficiency: advancedKPIs.collectionEfficiency,
-              expenseRatio: advancedKPIs.expenseRatio,
-              profitMargin: advancedKPIs.grossMargin
-            }}
-          />
-        </CardContent>
-      </Card>
+        <div className="mt-8">
+            <h2 className="text-xl font-bold text-secondary-800 mb-4">Resumen Mensual de ITBIS (Periodo Fiscal)</h2>
+            <div className="flex overflow-x-auto space-x-4 pb-4 -mx-4 px-4">
+                {monthlyITBISData.map(monthData => (
+                    <div key={monthData.monthName} className="flex-shrink-0 w-48 bg-white p-4 rounded-lg shadow-md">
+                        <p className="font-semibold text-secondary-700">{monthData.monthName}</p>
+                        <p className={`text-2xl font-bold ${monthData.itbisPayable > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                            {formatCurrency(Math.abs(monthData.itbisPayable))}
+                        </p>
+                        <p className="text-xs text-secondary-500">{monthData.itbisPayable > 0 ? 'Por Pagar' : 'Saldo a Favor'}</p>
+                    </div>
+                ))}
+                {monthlyITBISData.length === 0 && (
+                    <p className="text-sm text-secondary-500">No hay datos para mostrar el resumen mensual de ITBIS.</p>
+                )}
+            </div>
+        </div>
 
-      {/* Información Fiscal */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <KPIWidget
-          title="ITBIS a Pagar"
-          value={advancedKPIs.taxLiability.itbis}
-          formatter={formatCurrency}
-          color={advancedKPIs.taxLiability.itbis > 0 ? "text-red-600" : "text-green-600"}
-          subtitle="Diferencia ITBIS ventas vs compras"
-        />
-        <KPIWidget
-          title="ISR Proyectado"
-          value={advancedKPIs.taxLiability.isr}
-          formatter={formatCurrency}
-          color="text-orange-600"
-          subtitle="27% sobre utilidades"
-        />
-        <KPIWidget
-          title="Total Obligaciones Fiscales"
-          value={advancedKPIs.taxLiability.total}
-          formatter={formatCurrency}
-          color="text-purple-600"
-          subtitle="ITBIS + ISR estimado"
-        />
-      </div>
 
-      {/* Gráficos Analíticos Avanzados */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <CashFlowChart data={timeSeriesData} />
-        <RevenueBreakdown data={revenueBreakdown} />
-      </div>
-
-      {/* Mensaje cuando no hay datos suficientes */}
-      {timeSeriesData.length === 0 && (
-        <Card className="mt-6">
-          <CardHeader>
-            <CardTitle>Análisis Histórico no Disponible</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-secondary-500">
-              No hay suficientes datos históricos para mostrar tendencias. 
-              Los gráficos analíticos aparecerán cuando tengas más datos de ventas y gastos.
-            </p>
-          </CardContent>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-8">
+        <Card className="lg:col-span-2">
+            <CardHeader><CardTitle>Ingresos vs. Gastos (Periodo Fiscal)</CardTitle></CardHeader>
+            <CardContent className="h-80">
+                <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={salesVsExpensesData}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="name" />
+                        <YAxis tickFormatter={(value) => `$${Number(value) / 1000}k`} />
+                        <Tooltip formatter={(value: number) => formatCurrencyForTooltip(value)} />
+                        <Legend />
+                        <Bar dataKey="ventas" fill={accentColor} name="Ingresos"/>
+                        <Bar dataKey="gastos" fill="#A0AEC0" name="Gastos"/>
+                    </BarChart>
+                </ResponsiveContainer>
+            </CardContent>
         </Card>
-      )}
+        <Card>
+            <CardHeader><CardTitle>Gastos por Categoría (Periodo Fiscal)</CardTitle></CardHeader>
+            <CardContent className="h-80">
+                {gastosByCategoryData.length === 0 ? (
+                    <div className="flex items-center justify-center h-full text-sm text-secondary-500">
+                        No hay datos de gastos para este periodo.
+                    </div>
+                ) : (
+                    <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                            <Pie data={gastosByCategoryData} cx="50%" cy="50%" labelLine={false} outerRadius={80} fill="#8884d8" dataKey="value" nameKey="name">
+                                {gastosByCategoryData.map((entry, index) => <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />)}
+                            </Pie>
+                            <Tooltip formatter={(value: number) => formatCurrencyForTooltip(value)} />
+                            <Legend />
+                        </PieChart>
+                    </ResponsiveContainer>
+                )}
+            </CardContent>
+        </Card>
+      </div>
+      <CustomizeDashboardModal isOpen={isCustomizeModalOpen} onClose={() => setIsCustomizeModalOpen(false)} />
     </div>
   );
 };

@@ -1,16 +1,16 @@
 import React, { useState } from 'react';
 import { useTenantStore } from '../../stores/useTenantStore';
 import { useDataStore } from '../../stores/useDataStore';
-import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/Card';
-import Button from '../../components/ui/Button';
-import { PlusIcon, DownloadIcon, UserMinusIcon, ArchiveBoxXMarkIcon } from '../../components/icons/Icons';
-import { Empleado } from '../../types';
-import NuevoEmpleadoModal from './NuevoEmpleadoModal';
-import ProcesarNominaModal from './ProcesarNominaModal';
-import { generateSirlaReport } from '../../utils/sirlaUtils';
-import { useAlertStore } from '../../stores/useAlertStore';
-import DesvinculacionModal from './DesvinculacionModal';
-import HistorialDesvinculacionesModal from './HistorialDesvinculacionesModal';
+import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/Card.tsx';
+import Button from '../../components/ui/Button.tsx';
+import { PlusIcon, DownloadIcon, UserMinusIcon, ArchiveBoxXMarkIcon } from '../../components/icons/Icons.tsx';
+import { Empleado } from '../../types.ts';
+import NuevoEmpleadoModal from './NuevoEmpleadoModal.tsx';
+import ProcesarNominaModal from './ProcesarNominaModal.tsx';
+import { generateSirlaReport } from '../../utils/sirlaUtils.ts';
+import { useAlertStore } from '../../stores/useAlertStore.ts';
+import DesvinculacionModal from './DesvinculacionModal.tsx';
+import HistorialDesvinculacionesModal from './HistorialDesvinculacionesModal.tsx';
 
 const NominaPage: React.FC = () => {
     const { selectedTenant } = useTenantStore();
@@ -33,11 +33,16 @@ const NominaPage: React.FC = () => {
         setIsEmpleadoModalOpen(true);
     };
     
-    const handleSaveEmpleado = (data: Omit<Empleado, 'id' | 'empresaId'> | Empleado) => {
-        if ('id' in data) {
-            updateEmpleado(data);
-        } else {
-            addEmpleado(data);
+    const handleSaveEmpleado = async (data: Omit<Empleado, 'id' | 'empresaId'> | Empleado) => {
+        try {
+            if ('id' in data) {
+                await updateEmpleado(data);
+            } else {
+                await addEmpleado(data);
+            }
+        } catch (error) {
+            console.error("Failed to save employee:", error);
+            throw error;
         }
     };
 
@@ -134,26 +139,24 @@ const NominaPage: React.FC = () => {
                                 <tr>
                                     <th className="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase">Nombre</th>
                                     <th className="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase">Cédula</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase">Puesto</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase">Fecha Ingreso</th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase">Salario TSS</th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-primary-500 uppercase">Salario Real</th>
                                     <th className="px-6 py-3 text-left text-xs font-medium text-secondary-500 uppercase">Tiempo en Empresa</th>
-                                    <th className="px-6 py-3 text-right text-xs font-medium text-secondary-500 uppercase">Salario Bruto</th>
                                     <th className="px-6 py-3 text-center text-xs font-medium text-secondary-500 uppercase">Estado</th>
                                     <th className="px-6 py-3 text-right text-xs font-medium text-secondary-500 uppercase">Acciones</th>
                                 </tr>
                             </thead>
                             <tbody className="bg-white divide-y divide-secondary-200">
                                 {empleados.length === 0 ? (
-                                    <tr><td colSpan={8} className="text-center py-4 text-secondary-500">No hay empleados registrados.</td></tr>
+                                    <tr><td colSpan={7} className="text-center py-4 text-secondary-500">No hay empleados registrados.</td></tr>
                                 ) : (
                                     empleados.map(emp => (
                                         <tr key={emp.id}>
                                             <td className="px-6 py-4 font-medium">{emp.nombre}</td>
                                             <td className="px-6 py-4">{emp.cedula}</td>
-                                            <td className="px-6 py-4">{emp.puesto}</td>
-                                            <td className="px-6 py-4">{new Date(emp.fechaIngreso + 'T00:00:00').toLocaleDateString('es-DO')}</td>
-                                            <td className="px-6 py-4">{calcularAntiguedad(emp.fechaIngreso)}</td>
-                                            <td className="px-6 py-4 text-right font-semibold">{formatCurrency(emp.salarioBrutoMensual)}</td>
+                                            <td className="px-6 py-4 text-sm font-semibold">{formatCurrency(emp.salarioBrutoMensual)}</td>
+                                            <td className="px-6 py-4 text-sm font-bold text-primary-700">{formatCurrency(emp.salarioRealMensual || emp.salarioBrutoMensual)}</td>
+                                            <td className="px-6 py-4 text-sm">{calcularAntiguedad(emp.fechaIngreso)}</td>
                                             <td className="px-6 py-4 text-center">
                                                 <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${emp.activo ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
                                                     {emp.activo ? 'Activo' : 'Inactivo'}

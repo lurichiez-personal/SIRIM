@@ -1,24 +1,24 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Cotizacion, CotizacionEstado, Cliente, Item } from '../../types';
-import { useTenantStore } from '../../stores/useTenantStore';
-import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/Card';
-import Button from '../../components/ui/Button';
-import { PlusIcon, DownloadIcon } from '../../components/icons/Icons';
-import NuevaCotizacionModal from './NuevaCotizacionModal';
-import { useDataStore } from '../../stores/useDataStore';
-import VistaPreviaCotizacionModal from './VistaPreviaCotizacionModal';
-import Pagination from '../../components/ui/Pagination';
-import { exportToCSV } from '../../utils/csvExport';
+import { Cotizacion, CotizacionEstado, Cliente, Item } from '../../types.ts';
+import { useTenantStore } from '../../stores/useTenantStore.ts';
+import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/Card.tsx';
+import Button from '../../components/ui/Button.tsx';
+import { PlusIcon, DownloadIcon } from '../../components/icons/Icons.tsx';
+import NuevaCotizacionModal from './NuevaCotizacionModal.tsx';
+import { useDataStore } from '../../stores/useDataStore.ts';
+import VistaPreviaCotizacionModal from './VistaPreviaCotizacionModal.tsx';
+import Pagination from '../../components/ui/Pagination.tsx';
+import { exportToCSV } from '../../utils/csvExport.ts';
+import { applyPagination } from '../../utils/pagination.ts';
 
 const ITEMS_PER_PAGE = 10;
 
 const CotizacionesPage: React.FC = () => {
     const { selectedTenant } = useTenantStore();
-    const { cotizaciones, clientes, items, getPagedCotizaciones, addCotizacion, updateCotizacion, addCliente } = useDataStore();
+    const { cotizaciones, clientes, items, addCotizacion, updateCotizacion, addCliente, isLoading } = useDataStore();
     const navigate = useNavigate();
     
-    const [loading, setLoading] = useState(true);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isVistaPreviaOpen, setIsVistaPreviaOpen] = useState(false);
     const [cotizacionParaEditar, setCotizacionParaEditar] = useState<Cotizacion | null>(null);
@@ -26,16 +26,25 @@ const CotizacionesPage: React.FC = () => {
 
     const [currentPage, setCurrentPage] = useState(1);
     const [filters, setFilters] = useState({ searchTerm: '', status: 'todos', startDate: '', endDate: '' });
-    const [pagedData, setPagedData] = useState({ items: [], totalCount: 0 });
-
-    useEffect(() => {
-        if (selectedTenant) {
-            setLoading(true);
-            const data = getPagedCotizaciones({ page: currentPage, pageSize: ITEMS_PER_PAGE, ...filters });
-            setPagedData(data);
-            setLoading(false);
+    
+    const pagedData = useMemo(() => {
+        let filtered = [...cotizaciones];
+        if (filters.searchTerm) {
+            const lowerTerm = filters.searchTerm.toLowerCase();
+            filtered = filtered.filter(c => c.clienteNombre.toLowerCase().includes(lowerTerm) || c.id.toString().includes(lowerTerm));
         }
-    }, [selectedTenant, currentPage, filters, getPagedCotizaciones, cotizaciones]);
+        if (filters.status && filters.status !== 'todos') {
+            filtered = filtered.filter(c => c.estado === filters.status);
+        }
+        if (filters.startDate) {
+            filtered = filtered.filter(c => c.fecha >= filters.startDate);
+        }
+        if (filters.endDate) {
+            filtered = filtered.filter(c => c.fecha <= filters.endDate);
+        }
+        const sorted = filtered.sort((a,b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime());
+        return applyPagination(sorted, currentPage, ITEMS_PER_PAGE);
+    }, [cotizaciones, currentPage, filters]);
     
     const handleFilterChange = (field: string, value: string) => {
         setFilters(prev => ({ ...prev, [field]: value }));
@@ -62,25 +71,29 @@ const CotizacionesPage: React.FC = () => {
         setIsVistaPreviaOpen(true);
     };
 
-    const handleSaveCotizacion = (cotizacionData: Omit<Cotizacion, 'id' | 'empresaId' | 'estado'>) => {
-        if (cotizacionParaEditar) {
-            updateCotizacion({ ...cotizacionParaEditar, ...cotizacionData });
-        } else {
-            addCotizacion(cotizacionData);
+    const handleSaveCotizacion = async (cotizacionData: Omit<Cotizacion, 'id' | 'empresaId' | 'estado'>) => {
+        try {
+            if (cotizacionParaEditar) {
+                await updateCotizacion({ ...cotizacionParaEditar, ...cotizacionData });
+            } else {
+                await addCotizacion(cotizacionData);
+            }
+        } catch (error) {
+            console.error("Failed to save quote:", error);
+            throw error;
         }
     };
 
-    const handleCreateCliente = (newClientData: { nombre: string; rnc?: string }): Cliente => {
-        return addCliente(newClientData);
+    const handleCreateCliente = async (newClientData: { nombre: string; rnc?: string }): Promise<Cliente> => {
+        return await addCliente({ ...newClientData, activo: true });
     };
 
     const handleConvertirAFactura = (cotizacion: Cotizacion) => {
-        navigate('/facturas', { state: { cotizacion } });
+        navigate('/dashboard/facturas', { state: { cotizacion } });
     };
 
     const handleExport = () => {
-        const dataToExport = getPagedCotizaciones({ ...filters, page: 1, pageSize: pagedData.totalCount }).items;
-        exportToCSV(dataToExport.map(c => ({
+        exportToCSV(pagedData.items.map(c => ({
             'ID Cotizacion': c.id,
             'Cliente': c.clienteNombre,
             'RNC Cliente': c.clienteRNC,
@@ -148,7 +161,7 @@ const CotizacionesPage: React.FC = () => {
                                 </tr>
                             </thead>
                             <tbody className="bg-white divide-y divide-secondary-200">
-                                {loading ? (
+                                {isLoading ? (
                                     <tr><td colSpan={6} className="text-center py-4">Cargando...</td></tr>
                                 ) : pagedData.items.length === 0 ? (
                                     <tr><td colSpan={6} className="text-center py-4 text-secondary-500">No se encontraron cotizaciones.</td></tr>
@@ -167,10 +180,10 @@ const CotizacionesPage: React.FC = () => {
                                             <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-4">
                                                 <button onClick={() => handleVerCotizacion(cot)} className="text-primary hover:text-primary-700">Ver</button>
                                                 {cot.estado === CotizacionEstado.Pendiente && (
-                                                    <button onClick={() => handleOpenModalParaEditar(cot)} className="text-primary hover:text-primary-700">Editar</button>
-                                                )}
-                                                {(cot.estado === CotizacionEstado.Pendiente || cot.estado === CotizacionEstado.Aprobada) && (
-                                                    <Button variant="secondary" size="sm" onClick={() => handleConvertirAFactura(cot)}>Convertir a Factura</Button>
+                                                    <>
+                                                        <button onClick={() => handleOpenModalParaEditar(cot)} className="text-primary hover:text-primary-700">Editar</button>
+                                                        <Button variant="secondary" size="sm" onClick={() => handleConvertirAFactura(cot)}>Convertir a Factura</Button>
+                                                    </>
                                                 )}
                                             </td>
                                         </tr>

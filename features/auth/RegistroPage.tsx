@@ -1,6 +1,6 @@
 
-import React, { useState, useEffect } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../stores/useAuthStore';
 import { LogoIcon } from '../../components/icons/Icons';
 import Button from '../../components/ui/Button';
@@ -8,7 +8,6 @@ import Button from '../../components/ui/Button';
 const RegistroPage: React.FC = () => {
   const { register } = useAuthStore();
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
   
   const [formData, setFormData] = useState({
     nombreEmpresa: '',
@@ -20,16 +19,6 @@ const RegistroPage: React.FC = () => {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  // Obtener parámetros del plan seleccionado
-  const selectedPlan = searchParams.get('plan') || 'basico';
-  const isTrial = searchParams.get('trial') !== 'false';
-
-  const planNames = {
-    basico: 'Plan Básico',
-    pro: 'Plan Pro', 
-    premium: 'Plan Premium'
-  };
-
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({ ...formData, [e.target.id]: e.target.value });
   };
@@ -40,27 +29,21 @@ const RegistroPage: React.FC = () => {
     setLoading(true);
     
     // Simple validation
-    if (Object.values(formData).some((val: string) => val.trim() === '')) {
+    if (Object.values(formData).some(val => String(val).trim() === '')) {
         setError('Todos los campos son obligatorios.');
         setLoading(false);
         return;
     }
     
-    // Si es prueba gratuita, registrar directamente
-    if (isTrial) {
-      const success = await register(formData);
-      
-      if (success) {
-        navigate('/dashboard');
-      } else {
-        setError('No se pudo completar el registro. Es posible que el correo ya esté en uso.');
-      }
-    } else {
-      // Si es compra directa, guardar datos y ir al checkout
-      sessionStorage.setItem('registrationData', JSON.stringify(formData));
-      navigate(`/checkout?plan=${selectedPlan}&trial=false`);
-    }
+    const success = await register(formData);
     
+    if (success) {
+      // Navigation is handled by onAuthStateChanged now, which will redirect to dashboard.
+      // We can just wait.
+    } else {
+      // The error message is handled by the alert store within the register function
+      setError('No se pudo completar el registro. Es posible que el correo ya esté en uso.');
+    }
     setLoading(false);
   };
 
@@ -73,11 +56,7 @@ const RegistroPage: React.FC = () => {
                 Crea tu cuenta en SIRIM
             </h1>
             <p className="mt-2 text-sm text-center text-secondary-600">
-                {isTrial ? (
-                  `Inicia tu prueba gratuita de 30 días con ${planNames[selectedPlan as keyof typeof planNames]}`
-                ) : (
-                  `Registra tu empresa para ${planNames[selectedPlan as keyof typeof planNames]}`
-                )}
+                Inicia tu prueba gratuita de 30 días.
             </p>
         </div>
         
@@ -116,9 +95,7 @@ const RegistroPage: React.FC = () => {
             {error && <p className="text-sm text-red-600 text-center">{error}</p>}
             
             <Button type="submit" className="w-full" disabled={loading}>
-                {loading ? 'Procesando...' : (
-                  isTrial ? 'Comenzar Prueba Gratuita' : 'Continuar al Pago'
-                )}
+                {loading ? 'Creando cuenta...' : 'Comenzar Prueba Gratuita'}
             </Button>
         </form>
       </div>

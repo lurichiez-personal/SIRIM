@@ -1,14 +1,14 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Cliente } from '../../types';
-import Modal from '../../components/ui/Modal';
-import Button from '../../components/ui/Button';
-import { useDGIIDataStore } from '../../stores/useDGIIDataStore';
-import { useEnterToNavigate } from '../../hooks/useEnterToNavigate';
+import { Cliente } from '../../types.ts';
+import Modal from '../../components/ui/Modal.tsx';
+import Button from '../../components/ui/Button.tsx';
+import { useDGIIDataStore } from '../../stores/useDGIIDataStore.ts';
+import { useEnterToNavigate } from '../../hooks/useEnterToNavigate.ts';
 
 interface NuevoClienteModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (clientData: Omit<Cliente, 'id' | 'empresaId' | 'createdAt'>) => void;
+  onSave: (clientData: Omit<Cliente, 'id' | 'empresaId' | 'createdAt'>) => Promise<any>;
   clienteParaEditar?: Cliente | null;
 }
 
@@ -51,22 +51,28 @@ const NuevoClienteModal: React.FC<NuevoClienteModalProps> = ({ isOpen, onClose, 
         return Object.keys(newErrors).length === 0;
     };
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!validate()) {
             return;
         }
-        onSave({
-            nombre,
-            rnc,
-            email,
-            telefono,
-            activo,
-            condicionesPago,
-            estadoDGII
-        });
-        resetForm();
-        onClose();
+        try {
+            await onSave({
+                nombre,
+                rnc,
+                email,
+                telefono,
+                activo,
+                condicionesPago,
+                estadoDGII
+            });
+            resetForm();
+            onClose();
+        } catch (error) {
+            // The error is alerted by the store. We do nothing here,
+            // so the modal stays open for the user to correct the data.
+            console.error('Save failed, keeping modal open.', error);
+        }
     };
     
     const resetForm = () => {

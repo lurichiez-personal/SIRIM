@@ -1,13 +1,12 @@
-
 import React, { useState } from 'react';
-import { Comment } from '../../types';
-import { useAuthStore } from '../../stores/useAuthStore';
-import { useDataStore } from '../../stores/useDataStore';
-import Button from './Button';
+import { Comment } from '../../types.ts';
+import { useAuthStore } from '../../stores/useAuthStore.ts';
+import { useDataStore } from '../../stores/useDataStore.ts';
+import Button from './Button.tsx';
 
 interface CommentsProps {
   comments: Comment[];
-  documentId: number;
+  documentId: string;
   documentType: 'factura' | 'gasto' | 'cotizacion';
 }
 

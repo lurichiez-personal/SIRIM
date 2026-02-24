@@ -1,8 +1,7 @@
-
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/Card';
-import { FacturasIcon, UserCircleIcon, ClientesIcon, DocumentDuplicateIcon, ConfiguracionIcon, ReceiptPercentIcon, BuildingStorefrontIcon, ChartPieIcon } from '../../components/icons/Icons';
+import { FacturasIcon, UserCircleIcon, ClientesIcon, DocumentDuplicateIcon, ConfiguracionIcon, ReceiptPercentIcon, BuildingStorefrontIcon, ChartPieIcon, UserTaxIcon, KeyIcon } from '../../components/icons/Icons';
 import { Permission } from '../../types';
 import Can from '../../components/Can';
 
@@ -84,6 +83,22 @@ const ConfiguracionPage: React.FC = () => {
                     icon={ConfiguracionIcon}
                 />
             </Can>
+            <Can I={Permission.GESTIONAR_CREDENCIALES_EMPRESA}>
+                 <SettingCard
+                    to="credenciales"
+                    title="Gestor de Credenciales"
+                    description="Guarde y administre de forma segura los accesos a plataformas externas (DGII, TSS, etc.)."
+                    icon={KeyIcon}
+                />
+            </Can>
+            <Can I={Permission.GESTIONAR_BASE_DATOS_RNC}>
+                <SettingCard
+                   to="rnc"
+                   title="Base de Datos RNC (DGII)"
+                   description="Actualice la base de datos global para la búsqueda automática de contribuyentes."
+                   icon={UserTaxIcon}
+               />
+           </Can>
             <Can I={Permission.GESTIONAR_MARKETING}>
                 <SettingCard
                     to="marketing"
@@ -92,24 +107,6 @@ const ConfiguracionPage: React.FC = () => {
                     icon={ChartPieIcon}
                 />
             </Can>
-            <SettingCard
-                to="metas-ventas"
-                title="Metas de Ventas"
-                description="Configure sus objetivos de ventas mensuales y realice seguimiento de su progreso."
-                icon={ChartPieIcon}
-            />
-            <SettingCard
-                to="backup"
-                title="Sistema de Backup"
-                description="Administre copias de seguridad automáticas y manuales de sus datos empresariales."
-                icon={ConfiguracionIcon}
-            />
-            <SettingCard
-                to="microsoft"
-                title="Microsoft Office 365"
-                description="Configure la autenticación con Microsoft Azure AD para acceso empresarial."
-                icon={ClientesIcon}
-            />
         </div>
     </div>
   );

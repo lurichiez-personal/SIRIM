@@ -1,17 +1,16 @@
-
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
-import { Permission } from '../types';
-import Can from './Can';
-import { useAuthStore } from '../stores/useAuthStore';
+import { Permission } from '../types.ts';
+import Can from './Can.tsx';
 import { 
     DashboardIcon, ClientesIcon, FacturasIcon, GastosIcon, 
     IngresosIcon, ReportesIcon, ConfiguracionIcon, LogoIcon,
     InventarioIcon, CotizacionesIcon, DocumentDuplicateIcon, ScaleIcon,
-    UsersGroupIcon, BookOpenIcon, ChevronDownIcon, ChartPieIcon, ClockIcon
-} from './icons/Icons';
-import { useUIStore } from '../stores/useUIStore';
-import { useMediaQuery } from '../hooks/useMediaQuery';
+    UsersGroupIcon, BookOpenIcon, ChevronDownIcon, ChartPieIcon, ClockIcon,
+    BanknotesIcon
+} from './icons/Icons.tsx';
+import { useUIStore } from '../stores/useUIStore.ts';
+import { useMediaQuery } from '../hooks/useMediaQuery.ts';
 
 interface NavItem {
     to: string;
@@ -28,8 +27,8 @@ const navItems: NavItem[] = [
   { to: '/dashboard/cotizaciones', label: 'Cotizaciones', icon: CotizacionesIcon, permission: Permission.GESTIONAR_COTIZACIONES },
   { to: '/dashboard/notas', label: 'Notas de Crédito', icon: DocumentDuplicateIcon, permission: Permission.GESTIONAR_NOTAS },
   { to: '/dashboard/gastos', label: 'Gastos', icon: GastosIcon, permission: Permission.GESTIONAR_GASTOS },
-  { to: '/dashboard/ingresos', label: 'Pagos y Cobros', icon: IngresosIcon, permission: Permission.GESTIONAR_PAGOS },
-  { to: '/dashboard/cuentas-por-cobrar', label: 'Cuentas por Cobrar', icon: IngresosIcon, permission: Permission.GESTIONAR_PAGOS },
+  { to: '/dashboard/cobros', label: 'Cobros', icon: IngresosIcon, permission: Permission.GESTIONAR_PAGOS },
+  { to: '/dashboard/pagos', label: 'Pagos', icon: BanknotesIcon, permission: Permission.GESTIONAR_GASTOS },
   { to: '/dashboard/inventario', label: 'Inventario', icon: InventarioIcon, permission: Permission.GESTIONAR_INVENTARIO },
   { 
     to: '/dashboard/nomina', 
@@ -47,6 +46,7 @@ const navItems: NavItem[] = [
     icon: BookOpenIcon, 
     permission: Permission.GESTIONAR_CONTABILIDAD,
     children: [
+        { to: '/dashboard/contabilidad', label: 'Resumen Contable', icon: ChartPieIcon},
         { to: '/dashboard/contabilidad/libro-diario', label: 'Libro Diario', icon: BookOpenIcon },
         { to: '/dashboard/contabilidad/catalogo-cuentas', label: 'Catálogo de Cuentas', icon: ReportesIcon },
         { to: '/dashboard/contabilidad/reportes', label: 'Reportes Financieros', icon: ChartPieIcon },
@@ -54,14 +54,7 @@ const navItems: NavItem[] = [
   },
   { to: '/dashboard/conciliacion', label: 'Conciliación', icon: ScaleIcon, permission: Permission.GESTIONAR_CONCILIACION },
   { to: '/dashboard/reportes', label: 'Reportes DGII', icon: ReportesIcon, permission: Permission.VER_REPORTES_DGII },
-  { to: '/dashboard/billing', label: 'Mi Suscripción', icon: ChartPieIcon, permission: Permission.VER_DASHBOARD },
   { to: '/dashboard/configuracion', label: 'Configuración', icon: ConfiguracionIcon, permission: Permission.GESTIONAR_CONFIGURACION_EMPRESA },
-];
-
-// Elementos específicos para usuario master
-const masterNavItems: NavItem[] = [
-  { to: '/dashboard/master', label: '👑 Panel Master', icon: DashboardIcon, permission: Permission.GESTIONAR_EMPRESAS },
-  { to: '/dashboard/master/config', label: '⚙️ Config Master', icon: ConfiguracionIcon, permission: Permission.GESTIONAR_EMPRESAS },
 ];
 
 const NavItemLink: React.FC<{ item: Omit<NavItem, 'permission'>, isSubmenu?: boolean }> = ({ item, isSubmenu = false }) => {
@@ -80,7 +73,7 @@ const NavItemLink: React.FC<{ item: Omit<NavItem, 'permission'>, isSubmenu?: boo
     return (
          <NavLink
             to={item.to}
-            end={item.to === '/dashboard'}
+            end={item.to === '/dashboard' || item.to === '/dashboard/nomina' || item.to === '/dashboard/contabilidad'}
             className={({ isActive }) => `${navLinkClasses} ${isActive ? activeNavLinkClasses : ''}`}
             onClick={handleClick}
         >
@@ -92,7 +85,6 @@ const NavItemLink: React.FC<{ item: Omit<NavItem, 'permission'>, isSubmenu?: boo
 
 const Sidebar: React.FC = () => {
   const { isSidebarOpen } = useUIStore();
-  const { user } = useAuthStore();
   const location = useLocation();
   const [openSubmenus, setOpenSubmenus] = useState<{[key: string]: boolean}>(() => {
       const activeMenu = navItems.find(item => item.children?.some(child => location.pathname.startsWith(child.to)));
@@ -105,22 +97,29 @@ const Sidebar: React.FC = () => {
   
   return (
     <aside className={`absolute md:relative inset-y-0 left-0 w-64 bg-primary flex flex-col p-4 text-white transform ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0 transition-transform duration-300 ease-in-out z-40`}>
-      <div className="flex items-center justify-center py-4 mb-6">
+      <div className="flex-shrink-0 flex items-center justify-center py-4 mb-6">
         <LogoIcon className="h-8 w-8 mr-2 text-white" />
         <span className="text-2xl font-bold tracking-wider">SIRIM</span>
       </div>
-      <nav className="flex-1 flex flex-col space-y-2">
+      
+      {/* Sección de navegación con scroll vertical independiente */}
+      <nav className="flex-1 flex flex-col space-y-2 overflow-y-auto overflow-x-hidden pr-1 custom-scrollbar">
         {navItems.map(item => (
           <Can key={item.to} I={item.permission}>
             {item.children ? (
                 <div>
-                    <button onClick={() => toggleSubmenu(item.to)} className="flex items-center justify-between w-full px-4 py-3 text-secondary-100 hover:bg-primary-700 rounded-lg transition-colors duration-200">
+                     <NavLink
+                        to={item.to}
+                        end
+                        onClick={() => toggleSubmenu(item.to)}
+                        className={({ isActive }) => `flex items-center justify-between w-full px-4 py-3 text-secondary-100 hover:bg-primary-700 rounded-lg transition-colors duration-200 ${isActive ? 'bg-primary-900 font-semibold' : ''}`}
+                    >
                         <div className="flex items-center">
                             <item.icon className="h-5 w-5 mr-3" />
                             <span>{item.label}</span>
                         </div>
                         <ChevronDownIcon className={`h-5 w-5 transition-transform ${openSubmenus[item.to] ? 'rotate-180' : ''}`} />
-                    </button>
+                    </NavLink>
                     {openSubmenus[item.to] && (
                         <div className="mt-1 space-y-1">
                             {item.children.map(child => <NavItemLink key={child.to} item={child} isSubmenu />)}
@@ -132,44 +131,29 @@ const Sidebar: React.FC = () => {
             )}
           </Can>
         ))}
-        
-        {/* Panel Master - Solo para lurichiez@gmail.com */}
-        {user?.email === 'lurichiez@gmail.com' && (
-          <div className="mt-4 pt-4 border-t border-primary-600">
-            <div className="mb-2">
-              <p className="text-xs font-semibold text-primary-300 uppercase tracking-wider px-4 py-1">
-                👑 Master Panel
-              </p>
-            </div>
-            <NavLink
-              to="/dashboard/master"
-              className={({ isActive }) =>
-                `flex items-center px-4 py-3 text-secondary-100 hover:bg-primary-700 rounded-lg transition-colors duration-200 ${
-                  isActive ? 'bg-primary-900 font-semibold' : ''
-                }`
-              }
-            >
-              <DashboardIcon className="h-5 w-5 mr-3" />
-              <span>Panel Master</span>
-            </NavLink>
-            <NavLink
-              to="/dashboard/master/config"
-              className={({ isActive }) =>
-                `flex items-center px-4 py-3 text-secondary-100 hover:bg-primary-700 rounded-lg transition-colors duration-200 ${
-                  isActive ? 'bg-primary-900 font-semibold' : ''
-                }`
-              }
-            >
-              <ConfiguracionIcon className="h-5 w-5 mr-3" />
-              <span>Configuración Master</span>
-            </NavLink>
-          </div>
-        )}
       </nav>
-      <div className="mt-auto text-center text-xs text-primary-200">
+
+      <div className="flex-shrink-0 mt-auto pt-4 text-center text-xs text-primary-200 border-t border-primary-700">
         <p>&copy; {new Date().getFullYear()} SIRIM</p>
         <p>Todos los derechos reservados.</p>
       </div>
+
+      <style dangerouslySetInnerHTML={{ __html: `
+        .custom-scrollbar::-webkit-scrollbar {
+          width: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+          background: rgba(255, 255, 255, 0.05);
+          border-radius: 10px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+          background: rgba(255, 255, 255, 0.2);
+          border-radius: 10px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+          background: rgba(255, 255, 255, 0.3);
+        }
+      `}} />
     </aside>
   );
 };

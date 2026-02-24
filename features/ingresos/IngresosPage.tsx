@@ -1,58 +1,74 @@
-import React, { useState, useEffect } from 'react';
-import { Ingreso, Factura, FacturaEstado, MetodoPago } from '../../types';
-import { useTenantStore } from '../../stores/useTenantStore';
-import { useDataStore } from '../../stores/useDataStore';
-import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/Card';
-import Button from '../../components/ui/Button';
-import { PlusIcon, DownloadIcon } from '../../components/icons/Icons';
-import Pagination from '../../components/ui/Pagination';
-import NuevoPagoModal from './NuevoPagoModal';
-import { exportToCSV } from '../../utils/csvExport';
-import BulkUploadModal from '../bulk-upload/BulkUploadModal';
+import React, { useState, useEffect, useMemo } from 'react';
+import { Ingreso, Factura, FacturaEstado, MetodoPago } from '../../types.ts';
+import { useTenantStore } from '../../stores/useTenantStore.ts';
+import { useDataStore } from '../../stores/useDataStore.ts';
+import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/Card.tsx';
+import Button from '../../components/ui/Button.tsx';
+import { PlusIcon, DownloadIcon } from '../../components/icons/Icons.tsx';
+import Pagination from '../../components/ui/Pagination.tsx';
+import NuevoCobroModal from './NuevoPagoModal.tsx';
+import { exportToCSV } from '../../utils/csvExport.ts';
+import { applyPagination } from '../../utils/pagination.ts';
 
 const ITEMS_PER_PAGE = 10;
 
-const IngresosPage: React.FC = () => {
+const CobrosPage: React.FC = () => {
     const { selectedTenant } = useTenantStore();
-    const { getPagedIngresos, addIngreso, getFacturasParaPago, facturas } = useDataStore();
+    const { ingresos, addIngreso, getFacturasParaPago, isLoading } = useDataStore();
     
-    const [loading, setLoading] = useState(true);
     const [isModalOpen, setIsModalOpen] = useState(false);
-    const [isBulkUploadOpen, setIsBulkUploadOpen] = useState(false);
     const [currentPage, setCurrentPage] = useState(1);
     const [filters, setFilters] = useState({ searchTerm: '', startDate: '', endDate: '', metodoPago: 'todos' });
-    const [pagedData, setPagedData] = useState({ items: [], totalCount: 0 });
     const [facturasDisponibles, setFacturasDisponibles] = useState<Factura[]>([]);
 
     useEffect(() => {
         if (selectedTenant) {
-            setLoading(true);
-            const data = getPagedIngresos({ page: currentPage, pageSize: ITEMS_PER_PAGE, ...filters });
-            setPagedData(data);
             setFacturasDisponibles(getFacturasParaPago());
-            setLoading(false);
         }
-    }, [selectedTenant, currentPage, filters, getPagedIngresos, getFacturasParaPago, facturas]);
+    }, [selectedTenant, getFacturasParaPago, ingresos]); // Add ingresos to dependencies to refresh list
+
+    const pagedData = useMemo(() => {
+        let filtered = [...ingresos];
+
+        if (filters.searchTerm) {
+            const lowerTerm = filters.searchTerm.toLowerCase();
+            filtered = filtered.filter(i => i.clienteNombre?.toLowerCase().includes(lowerTerm));
+        }
+        if (filters.startDate) {
+            filtered = filtered.filter(f => f.fecha >= filters.startDate);
+        }
+        if (filters.endDate) {
+            filtered = filtered.filter(f => f.fecha <= filters.endDate);
+        }
+        if (filters.metodoPago && filters.metodoPago !== 'todos') {
+            filtered = filtered.filter(i => i.metodoPago === filters.metodoPago);
+        }
+        
+        const sorted = filtered.sort((a,b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime());
+
+        return applyPagination(sorted, currentPage, ITEMS_PER_PAGE);
+
+    }, [ingresos, currentPage, filters]);
+
 
     const handleFilterChange = (field: string, value: string) => {
         setFilters(prev => ({ ...prev, [field]: value }));
         setCurrentPage(1);
     };
 
-    const handleSavePago = (pagoData: Omit<Ingreso, 'id' | 'empresaId'>) => {
+    const handleSaveCobro = (pagoData: Omit<Ingreso, 'id' | 'empresaId'>) => {
         addIngreso(pagoData);
     };
 
     const handleExport = () => {
-        const dataToExport = getPagedIngresos({ ...filters, page: 1, pageSize: pagedData.totalCount }).items;
-        exportToCSV(dataToExport.map(i => ({
+        exportToCSV(pagedData.items.map(i => ({
             'Fecha': i.fecha,
             'Cliente': i.clienteNombre,
             'Monto': i.monto,
             'Metodo de Pago': i.metodoPago,
             'Factura Asociada ID': i.facturaId,
             'Notas': i.notas,
-        })), 'pagos_recibidos');
+        })), 'cobros_recibidos');
     };
 
     const formatCurrency = (value: number) => {
@@ -62,19 +78,18 @@ const IngresosPage: React.FC = () => {
     return (
         <div>
             <div className="flex justify-between items-center mb-6">
-                <h1 className="text-3xl font-bold text-secondary-800">Pagos y Cobros</h1>
+                <h1 className="text-3xl font-bold text-secondary-800">Cobros</h1>
                 <div className="flex space-x-2">
                     <Button variant="secondary" leftIcon={<DownloadIcon />} onClick={handleExport}>Exportar a CSV</Button>
-                    <Button variant="secondary" onClick={() => setIsBulkUploadOpen(true)}>📊 Cargar Excel</Button>
                     <Button leftIcon={<PlusIcon />} onClick={() => setIsModalOpen(true)}>
-                        Registrar Pago
+                        Registrar Cobro
                     </Button>
                 </div>
             </div>
 
             <Card>
                 <CardHeader>
-                    <CardTitle>Historial de Pagos Recibidos</CardTitle>
+                    <CardTitle>Historial de Cobros Recibidos</CardTitle>
                     <div className="mt-4 grid grid-cols-1 md:grid-cols-4 gap-4">
                         <input type="text" placeholder="Buscar por cliente..." className="col-span-2 px-3 py-2 border border-secondary-300 rounded-md" value={filters.searchTerm} onChange={e => handleFilterChange('searchTerm', e.target.value)} />
                         <select className="px-3 py-2 border border-secondary-300 rounded-md" value={filters.metodoPago} onChange={e => handleFilterChange('metodoPago', e.target.value)}>
@@ -101,15 +116,15 @@ const IngresosPage: React.FC = () => {
                                 </tr>
                             </thead>
                             <tbody className="bg-white divide-y divide-secondary-200">
-                                {loading ? (
+                                {isLoading ? (
                                     <tr><td colSpan={6} className="text-center py-4">Cargando...</td></tr>
                                 ) : pagedData.items.length === 0 ? (
-                                    <tr><td colSpan={6} className="text-center py-4 text-secondary-500">No hay pagos registrados para esta empresa.</td></tr>
+                                    <tr><td colSpan={6} className="text-center py-4 text-secondary-500">No hay cobros registrados.</td></tr>
                                 ) : (
                                     pagedData.items.map(ingreso => (
                                         <tr key={ingreso.id} className="hover:bg-secondary-50">
                                             <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-secondary-900">{ingreso.clienteNombre}</td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-secondary-500">{new Date(ingreso.fecha).toLocaleDateString('es-DO')}</td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-secondary-500">{new Date(ingreso.fecha + 'T00:00:00').toLocaleDateString('es-DO')}</td>
                                             <td className="px-6 py-4 whitespace-nowrap text-sm text-secondary-500 font-semibold">{formatCurrency(ingreso.monto)}</td>
                                             <td className="px-6 py-4 whitespace-nowrap text-sm text-secondary-500">{ingreso.metodoPago}</td>
                                             <td className="px-6 py-4 whitespace-nowrap text-sm text-secondary-500">
@@ -131,15 +146,14 @@ const IngresosPage: React.FC = () => {
                 </CardContent>
             </Card>
 
-            <NuevoPagoModal
+            <NuevoCobroModal
                 isOpen={isModalOpen}
                 onClose={() => setIsModalOpen(false)}
-                onSave={handleSavePago}
+                onSave={handleSaveCobro}
                 facturasDisponibles={facturasDisponibles}
             />
-            <BulkUploadModal isOpen={isBulkUploadOpen} onClose={() => setIsBulkUploadOpen(false)} type="ingresos" empresaId={selectedTenant?.id || 0} onSuccess={() => {/* Refrescar datos */}} />
         </div>
     );
 };
 
-export default IngresosPage;
+export default CobrosPage;

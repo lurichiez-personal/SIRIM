@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { usePermissionsStore } from '../../stores/usePermissionsStore';
 import { Role, Permission } from '../../types';
@@ -37,9 +36,10 @@ const RolesPage: React.FC = () => {
                             </thead>
                             <tbody className="bg-white divide-y divide-secondary-200">
                                 {allPermissions.map(permission => (
-                                    <tr key={permission}>
+                                    <tr key={permission as string}>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-secondary-900 sticky left-0 bg-white z-10">
-                                            {permission.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                                            {/* Fix: Cast permission to string to access replace method */}
+                                            {(permission as string).replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
                                         </td>
                                         {allRoles.map(role => (
                                             <td key={`${role}-${permission}`} className="px-6 py-4 whitespace-nowrap text-center">

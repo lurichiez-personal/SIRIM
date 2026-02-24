@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { useClientAuthStore } from '../../stores/useClientAuthStore';
 import { useDataStore } from '../../stores/useDataStore';
@@ -14,7 +13,7 @@ const PortalCotizacionesPage: React.FC = () => {
 
     const misCotizaciones = cotizaciones.filter(c => c.clienteId === clientUser.clienteId);
 
-    const handleUpdateStatus = (id: number, status: CotizacionEstado) => {
+    const handleUpdateStatus = (id: string, status: CotizacionEstado) => {
         if (window.confirm(`¿Seguro que desea ${status === CotizacionEstado.Aprobada ? 'aprobar' : 'rechazar'} esta cotización?`)) {
             updateCotizacionStatus(id, status);
         }

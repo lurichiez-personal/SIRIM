@@ -29,6 +29,7 @@ export const parseBankStatementCSV = (csvText: string): BankTransaction[] => {
             descripcion: values[descIndex],
             monto: Math.abs(monto),
             tipo: monto > 0 ? 'credito' : 'debito',
+            line: i + 1, // Store original line number (1-based index)
         });
     }
 

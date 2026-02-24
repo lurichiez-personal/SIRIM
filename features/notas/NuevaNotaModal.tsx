@@ -1,7 +1,7 @@
 
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { Factura, CodigoModificacionNCF } from '../../types';
+import { Factura, CodigoModificacionNCF, NotaCreditoDebito } from '../../types';
 import Modal from '../../components/ui/Modal';
 import Button from '../../components/ui/Button';
 import ToggleSwitch from '../../components/ui/ToggleSwitch';
@@ -13,6 +13,8 @@ interface NuevaNotaModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSave: (data: {
+    id?: string;
+    ncf?: string;
     facturaAfectada: Factura;
     codigoModificacion: keyof typeof CodigoModificacionNCF;
     fecha: string;
@@ -30,9 +32,10 @@ interface NuevaNotaModalProps {
   }) => void;
   facturasDisponibles: Factura[];
   facturaAfectadaInicial?: Factura | null;
+  notaParaEditar?: NotaCreditoDebito | null;
 }
 
-const NuevaNotaModal: React.FC<NuevaNotaModalProps> = ({ isOpen, onClose, onSave, facturasDisponibles, facturaAfectadaInicial }) => {
+const NuevaNotaModal: React.FC<NuevaNotaModalProps> = ({ isOpen, onClose, onSave, facturasDisponibles, facturaAfectadaInicial, notaParaEditar }) => {
     const { selectedTenant } = useTenantStore();
     const { getRatesForTenant } = useRatesStore();
     const rates = useMemo(() => selectedTenant ? getRatesForTenant(selectedTenant.id) : { itbis: 0.18, isc: 0.16, propina: 0.10 }, [selectedTenant, getRatesForTenant]);
@@ -42,6 +45,7 @@ const NuevaNotaModal: React.FC<NuevaNotaModalProps> = ({ isOpen, onClose, onSave
     const [fecha, setFecha] = useState(new Date().toISOString().split('T')[0]);
     const [descripcion, setDescripcion] = useState('');
     const [searchTerm, setSearchTerm] = useState('');
+    const [ncf, setNcf] = useState('');
     
     // Amounts state
     const [subtotal, setSubtotal] = useState(0);
@@ -50,12 +54,13 @@ const NuevaNotaModal: React.FC<NuevaNotaModalProps> = ({ isOpen, onClose, onSave
     const [aplicaPropina, setAplicaPropina] = useState(false);
     const [descuentoPorcentaje, setDescuentoPorcentaje] = useState(0);
     
-    const [errors, setErrors] = useState<{ factura?: string; fecha?: string; descripcion?: string }>({});
+    const [errors, setErrors] = useState<{ factura?: string; fecha?: string; descripcion?: string; ncf?: string }>({});
 
     const formRef = useRef<HTMLFormElement>(null);
     useEnterToNavigate(formRef);
 
     const isEditable = useMemo(() => codigoModificacion !== '01', [codigoModificacion]);
+    const isEditMode = !!notaParaEditar;
 
     const handleSelectFactura = (factura: Factura) => {
         setFacturaAfectada(factura);
@@ -76,33 +81,56 @@ const NuevaNotaModal: React.FC<NuevaNotaModalProps> = ({ isOpen, onClose, onSave
             resetForm();
             return;
         }
-        if (facturaAfectadaInicial) {
+        if (notaParaEditar) {
+            // Find the original invoice if available in the passed list, or create a mock one for display
+            const originalFactura = facturasDisponibles.find(f => f.id === notaParaEditar.facturaAfectadaId) || {
+                id: notaParaEditar.facturaAfectadaId,
+                ncf: notaParaEditar.facturaAfectadaNCF,
+                clienteNombre: notaParaEditar.clienteNombre,
+                clienteId: notaParaEditar.clienteId,
+                montoTotal: 0, // Placeholder
+                subtotal: notaParaEditar.subtotal,
+                aplicaITBIS: notaParaEditar.aplicaITBIS,
+                aplicaISC: notaParaEditar.aplicaISC,
+                aplicaPropina: notaParaEditar.aplicaPropina,
+            } as Factura;
+
+            setFacturaAfectada(originalFactura);
+            setCodigoModificacion(notaParaEditar.codigoModificacion);
+            setFecha(notaParaEditar.fecha);
+            setDescripcion(notaParaEditar.descripcion);
+            setSubtotal(notaParaEditar.subtotal);
+            setAplicaITBIS(notaParaEditar.aplicaITBIS);
+            setAplicaISC(notaParaEditar.aplicaISC || false);
+            setAplicaPropina(notaParaEditar.aplicaPropina || false);
+            setNcf(notaParaEditar.ncf);
+        } else if (facturaAfectadaInicial) {
             handleSelectFactura(facturaAfectadaInicial);
         }
-    }, [isOpen, facturaAfectadaInicial]);
+    }, [isOpen, facturaAfectadaInicial, notaParaEditar]);
 
 
     useEffect(() => {
-        if (facturaAfectada && codigoModificacion === '03') {
+        if (!isEditMode && facturaAfectada && codigoModificacion === '03') {
             const originalSubtotal = facturaAfectada.subtotal - (facturaAfectada.montoDescuento || 0);
             const newSubtotalForNota = originalSubtotal * (descuentoPorcentaje / 100);
             setSubtotal(newSubtotalForNota);
-        } else {
+        } else if (!isEditMode) {
             setDescuentoPorcentaje(0);
             if(facturaAfectada && codigoModificacion !== '01') {
                 setSubtotal(facturaAfectada.subtotal - (facturaAfectada.montoDescuento || 0));
             }
         }
-    }, [facturaAfectada, codigoModificacion, descuentoPorcentaje]);
+    }, [facturaAfectada, codigoModificacion, descuentoPorcentaje, isEditMode]);
 
     useEffect(() => {
-        if (facturaAfectada && codigoModificacion === '01') { // Is anullment
+        if (!isEditMode && facturaAfectada && codigoModificacion === '01') { // Is anullment
             setSubtotal(facturaAfectada.subtotal - (facturaAfectada.montoDescuento || 0));
             setAplicaITBIS(facturaAfectada.aplicaITBIS);
             setAplicaISC(facturaAfectada.aplicaISC || false);
             setAplicaPropina(facturaAfectada.aplicaPropina || false);
         }
-    }, [facturaAfectada, codigoModificacion]);
+    }, [facturaAfectada, codigoModificacion, isEditMode]);
 
 
     const totals = useMemo(() => {
@@ -123,10 +151,11 @@ const NuevaNotaModal: React.FC<NuevaNotaModalProps> = ({ isOpen, onClose, onSave
     }, [searchTerm, facturasDisponibles]);
 
     const validate = () => {
-        const newErrors: { factura?: string; fecha?: string; descripcion?: string } = {};
+        const newErrors: { factura?: string; fecha?: string; descripcion?: string; ncf?: string } = {};
         if (!facturaAfectada) newErrors.factura = "Debe seleccionar una factura a afectar.";
         if (!fecha) newErrors.fecha = "La fecha es obligatoria.";
         if (!descripcion.trim()) newErrors.descripcion = "La descripción es obligatoria.";
+        if (isEditMode && !ncf.trim()) newErrors.ncf = "El NCF es obligatorio.";
         setErrors(newErrors);
         return Object.keys(newErrors).length === 0;
     };
@@ -135,6 +164,8 @@ const NuevaNotaModal: React.FC<NuevaNotaModalProps> = ({ isOpen, onClose, onSave
         e.preventDefault();
         if (!validate()) return;
         onSave({
+            id: notaParaEditar?.id,
+            ncf: isEditMode ? ncf : undefined,
             facturaAfectada: facturaAfectada!,
             codigoModificacion,
             fecha,
@@ -160,6 +191,7 @@ const NuevaNotaModal: React.FC<NuevaNotaModalProps> = ({ isOpen, onClose, onSave
         setDescripcion('');
         setSearchTerm('');
         setSubtotal(0);
+        setNcf('');
         setAplicaITBIS(true);
         setAplicaISC(false);
         setAplicaPropina(false);
@@ -178,12 +210,12 @@ const NuevaNotaModal: React.FC<NuevaNotaModalProps> = ({ isOpen, onClose, onSave
         <Modal
             isOpen={isOpen}
             onClose={handleClose}
-            title="Emitir Nueva Nota de Crédito"
+            title={isEditMode ? "Editar Nota de Crédito/Débito" : "Emitir Nueva Nota de Crédito"}
         >
           <form ref={formRef} onSubmit={handleSubmit} noValidate>
             <div className="p-6 space-y-4">
-                {/* Search for Invoice */}
-                {!facturaAfectada && (
+                {/* Search for Invoice - Disabled in Edit Mode to prevent changing client/RNC */}
+                {!facturaAfectada && !isEditMode && (
                     <div>
                         <label htmlFor="searchFactura" className="block text-sm font-medium text-secondary-700">Buscar Factura Afectada *</label>
                         <div className="relative">
@@ -214,8 +246,8 @@ const NuevaNotaModal: React.FC<NuevaNotaModalProps> = ({ isOpen, onClose, onSave
                 {facturaAfectada && (
                     <div className="p-3 bg-primary-50 rounded-md border border-primary-200 space-y-2">
                         <div className="flex justify-between items-center">
-                            <h4 className="font-semibold text-primary-800">Factura Seleccionada</h4>
-                            {!facturaAfectadaInicial && <Button type="button" variant="secondary" onClick={() => { setFacturaAfectada(null); resetForm(); }}>Cambiar</Button>}
+                            <h4 className="font-semibold text-primary-800">Factura Seleccionada {isEditMode ? '(No modificable)' : ''}</h4>
+                            {!facturaAfectadaInicial && !isEditMode && <Button type="button" variant="secondary" onClick={() => { setFacturaAfectada(null); resetForm(); }}>Cambiar</Button>}
                         </div>
                         <p className="text-sm"><span className="font-semibold text-secondary-700">NCF:</span> {facturaAfectada.ncf}</p>
                         <p className="text-sm"><span className="font-semibold text-secondary-700">Cliente:</span> {facturaAfectada.clienteNombre}</p>
@@ -223,6 +255,20 @@ const NuevaNotaModal: React.FC<NuevaNotaModalProps> = ({ isOpen, onClose, onSave
                     </div>
                 )}
                 
+                {isEditMode && (
+                    <div>
+                        <label htmlFor="ncf" className="block text-sm font-medium text-secondary-700">NCF Nota *</label>
+                        <input 
+                            type="text" 
+                            id="ncf" 
+                            value={ncf} 
+                            onChange={e => setNcf(e.target.value)} 
+                            className={`mt-1 block w-full px-3 py-2 border ${errors.ncf ? 'border-red-500' : 'border-secondary-300'} rounded-md shadow-sm`} 
+                        />
+                        {errors.ncf && <p className="mt-1 text-sm text-red-600">{errors.ncf}</p>}
+                    </div>
+                )}
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                         <label htmlFor="fecha" className="block text-sm font-medium text-secondary-700">Fecha de Emisión *</label>
@@ -311,7 +357,7 @@ const NuevaNotaModal: React.FC<NuevaNotaModalProps> = ({ isOpen, onClose, onSave
             </div>
              <div className="flex justify-end items-center p-4 bg-secondary-50 border-t border-secondary-200 rounded-b-lg space-x-3">
                 <Button type="button" variant="secondary" onClick={handleClose}>Cancelar</Button>
-                <Button type="submit" disabled={!facturaAfectada}>Emitir Nota</Button>
+                <Button type="submit" disabled={!facturaAfectada}>{isEditMode ? "Guardar Cambios" : "Emitir Nota"}</Button>
             </div>
           </form>
         </Modal>

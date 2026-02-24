@@ -16,7 +16,7 @@ const ClientPortalLayout: React.FC<ClientPortalLayoutProps> = ({ children }) => 
     fetchAvailableTenants();
   }, [fetchAvailableTenants]);
 
-  const tenant = clientUser ? getTenantById(1) : null; // Hardcoded for demo
+  const tenant = clientUser ? getTenantById('1') : null; // Hardcoded for demo
 
   return (
     <div className="min-h-screen bg-secondary-50">
