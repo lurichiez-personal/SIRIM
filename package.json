@@ -6,7 +6,9 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "vitest run",
+    "test:mini": "node mini-test-runner.cjs"
   },
   "dependencies": {
     "@google/genai": "0.14.0",
