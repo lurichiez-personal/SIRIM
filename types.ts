@@ -201,6 +201,7 @@ export interface Factura {
     cotizacionId?: string;
     facturaRecurrenteId?: string;
     notasRelacionadas?: { id: string, ncf: string, monto: number, tipo: string, fecha: string }[];
+    version?: number;
 }
 
 export interface Item {

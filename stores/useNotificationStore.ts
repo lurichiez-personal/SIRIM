@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { Notificacion, NotificationType, isNcfNotaCredito } from '../types.ts';
+import { Notificacion, NotificationType, isNcfNotaCredito, FacturaEstado } from '../types.ts';
 import { useDataStore } from './useDataStore.ts';
 import { useNCFStore } from './useNCFStore.ts';
 
@@ -48,7 +48,7 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
 
     // Facturas Vencidas
     facturas.forEach(f => {
-      if (f.estado === 'vencida') {
+      if (f.estado === FacturaEstado.Vencida) {
         newSystemNotifications.push({
           id: `factura-vencida-${f.id}`, empresaId, type: NotificationType.FACTURA_VENCIDA,
           title: 'Factura Vencida', message: `La factura ${f.ncf} para ${f.clienteNombre} está vencida.`,
