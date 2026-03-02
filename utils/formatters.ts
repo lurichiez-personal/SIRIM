@@ -28,3 +28,11 @@ export const parseLocaleNumber = (value: string | undefined | null): number => {
     const number = parseFloat(sanitizedValue);
     return isNaN(number) ? 0 : number;
 };
+
+/**
+ * Rounds a number to exactly 2 decimal places using standard rounding.
+ * Handles floating point precision issues (e.g. 1.005 -> 1.01).
+ */
+export const roundToTwoDecimals = (num: number): number => {
+    return Math.round((num + Number.EPSILON) * 100) / 100;
+};

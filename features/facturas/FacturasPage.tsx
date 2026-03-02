@@ -18,7 +18,6 @@ import { useConfirmationStore } from '../../stores/useConfirmationStore.ts';
 import { applyPagination } from '../../utils/pagination.ts';
 import VistaPreviaFacturaModal from './VistaPreviaFacturaModal.tsx';
 import { formatCurrency } from '../../utils/formatters.ts';
-import { useNCFStore } from '../../stores/useNCFStore.ts';
 import { useAlertStore } from '../../stores/useAlertStore.ts';
 import { DatePreset, getDateRange } from '../../utils/dateUtils.ts';
 import { useTaskStore } from '../../stores/useTaskStore.ts';
@@ -30,7 +29,6 @@ type SortField = keyof Factura;
 const FacturasPage: React.FC = () => {
     const { selectedTenant } = useTenantStore();
     const { facturas, ingresos, clientes, items, addFactura, updateFactura, addCliente, deleteFactura, bulkDeleteFacturas, bulkUpdateFacturaStatus, importFacturasFromExcel, isLoading, addIngreso } = useDataStore();
-    const { getNextNCF, sequences } = useNCFStore();
     const { showConfirmation } = useConfirmationStore();
     const { showAlert } = useAlertStore();
     const { addTask, updateTaskProgress, completeTask, failTask } = useTaskStore();
@@ -170,40 +168,12 @@ const FacturasPage: React.FC = () => {
             if (facturaParaEditar) {
                 await updateFactura({ ...facturaParaEditar, ...facturaData });
             } else {
-                let ncfToUse = facturaData.ncf;
-                
-                // Si el usuario dejó el campo vacío o si el NCF proporcionado coincide con el siguiente de la secuencia,
-                // llamamos a getNextNCF para asegurar que se consuma/incremente la secuencia en la BD.
-                if (!ncfToUse) {
-                     const generatedNcf = await getNextNCF(selectedTenant.id, facturaData.ncfTipo);
-                     if (!generatedNcf) {
-                        showAlert('Error de NCF', `No hay secuencias de NCF disponibles para el tipo ${facturaData.ncfTipo}.`);
-                        throw new Error("No NCF available");
-                     }
-                     ncfToUse = generatedNcf;
-                } else {
-                    // Si el usuario proporcionó un NCF manualmente, verificamos si es el que "toca".
-                    // Si es el que toca, llamamos a getNextNCF para "quemarlo" en la secuencia.
-                    // Si no es el que toca (es uno viejo o futuro manual), lo usamos tal cual sin mover la secuencia.
-                    
-                    const activeSeq = sequences.find(s => s.tipo === facturaData.ncfTipo && s.empresaId === selectedTenant.id && s.activa);
-                    if (activeSeq) {
-                        let ncfLength = 8;
-                        if (activeSeq.prefijo.startsWith('B')) ncfLength = 11 - activeSeq.prefijo.length;
-                        else if (activeSeq.prefijo.startsWith('E')) ncfLength = 13 - activeSeq.prefijo.length;
-                        const expectedNext = activeSeq.prefijo + String(activeSeq.secuenciaActual).padStart(ncfLength, '0');
-                        
-                        if (ncfToUse === expectedNext) {
-                            // Coincide, consumimos la secuencia oficialmente
-                            await getNextNCF(selectedTenant.id, facturaData.ncfTipo); 
-                        }
-                    }
-                }
-
-                await addFactura({ ...facturaData, ncf: ncfToUse });
+                // La generación de NCF ahora es atómica dentro de addFactura si no se provee uno manual.
+                await addFactura(facturaData);
             }
         } catch (error) {
             console.error("Failed to save invoice:", error);
+            showAlert('Error al guardar', error instanceof Error ? error.message : 'Error desconocido');
             throw error;
         }
     };

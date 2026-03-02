@@ -3,17 +3,17 @@ import { create } from 'zustand';
 import { User, Role } from '../types.ts';
 import { useTenantStore } from './useTenantStore.ts';
 import { useDataStore } from './useDataStore.ts';
-import { auth, db, getSecondaryAuth } from '../firebase.ts';
+import { auth, db, app } from '../firebase.ts';
 import { 
   signInWithEmailAndPassword, 
   signOut, 
   onAuthStateChanged, 
-  createUserWithEmailAndPassword,
   signInWithPopup,
   OAuthProvider,
   updatePassword
 } from 'firebase/auth';
-import { doc, getDoc, setDoc, collection, query, where, getDocs, updateDoc, deleteDoc } from 'firebase/firestore';
+import { doc, getDoc, collection, query, where, getDocs, updateDoc } from 'firebase/firestore';
+import { getFunctions, httpsCallable } from 'firebase/functions';
 import { useAlertStore } from './useAlertStore.ts';
 
 interface AuthState {
@@ -54,29 +54,19 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
         try {
             const provider = new OAuthProvider('microsoft.com');
             const result = await signInWithPopup(auth, provider);
-            const firebaseUser = result.user;
             
-            const userDocRef = doc(db, 'users', firebaseUser.uid);
-            const userDocSnap = await getDoc(userDocRef);
-
-            if (!userDocSnap.exists()) {
-               const newEmpresaRef = doc(collection(db, 'empresas'));
-               await setDoc(newEmpresaRef, {
-                   nombre: `${firebaseUser.displayName}'s Company`,
-                   rnc: '000000000',
-               });
-
-               const newUser: Omit<User, 'id'> = {
-                   nombre: firebaseUser.displayName || 'Usuario Microsoft',
-                   email: firebaseUser.email!,
-                   roles: [Role.Admin],
-                   empresaId: newEmpresaRef.id,
-                   authMethod: 'microsoft',
-                   activo: true,
-               };
-               await setDoc(userDocRef, newUser);
+            const functions = getFunctions(app, 'us-east1');
+            const handleMicrosoftLogin = httpsCallable(functions, 'handleMicrosoftLoginSecure');
+            
+            try {
+                await handleMicrosoftLogin({});
+                return true;
+            } catch (functionError) {
+                console.error("Backend rejected Microsoft login:", functionError);
+                await signOut(auth);
+                useAlertStore.getState().showAlert('Acceso Denegado', 'Su cuenta de Microsoft no está autorizada o no pertenece a un tenant válido.');
+                return false;
             }
-            return true;
         } catch(error) {
             console.error("Microsoft login error:", error);
             useAlertStore.getState().showAlert('Error de Inicio de Sesión', 'No se pudo iniciar sesión con Microsoft.');
@@ -140,32 +130,22 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
       register: async (data) => {
         const { nombreEmpresa, rnc, nombreUsuario, email, password } = data;
         try {
-            const newEmpresaRef = doc(collection(db, 'empresas'));
-            await setDoc(newEmpresaRef, {
-                nombre: nombreEmpresa,
-                rnc: rnc,
+            const functions = getFunctions(app, 'us-east1');
+            const createEmpresa = httpsCallable(functions, 'createEmpresaSecure');
+            
+            await createEmpresa({
+                nombreEmpresa,
+                rnc,
+                nombreUsuario,
+                email,
+                password
             });
 
-            const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-            const firebaseUser = userCredential.user;
-
-            const newUser: Omit<User, 'id'> = {
-                nombre: nombreUsuario,
-                email: email,
-                roles: [Role.Admin],
-                empresaId: newEmpresaRef.id,
-                authMethod: 'local',
-                activo: true,
-            };
-            await setDoc(doc(db, 'users', firebaseUser.uid), newUser);
+            await signInWithEmailAndPassword(auth, email, password);
             return true;
         } catch (error: any) {
             console.error("Registration error:", error);
-            let message = 'Ocurrió un error durante el registro.';
-            if (error.code === 'auth/email-already-in-use') {
-                message = 'Este correo electrónico ya está en uso.';
-            }
-            useAlertStore.getState().showAlert('Error de Registro', message);
+            useAlertStore.getState().showAlert('Error de Registro', error.message || 'Ocurrió un error durante el registro.');
             return false;
         }
       },
@@ -181,45 +161,49 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
       },
 
       addUser: async (userData, password) => {
-        const secondaryAuth = getSecondaryAuth();
         try {
-          const userCredential = await createUserWithEmailAndPassword(secondaryAuth, userData.email, password);
-          const uid = userCredential.user.uid;
-          
-          await setDoc(doc(db, 'users', uid), { 
-            ...userData, 
-            tempPassword: true
-          });
-
-          await signOut(secondaryAuth);
-          
-          useAlertStore.getState().showAlert('Usuario Creado', `El usuario ${userData.nombre} ha sido creado con una contraseña temporal. Deberá cambiarla en su primer inicio de sesión.`);
-
+            const functions = getFunctions(app, 'us-east1');
+            const createUser = httpsCallable(functions, 'createUserSecure');
+            
+            await createUser({
+                userData,
+                password
+            });
+            
+            useAlertStore.getState().showAlert('Usuario Creado', `El usuario ${userData.nombre} ha sido creado exitosamente.`);
         } catch (error: any) {
             console.error("Error creating user:", error);
-            let message = 'Ocurrió un error al crear el usuario.';
-            if (error.code === 'auth/email-already-in-use') {
-                message = 'Este correo electrónico ya está en uso por otro usuario.';
-            } else if (error.code === 'auth/weak-password') {
-                message = 'La contraseña debe tener al menos 6 caracteres.';
-            }
-            useAlertStore.getState().showAlert('Error de Creación', message);
+            useAlertStore.getState().showAlert('Error de Creación', error.message || 'Ocurrió un error al crear el usuario.');
         }
       },
 
       updateUser: async (userData, password) => {
-        const { id, ...dataToUpdate } = userData;
-        const userRef = doc(db, 'users', id);
-        await updateDoc(userRef, dataToUpdate);
-
-        if (password) {
-          console.warn("La actualización de contraseña desde el panel de administración no es segura en el lado del cliente y requiere que el usuario se vuelva a autenticar. Para producción, esta operación debe realizarse a través de un backend con el SDK de administrador de Firebase.");
+        try {
+            const functions = getFunctions(app, 'us-east1');
+            const updateUser = httpsCallable(functions, 'updateUserSecure');
+            
+            await updateUser({
+                userData,
+                password
+            });
+        } catch (error: any) {
+            console.error("Error updating user:", error);
+            useAlertStore.getState().showAlert('Error de Actualización', error.message || 'Ocurrió un error al actualizar el usuario.');
+            throw error;
         }
       },
 
       deleteUser: async (user: User) => {
-        const userRef = doc(db, 'users', user.id);
-        await deleteDoc(userRef);
+        try {
+            const functions = getFunctions(app, 'us-east1');
+            const deleteUser = httpsCallable(functions, 'deleteUserSecure');
+            
+            await deleteUser({ userId: user.id });
+        } catch (error: any) {
+            console.error("Error deleting user:", error);
+            useAlertStore.getState().showAlert('Error de Eliminación', error.message || 'Ocurrió un error al eliminar el usuario.');
+            throw error;
+        }
       },
 
       updateCurrentUserProfile: async (data) => {

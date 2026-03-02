@@ -496,7 +496,7 @@ interface ActivosData {
 
 const DeclaracionIR2Page: React.FC = () => {
     const { selectedTenant } = useTenantStore();
-    const { facturas, notas, gastos, asientosContables, activosFijos, saveFiscalSnapshot, isLoading: isDataLoading, sincronizarAsientosFaltantes, getFiscalStatus, lockFiscalYear, unlockFiscalYear, getLastLockedSnapshot } = useDataStore();
+    const { facturas, notas, gastos, asientosContables, activosFijos, isLoading: isDataLoading, sincronizarAsientosFaltantes, getFiscalStatus, lockFiscalYear, unlockFiscalYear, getLastLockedSnapshot } = useDataStore();
     const { cuentas } = useChartOfAccountsStore();
     const { showAlert } = useAlertStore();
     const { showConfirmation } = useConfirmationStore();

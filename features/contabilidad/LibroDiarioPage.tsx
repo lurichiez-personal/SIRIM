@@ -22,7 +22,7 @@ const LibroDiarioPage: React.FC = () => {
     });
 
     const transactionTypes = useMemo(() => {
-        const types = new Set(asientosContables.map(a => a.transaccionTipo));
+        const types = new Set(asientosContables.map(a => a.transaccionTipo).filter(t => t));
         return Array.from(types) as string[];
     }, [asientosContables]);
 
@@ -81,7 +81,7 @@ const LibroDiarioPage: React.FC = () => {
                         >
                             <option value="todos">Todos los tipos</option>
                             {transactionTypes.map((type: string) => (
-                                <option key={type} value={type}>{type.charAt(0).toUpperCase() + type.slice(1).replace(/_/g, ' ')}</option>
+                                <option key={type} value={type}>{(type || '').charAt(0).toUpperCase() + (type || '').slice(1).replace(/_/g, ' ')}</option>
                             ))}
                         </select>
                         <div className="grid grid-cols-2 gap-2">

@@ -53,6 +53,7 @@ import PortalCotizacionesPage from './features/portal/PortalCotizacionesPage.tsx
 import LandingLayout from './features/landing/LandingLayout.tsx';
 import HomePage from './features/landing/HomePage.tsx';
 import PreciosPage from './features/landing/PreciosPage.tsx';
+
 import RegistroPage from './features/auth/RegistroPage.tsx';
 import { LogoIcon } from './components/icons/Icons.tsx';
 import { useMarketingStore } from './stores/useMarketingStore.ts';
@@ -103,6 +104,7 @@ function App(): React.ReactNode {
         <Route element={<LandingLayout />}>
           <Route path="/" element={<HomePage />} />
           <Route path="/precios" element={<PreciosPage />} />
+
           <Route path="/registro" element={<RegistroPage />} />
         </Route>
         

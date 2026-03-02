@@ -11,6 +11,7 @@ import { useTenantStore } from '../../stores/useTenantStore';
 import ToggleSwitch from '../../components/ui/ToggleSwitch';
 import { useEnterToNavigate } from '../../hooks/useEnterToNavigate';
 import { useRatesStore } from '../../stores/useRatesStore';
+import { roundToTwoDecimals } from '../../utils/formatters';
 
 interface NuevaFacturaModalProps {
   isOpen: boolean;
@@ -39,6 +40,7 @@ const NuevaFacturaModal: React.FC<NuevaFacturaModalProps> = ({ isOpen, onClose, 
     const [fecha, setFecha] = useState(new Date().toISOString().split('T')[0]);
     const [ncfTipo, setNcfTipo] = useState<NCFType>(NCFType.B02);
     const [ncfNumero, setNcfNumero] = useState('');
+    const [previewNcf, setPreviewNcf] = useState('');
     const [ncfModificado, setNcfModificado] = useState('');
     const [lineItems, setLineItems] = useState<(Partial<FacturaItem> & { key: number, stock?: number })[]>([{ key: Date.now() }]);
     const [descuentoPorcentaje, setDescuentoPorcentaje] = useState(0);
@@ -68,10 +70,12 @@ const NuevaFacturaModal: React.FC<NuevaFacturaModalProps> = ({ isOpen, onClose, 
                 else if (sequence.prefijo.startsWith('E')) ncfLength = 13 - sequence.prefijo.length;
                 
                 const nextNcf = sequence.prefijo + String(sequence.secuenciaActual).padStart(ncfLength, '0');
-                setNcfNumero(nextNcf);
+                setPreviewNcf(nextNcf);
             } else {
-                setNcfNumero(''); // No hay secuencia configurada
+                setPreviewNcf(''); // No hay secuencia configurada
             }
+        } else {
+            setPreviewNcf('');
         }
     }, [ncfTipo, sequences, selectedTenant, isEditMode]);
 
@@ -141,12 +145,15 @@ const NuevaFacturaModal: React.FC<NuevaFacturaModalProps> = ({ isOpen, onClose, 
 
     const totals = useMemo(() => {
         const subtotal = lineItems.reduce((acc, item) => acc + (item.subtotal || 0), 0);
-        const montoDescuento = subtotal * ((descuentoPorcentaje || 0) / 100);
-        const subtotalConDescuento = subtotal - montoDescuento;
-        const itbis = aplicaITBIS ? subtotalConDescuento * rates.itbis : 0;
-        const isc = aplicaISC ? subtotal * rates.isc : 0;
-        const propinaLegal = aplicaPropina ? subtotal * rates.propina : 0;
-        const montoTotal = subtotalConDescuento + itbis + isc + propinaLegal;
+        const montoDescuento = roundToTwoDecimals(subtotal * ((descuentoPorcentaje || 0) / 100));
+        const subtotalConDescuento = roundToTwoDecimals(subtotal - montoDescuento);
+        
+        const itbis = aplicaITBIS ? roundToTwoDecimals(subtotalConDescuento * rates.itbis) : 0;
+        const isc = aplicaISC ? roundToTwoDecimals(subtotal * rates.isc) : 0;
+        const propinaLegal = aplicaPropina ? roundToTwoDecimals(subtotal * rates.propina) : 0;
+        
+        const montoTotal = roundToTwoDecimals(subtotalConDescuento + itbis + isc + propinaLegal);
+        
         return { subtotal, montoDescuento, itbis, isc, propinaLegal, montoTotal };
     }, [lineItems, descuentoPorcentaje, aplicaITBIS, aplicaISC, aplicaPropina, rates]);
     
@@ -316,7 +323,7 @@ const NuevaFacturaModal: React.FC<NuevaFacturaModalProps> = ({ isOpen, onClose, 
                         }
                     }
                     if (updatedItem.cantidad != null && updatedItem.precioUnitario != null) {
-                        updatedItem.subtotal = updatedItem.cantidad * updatedItem.precioUnitario;
+                        updatedItem.subtotal = roundToTwoDecimals(updatedItem.cantidad * updatedItem.precioUnitario);
                     }
                     return updatedItem;
                 }
@@ -411,7 +418,7 @@ const NuevaFacturaModal: React.FC<NuevaFacturaModalProps> = ({ isOpen, onClose, 
                                 value={ncfNumero}
                                 onChange={e => setNcfNumero(e.target.value)}
                                 className="mt-1 block w-full px-3 py-2 border border-secondary-300 rounded-md shadow-sm font-mono font-bold text-primary"
-                                placeholder="Se generará autom."
+                                placeholder={previewNcf || "Se generará autom."}
                             />
                         </div>
                     </div>

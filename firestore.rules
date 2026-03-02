@@ -68,7 +68,7 @@ service cloud.firestore {
     // 2. Colección de Empresas
     match /empresas/{empresaId} {
       allow read: if isAuthenticated() && canAccessCompanyData(empresaId);
-      allow create: if isAuthenticated(); // Permitir crear al registrarse
+      allow create: if false; // Solo backend (createEmpresaSecure)
       allow update: if isAuthenticated() && canAccessCompanyData(empresaId);
     }
 
@@ -76,13 +76,21 @@ service cloud.firestore {
     // Agrupamos todas las colecciones que dependen estrictamente del empresaId
     match /{collectionName}/{docId} {
       allow read: if isAuthenticated() 
-                  && (collectionName in ['clientes', 'facturas', 'gastos', 'items', 'ingresos', 'cotizaciones', 'notas', 'facturasRecurrentes', 'credenciales', 'empleados', 'nominas', 'desvinculaciones', 'asientosContables', 'cierresITBIS', 'pagosAnticiposISR', 'ncf_sequences'])
+                  && (collectionName in ['clientes', 'facturas', 'gastos', 'items', 'ingresos', 'cotizaciones', 'notas', 'facturasRecurrentes', 'credenciales', 'empleados', 'nominas', 'desvinculaciones', 'asientosContables', 'cierresITBIS', 'pagosAnticiposISR', 'ncf_sequences', 'eventosContables'])
                   && canAccessCompanyData(resource.data.empresaId);
 
       allow create: if isAuthenticated() 
                     && (collectionName in ['clientes', 'facturas', 'gastos', 'items', 'ingresos', 'cotizaciones', 'notas', 'facturasRecurrentes', 'credenciales', 'empleados', 'nominas', 'desvinculaciones', 'asientosContables', 'cierresITBIS', 'pagosAnticiposISR', 'ncf_sequences'])
                     && hasEmpresaId()
                     && canAccessCompanyData(request.resource.data.empresaId);
+
+      // Regla específica para eventosContables: SOLO CREAR, NO ACTUALIZAR NI BORRAR
+      allow create: if isAuthenticated() 
+                    && collectionName == 'eventosContables'
+                    && hasEmpresaId()
+                    && canAccessCompanyData(request.resource.data.empresaId)
+                    // Validación estructural básica
+                    && request.resource.data.totalDebitos == request.resource.data.totalCreditos;
 
       allow update: if isAuthenticated() 
                     && (collectionName in ['clientes', 'facturas', 'gastos', 'items', 'ingresos', 'cotizaciones', 'notas', 'facturasRecurrentes', 'credenciales', 'empleados', 'nominas', 'desvinculaciones', 'asientosContables', 'cierresITBIS', 'pagosAnticiposISR', 'ncf_sequences'])

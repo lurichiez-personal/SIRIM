@@ -5,6 +5,8 @@ import { useAuthStore } from './useAuthStore.ts';
 import { useDataStore } from './useDataStore.ts';
 import { db } from '../firebase.ts';
 import { collection, query, where, getDocs, doc, getDoc, addDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { getFunctions, httpsCallable } from 'firebase/functions';
+import { app } from '../firebase.ts';
 
 // Helper to convert Firestore Timestamps to ISO strings to prevent serialization errors
 const serializeDoc = (docData: any) => {
@@ -48,50 +50,30 @@ export const useTenantStore = create<TenantState>((set, get) => ({
       return;
     }
 
-    const tenants: Empresa[] = [];
-    
-    // Step 1: Try to fetch the user's primary assigned company first.
-    if (user.empresaId) {
-        try {
-            const docRef = doc(db, 'empresas', user.empresaId);
-            const docSnap = await getDoc(docRef);
-            if (docSnap.exists()) {
-                const data = serializeDoc(docSnap.data());
-                tenants.push({ id: docSnap.id, ...data } as Empresa);
-            }
-        } catch (error) {
-            console.error("Could not fetch user's primary company:", error);
-        }
-    }
+    try {
+      const functions = getFunctions(app, 'us-east1');
+      const getUserEmpresas = httpsCallable(functions, 'getUserEmpresasSecure');
+      const response = await getUserEmpresas({});
+      
+      const data = (response.data || {}) as { empresas: Empresa[] };
+      const tenants = data.empresas || [];
+      
+      set({ availableTenants: tenants });
 
-    // Step 2: If user is a Contador, try to fetch all other companies.
-    if (user.roles.includes(Role.Contador)) {
-        try {
-            const allCompaniesQuery = query(collection(db, 'empresas'));
-            const querySnapshot = await getDocs(allCompaniesQuery);
-            querySnapshot.forEach(doc => {
-                if (!tenants.some(t => t.id === doc.id)) {
-                     const data = serializeDoc(doc.data());
-                     tenants.push({ id: doc.id, ...data } as Empresa);
-                }
-            });
-        } catch (error) {
-            console.warn("Contador user fallback error:", error);
+      if (tenants.length > 0) {
+        const currentSelected = get().selectedTenant;
+        if (!currentSelected || !tenants.some((t) => t.id === currentSelected.id)) {
+          const defaultTenantId = user.empresaId || tenants[0].id;
+          get().setTenant(defaultTenantId);
+        } else {
+          get().setTenant(currentSelected.id);
         }
-    }
-    
-    set({ availableTenants: tenants });
-
-    if (tenants.length > 0) {
-      const currentSelected = get().selectedTenant;
-      if (!currentSelected || !tenants.some((t) => t.id === currentSelected.id)) {
-        const defaultTenantId = user.empresaId || tenants[0].id;
-        get().setTenant(defaultTenantId);
       } else {
-        get().setTenant(currentSelected.id);
+          set({ selectedTenant: null });
       }
-    } else {
-        set({ selectedTenant: null });
+    } catch (error) {
+      console.error("Error fetching available tenants:", error);
+      set({ availableTenants: [], selectedTenant: null });
     }
   },
 
@@ -105,63 +87,31 @@ export const useTenantStore = create<TenantState>((set, get) => ({
   },
 
   addEmpresa: async (empresaData) => {
-    const trialEndDate = new Date();
-    trialEndDate.setDate(trialEndDate.getDate() + 30);
-    const creationDate = new Date();
-    const fechaISO = creationDate.toISOString();
-    
-    // 1. Crear documento de Empresa
-    const newEmpresaRef = await addDoc(collection(db, 'empresas'), {
-      ...empresaData,
-      trialEndsAt: trialEndDate.toISOString(),
-      createdAt: serverTimestamp(),
-    });
+    try {
+      const functions = getFunctions(app, 'us-east1');
+      const createEmpresa = httpsCallable(functions, 'createEmpresaSecure');
+      
+      const response = await createEmpresa({
+        nombreEmpresa: empresaData.nombre,
+        rnc: empresaData.rnc,
+        cierreFiscal: empresaData.cierreFiscal,
+        capitalSocialInicial: empresaData.capitalSocialInicial
+      });
 
-    const newEmpresa: Empresa = {
-        id: newEmpresaRef.id,
-        ...empresaData,
-        trialEndsAt: trialEndDate.toISOString(),
-        createdAt: fechaISO,
-    };
+      const newEmpresa = (response.data as any).empresa as Empresa;
 
-    // 2. Generar Asiento de Apertura (Capital Social)
-    if (empresaData.capitalSocialInicial && empresaData.capitalSocialInicial > 0) {
-        const asientoApertura: Omit<AsientoContable, 'id'> = {
-            empresaId: newEmpresaRef.id,
-            fecha: fechaISO.split('T')[0],
-            descripcion: 'Asiento de Apertura - Capital Suscrito y Pagado',
-            transaccionId: 'APERTURA',
-            transaccionTipo: 'asiento_diario',
-            entradas: [
-                { 
-                    cuentaId: '1101-02', // Bancos
-                    descripcion: 'Bancos', 
-                    debito: empresaData.capitalSocialInicial, 
-                    credito: 0 
-                },
-                { 
-                    cuentaId: '31', // Capital Social
-                    descripcion: 'Capital Social', 
-                    debito: 0, 
-                    credito: empresaData.capitalSocialInicial 
-                }
-            ]
-        };
-        
-        await addDoc(collection(db, 'asientosContables'), {
-            ...asientoApertura,
-            createdAt: serverTimestamp()
-        });
+      set(state => ({
+          availableTenants: [...state.availableTenants, newEmpresa]
+      }));
+      
+      // Auto-seleccionar la nueva empresa creada
+      get().setTenant(newEmpresa.id);
+      
+      return newEmpresa;
+    } catch (error) {
+      console.error("Error creating company:", error);
+      throw error;
     }
-
-    set(state => ({
-        availableTenants: [...state.availableTenants, newEmpresa]
-    }));
-    
-    // Auto-seleccionar la nueva empresa creada
-    get().setTenant(newEmpresa.id);
-    
-    return newEmpresa;
   },
 
   updateTenant: async (empresaData: Empresa) => {

@@ -117,6 +117,7 @@ const CotizacionesPage: React.FC = () => {
     };
 
     const getStatusText = (estado: CotizacionEstado) => {
+        if (!estado) return '';
         return estado.charAt(0).toUpperCase() + estado.slice(1);
     }
 

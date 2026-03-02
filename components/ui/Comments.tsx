@@ -31,7 +31,7 @@ const Comments: React.FC<CommentsProps> = ({ comments, documentId, documentType 
           comments.map(comment => (
             <div key={comment.id} className="flex items-start space-x-3">
               <div className="flex-shrink-0 h-8 w-8 rounded-full bg-primary-100 flex items-center justify-center">
-                <span className="text-primary font-bold text-sm">{comment.userName.charAt(0)}</span>
+                <span className="text-primary font-bold text-sm">{(comment.userName || '?').charAt(0)}</span>
               </div>
               <div>
                 <div className="bg-secondary-100 rounded-lg p-3">

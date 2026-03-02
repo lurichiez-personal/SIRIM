@@ -17,6 +17,7 @@ const PublicHeader: React.FC = () => {
                         <NavLink to="/precios" className={({ isActive }) => `text-sm font-medium ${isActive ? 'text-primary' : 'text-secondary-600'} hover:text-primary transition-colors`}>
                             Planes y Precios
                         </NavLink>
+
                     </nav>
                     <div className="flex items-center space-x-4">
                          <Link to="/login" className="text-sm font-medium text-secondary-600 hover:text-primary transition-colors">

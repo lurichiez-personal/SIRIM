@@ -6,7 +6,6 @@ import Button from '../../components/ui/Button.tsx';
 import { PlusIcon, DownloadIcon, EyeIcon } from '../../components/icons/Icons.tsx';
 import NuevaNotaModal from './NuevaNotaModal.tsx';
 import { useDataStore } from '../../stores/useDataStore.ts';
-import { useNCFStore } from '../../stores/useNCFStore.ts';
 import Pagination from '../../components/ui/Pagination.tsx';
 import { exportToCSV } from '../../utils/csvExport.ts';
 import { applyPagination } from '../../utils/pagination.ts';
@@ -17,7 +16,6 @@ const ITEMS_PER_PAGE = 10;
 const NotasPage: React.FC = () => {
     const { selectedTenant } = useTenantStore();
     const { facturas, addNota, updateNota, updateFacturaStatus, notas, isLoading } = useDataStore();
-    const { getNextNCF } = useNCFStore();
     
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isVistaPreviaOpen, setIsVistaPreviaOpen] = useState(false);
@@ -88,17 +86,12 @@ const NotasPage: React.FC = () => {
             await updateNota(updatedNota);
         } else {
             // Create new note
-            const ncf = await getNextNCF(selectedTenant.id, NCFType.B04);
-            if (!ncf) {
-                alert('Error: No hay NCF de tipo Nota de Crédito (B04) disponibles. Por favor, configure nuevas secuencias.');
-                return;
-            }
-
-            const newNota: Omit<NotaCreditoDebito, 'id' | 'empresaId'> = {
+            // La generación de NCF es atómica en addNota.
+            
+            const newNota: any = {
                 tipo: NotaType.Credito,
                 facturaAfectadaId: facturaAfectada.id,
                 facturaAfectadaNCF: facturaAfectada.ncf || 'N/A',
-                ncf,
                 fecha,
                 clienteId: facturaAfectada.clienteId,
                 clienteNombre: facturaAfectada.clienteNombre,
@@ -114,7 +107,7 @@ const NotasPage: React.FC = () => {
                 descripcion,
             };
             
-            addNota(newNota);
+            await addNota(newNota);
 
             if (codigoModificacion === '01') { // 01 - Anulación de Factura
                 updateFacturaStatus(facturaAfectada.id, FacturaEstado.Anulada);

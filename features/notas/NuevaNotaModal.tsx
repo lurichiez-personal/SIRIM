@@ -8,6 +8,7 @@ import ToggleSwitch from '../../components/ui/ToggleSwitch';
 import { useEnterToNavigate } from '../../hooks/useEnterToNavigate';
 import { useTenantStore } from '../../stores/useTenantStore';
 import { useRatesStore } from '../../stores/useRatesStore';
+import { roundToTwoDecimals } from '../../utils/formatters';
 
 interface NuevaNotaModalProps {
   isOpen: boolean;
@@ -113,7 +114,7 @@ const NuevaNotaModal: React.FC<NuevaNotaModalProps> = ({ isOpen, onClose, onSave
     useEffect(() => {
         if (!isEditMode && facturaAfectada && codigoModificacion === '03') {
             const originalSubtotal = facturaAfectada.subtotal - (facturaAfectada.montoDescuento || 0);
-            const newSubtotalForNota = originalSubtotal * (descuentoPorcentaje / 100);
+            const newSubtotalForNota = roundToTwoDecimals(originalSubtotal * (descuentoPorcentaje / 100));
             setSubtotal(newSubtotalForNota);
         } else if (!isEditMode) {
             setDescuentoPorcentaje(0);
@@ -134,10 +135,10 @@ const NuevaNotaModal: React.FC<NuevaNotaModalProps> = ({ isOpen, onClose, onSave
 
 
     const totals = useMemo(() => {
-        const itbis = aplicaITBIS ? subtotal * rates.itbis : 0;
-        const isc = aplicaISC ? subtotal * rates.isc : 0;
-        const propinaLegal = aplicaPropina ? subtotal * rates.propina : 0;
-        const montoTotal = subtotal + itbis + isc + propinaLegal;
+        const itbis = aplicaITBIS ? roundToTwoDecimals(subtotal * rates.itbis) : 0;
+        const isc = aplicaISC ? roundToTwoDecimals(subtotal * rates.isc) : 0;
+        const propinaLegal = aplicaPropina ? roundToTwoDecimals(subtotal * rates.propina) : 0;
+        const montoTotal = roundToTwoDecimals(subtotal + itbis + isc + propinaLegal);
         return { itbis, isc, propinaLegal, montoTotal };
     }, [subtotal, aplicaITBIS, aplicaISC, aplicaPropina, rates]);
 
@@ -179,7 +180,7 @@ const NuevaNotaModal: React.FC<NuevaNotaModalProps> = ({ isOpen, onClose, onSave
             aplicaISC,
             aplicaPropina,
             descuentoPorcentaje: codigoModificacion === '03' ? descuentoPorcentaje : undefined,
-            montoDescuento: codigoModificacion === '03' ? (facturaAfectada!.subtotal * (descuentoPorcentaje / 100)) : undefined,
+            montoDescuento: codigoModificacion === '03' ? roundToTwoDecimals(facturaAfectada!.subtotal * (descuentoPorcentaje / 100)) : undefined,
         });
         onClose();
     };

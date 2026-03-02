@@ -200,6 +200,7 @@ export interface Factura {
     createdAt?: string;
     cotizacionId?: string;
     facturaRecurrenteId?: string;
+    notasRelacionadas?: { id: string, ncf: string, monto: number, tipo: string, fecha: string }[];
 }
 
 export interface Item {
@@ -742,7 +743,7 @@ export interface DataState {
     addDesvinculacion: (data: Omit<Desvinculacion, 'id' | 'empresaId' | 'asientoId'>) => Promise<void>;
     findGastoByNcfAndRnc: (ncf: string, rnc: string) => Gasto | undefined;
     importGastosFromExcel: (file: File, onProgress: (p: number) => void) => Promise<{ message: string }>;
-    importFacturasFromExcel: (file: File, onProgress: (p: number) => void) => Promise<{ message: string }>;
+    importFacturasFromExcel: (file: File, onProgress: (p: number) => void, previewMode?: boolean, periodoSeleccionado?: string) => Promise<{ message: string, summary?: any }>;
     sincronizarNombresProveedores: () => Promise<void>;
     sincronizarAsientosFaltantes: () => Promise<void>;
     reconcileWithAI: (content: string) => Promise<any[]>;
@@ -761,7 +762,6 @@ export interface DataState {
     pagarITBIS: (cierreId: string, fechaPago: string) => Promise<void>;
     marcarAnticipoPagado: (data: { periodoFiscal: string, numeroCuota: number, montoPagado: number, fechaPago: string }) => Promise<void>;
     addComment: (type: string, id: string, text: string) => Promise<void>;
-    saveFiscalSnapshot: (snapshot: CalculoFiscalSnapshot) => Promise<void>;
     getGastosFor606: (start: string, end: string) => Gasto[];
     getVentasFor607: (start: string, end: string) => { facturas: Factura[], notas: NotaCreditoDebito[] };
     getAnuladosFor608: (start: string, end: string) => (Factura | NotaCreditoDebito)[];
@@ -773,6 +773,81 @@ export interface DataState {
     lockFiscalYear: (periodo: number, data: any, assetUpdates?: any[]) => Promise<void>;
     unlockFiscalYear: (periodo: number, reason: string) => Promise<void>;
     getLastLockedSnapshot: (periodo: number) => Promise<CalculoFiscalSnapshot | null>;
+}
+
+// --- Fiscal Module Types ---
+
+export interface PeriodoMensual {
+    id: string; // YYYY-MM
+    empresaId: string;
+    año: number;
+    mes: number;
+    estado: 'ABIERTO' | 'CERRADO';
+    bloqueadoParaEscritura: boolean;
+    fechaCierre: string | null; // ISO string
+    cerradoPor: string | null;
+}
+
+export interface FiscalAnnualClosure {
+    id: string; // YYYY
+    empresaId: string;
+    añoFiscal: number;
+    estado: 'ABIERTO' | 'IR2_PRESENTADO';
+    fechaPresentacion: string | null;
+    numeroAcuseDGII: string | null;
+    snapshotHashAnual: string | null;
+    presentadoPor: string | null;
+    versionActiva: number;
+    tieneRectificativas: boolean;
+}
+
+export interface IR2Version {
+    id?: string;
+    empresaId: string;
+    añoFiscal: number;
+    version: number;
+    tipo: 'ORIGINAL' | 'RECTIFICATIVA';
+    fechaGeneracion: string;
+    numeroAcuseDGII: string;
+    snapshotHash: string;
+    snapshotData: any; // Immutable snapshot of fiscal data
+    diferenciasRespectoVersionAnterior?: any;
+    generadoPor: string;
+}
+
+export interface FiscalAdjustment {
+    id?: string;
+    empresaId: string;
+    añoFiscal: number;
+    tipo: 'AJUSTE_RECTIFICATIVA';
+    descripcion: string;
+    afectaVersion: number;
+    montoImpacto: number;
+    impactoISR: number;
+    creadoPor: string;
+    timestamp: any; // serverTimestamp
+}
+
+export interface TaxCarryForward {
+    id?: string; // YYYY
+    empresaId: string;
+    añoFiscal: number;
+    perdidaArrastradaDesde: number; // Year
+    montoOriginal: number;
+    montoDisponible: number;
+    versionOrigen: number;
+    recalculadoPorRectificativa: boolean;
+}
+
+export interface FiscalEventLogEntry {
+    id?: string;
+    empresaId: string;
+    eventType: string;
+    periodo: string | null;
+    añoFiscal: number;
+    usuarioId: string;
+    timestamp: any; // serverTimestamp
+    metadata?: any;
 }
 
 // Helpers
