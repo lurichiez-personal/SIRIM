@@ -43,7 +43,6 @@ const EscanearGastoModal: React.FC<EscanearGastoModalProps> = ({ isOpen, onClose
         }
 
         try {
-            // Fix: Use gemini-3-flash-preview for invoice scanning task
             const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
             
             const base64Data = await new Promise<string>((resolve, reject) => {
