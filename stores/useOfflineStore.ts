@@ -28,7 +28,7 @@ export const useOfflineStore = create<OfflineState>()(
 
       queueAction: (type, payload) => {
         const action: OfflineAction = {
-          id: `${Date.now()}-${Math.random()}`,
+          id: crypto.randomUUID(),
           type,
           payload,
           timestamp: Date.now(),
