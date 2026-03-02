@@ -11,7 +11,7 @@ import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage
 import {
   Cliente, Factura, Gasto, Item, Ingreso, Cotizacion, NotaCreditoDebito, FacturaRecurrente,
   Credencial, Empleado, Nomina, Desvinculacion, AsientoContable, CierreITBIS, AnticipoISRPago,
-  FacturaEstado, CotizacionEstado, NominaStatus, MetodoPago, isNcfConsumidorFinal, Comment, AuditLogEntry, PagedResult, KpiData, ChartDataPoint, PieChartDataPoint, NCFType, ActivoFijo, CalculoFiscalSnapshot, ExcelRow607, ImportLog, DataState, FiscalClosure, NCFSequence, isNcfNotaCredito
+  FacturaEstado, CotizacionEstado, NominaStatus, MetodoPago, isNcfConsumidorFinal, Comment, AuditLogEntry, PagedResult, KpiData, ChartDataPoint, PieChartDataPoint, NCFType, ActivoFijo, CalculoFiscalSnapshot, ExcelRow607, ImportLog, DataState, FiscalClosure, NCFSequence, isNcfNotaCredito, NotaType, Role
 } from '../types.ts';
 import { useTenantStore } from './useTenantStore.ts';
 import { useAuthStore } from './useAuthStore.ts';
@@ -361,7 +361,7 @@ export const useDataStore = create<DataState>((set, get) => ({
             
             // REVERSE previous event
             await import('../utils/contableEngine.ts').then(engine => 
-                engine.createReversalEvent(transaction, lastEvent.id, user.id, user.roles.includes('Contador') ? 'CONTADOR' : 'OPERATIVO')
+            engine.createReversalEvent(transaction, lastEvent.id, user.id, user.roles.includes(Role.Contador) ? 'CONTADOR' : 'OPERATIVO')
             );
         }
 
@@ -424,8 +424,8 @@ export const useDataStore = create<DataState>((set, get) => ({
     const empresaId = useTenantStore.getState().selectedTenant?.id;
     if (!empresaId) throw new Error("No hay empresa seleccionada.");
     const newGasto = await addDocWithId('gastos', { ...data, empresaId, conciliado: false });
-    const asiento = generarAsientoGasto(newGasto as Gasto);
-    const asientoWithId = await addDocWithId('asientosContables', { ...asiento, empresaId }, false);
+    const asiento = await generarAsientoGasto(newGasto as Gasto);
+    const asientoWithId = await addDocWithId('asientosContables', { ...asiento, empresaId }, false) as any;
     await updateDocWithId('gastos', newGasto.id, { asientoId: asientoWithId.id });
     return newGasto;
   },
@@ -454,8 +454,8 @@ export const useDataStore = create<DataState>((set, get) => ({
     const gasto = get().gastos.find(g => g.id === id);
     const empresaId = useTenantStore.getState().selectedTenant?.id;
     if (!gasto || !empresaId) return;
-    const asientoPago = generarAsientoPago(empresaId, fechaPago, `Pago de gasto a ${gasto.proveedorNombre}`, gasto.id, 'pago_gasto', gasto.monto, '2101-01');
-    const newAsiento = await addDocWithId('asientosContables', {...asientoPago, empresaId}, false);
+    const asientoPago = await generarAsientoPago(empresaId, fechaPago, `Pago de gasto a ${gasto.proveedorNombre}`, gasto.id, 'pago_gasto', gasto.monto, '2101-01');
+    const newAsiento = await addDocWithId('asientosContables', {...asientoPago, empresaId}, false) as any;
     await updateDocWithId('gastos', id, { pagado: true, fechaPago, asientoPagoId: newAsiento.id });
   },
   setGastoAuditado: async (id, auditado) => {
@@ -475,8 +475,8 @@ export const useDataStore = create<DataState>((set, get) => ({
         const nuevoEstado = nuevoMontoPagado >= facturaData.montoTotal ? FacturaEstado.Pagada : FacturaEstado.PagadaParcialmente;
         transaction.update(facturaRef, { montoPagado: nuevoMontoPagado, estado: nuevoEstado });
     });
-    const asiento = generarAsientoIngreso(newIngreso as Ingreso);
-    const newAsiento = await addDocWithId('asientosContables', { ...asiento, empresaId }, false);
+    const asiento = await generarAsientoIngreso(newIngreso as Ingreso);
+    const newAsiento = await addDocWithId('asientosContables', { ...asiento, empresaId }, false) as any;
     await updateDocWithId('ingresos', newIngreso.id, { asientoId: newAsiento.id });
   },
   
@@ -616,7 +616,7 @@ export const useDataStore = create<DataState>((set, get) => ({
         }
 
         const newNotaData = { ...data, id: notaId, empresaId, ncf: finalNCF, asientoId };
-        const asiento = generarAsientoNotaCredito(newNotaData as NotaCreditoDebito);
+        const asiento = await generarAsientoNotaCredito(newNotaData as NotaCreditoDebito);
         const asientoData = { ...asiento, id: asientoId, empresaId, createdAt: new Date().toISOString() };
 
         transaction.set(notaRef, newNotaData);
@@ -637,7 +637,7 @@ export const useDataStore = create<DataState>((set, get) => ({
   updateNota: async (data) => {
     await updateDocWithId('notas', data.id, data);
     if (data.asientoId) {
-        const newAsiento = generarAsientoNotaCredito(data);
+        const newAsiento = await generarAsientoNotaCredito(data);
         await updateDocWithId('asientosContables', data.asientoId, newAsiento);
     }
   },
@@ -705,21 +705,21 @@ export const useDataStore = create<DataState>((set, get) => ({
     if (!nomina || !empresaId) return;
     let asientoId = nomina.asientoId;
     if (!asientoId) {
-        const asientoProvision = generarAsientoNomina(nomina, empresaId);
-        const newAsiento = await addDocWithId('asientosContables', {...asientoProvision, empresaId}, false);
+        const asientoProvision = await generarAsientoNomina(nomina, empresaId);
+        const newAsiento = await addDocWithId('asientosContables', {...asientoProvision, empresaId}, false) as any;
         asientoId = newAsiento.id;
     }
-    const asientoPago = generarAsientoPago(empresaId, fechaPago, `Pago de nómina ${nomina.periodo}`, nomina.id, 'pago_nomina', nomina.totalPagado, '2102-01');
-    const newAsientoPago = await addDocWithId('asientosContables', {...asientoPago, empresaId}, false);
+    const asientoPago = await generarAsientoPago(empresaId, fechaPago, `Pago de nómina ${nomina.periodo}`, nomina.id, 'pago_nomina', nomina.totalPagado, '2102-01');
+    const newAsientoPago = await addDocWithId('asientosContables', {...asientoPago, empresaId}, false) as any;
     await updateDocWithId('nominas', id, { status: NominaStatus.Pagada, fechaPago: fechaPago, asientoId, asientoPagoId: newAsientoPago.id, contabilizadoPor: { userId: 'system', userName: 'Sistema' }, fechaContabilizacion: new Date().toISOString() });
   },
 
   addDesvinculacion: async (data) => {
       const empresaId = useTenantStore.getState().selectedTenant?.id;
       if (!empresaId) throw new Error("No hay empresa seleccionada.");
-      const newDesvinculacion = await addDocWithId('desvinculaciones', { ...data, empresaId });
-      const asiento = generarAsientoDesvinculacion(newDesvinculacion);
-      const asientoWithId = await addDocWithId('asientosContables', { ...asiento, empresaId }, false);
+      const newDesvinculacion = await addDocWithId('desvinculaciones', { ...data, empresaId }) as any;
+      const asiento = await generarAsientoDesvinculacion(newDesvinculacion);
+      const asientoWithId = await addDocWithId('asientosContables', { ...asiento, empresaId }, false) as any;
       await updateDocWithId('desvinculaciones', newDesvinculacion.id, { asientoId: asientoWithId.id });
       await updateDocWithId('empleados', data.empleadoId, { activo: false });
   },
@@ -1238,8 +1238,8 @@ export const useDataStore = create<DataState>((set, get) => ({
       const cierre = get().cierresITBIS.find(c => c.id === cierreId);
       if(!cierre) return;
 
-      const asientoPago = generarAsientoPago(empresaId, fechaPago, `Pago ITBIS Período ${cierre.periodo}`, cierreId, 'pago_itbis', cierre.itbisAPagar, '2106-01');
-      const newAsiento = await addDocWithId('asientosContables', {...asientoPago, empresaId}, false);
+      const asientoPago = await generarAsientoPago(empresaId, fechaPago, `Pago ITBIS Período ${cierre.periodo}`, cierreId, 'pago_itbis', cierre.itbisAPagar, '2106-01');
+      const newAsiento = await addDocWithId('asientosContables', {...asientoPago, empresaId}, false) as any;
       await updateDocWithId('cierresITBIS', cierreId, { pagado: true, fechaPago, asientoPagoId: newAsiento.id });
   },
 
@@ -1247,9 +1247,9 @@ export const useDataStore = create<DataState>((set, get) => ({
       const empresaId = useTenantStore.getState().selectedTenant?.id;
       if (!empresaId) throw new Error("Empresa no seleccionada");
       
-      const newPago = await addDocWithId('pagosAnticiposISR', { ...data, empresaId });
+      const newPago = await addDocWithId('pagosAnticiposISR', { ...data, empresaId }) as any;
       
-      const asientoPago = generarAsientoPago(empresaId, data.fechaPago, `Pago Anticipo ISR Cuota ${data.numeroCuota} - ${data.periodoFiscal}`, newPago.id, 'pago_anticipo_isr', data.montoPagado, '1104-02'); 
+      const asientoPago = await generarAsientoPago(empresaId, data.fechaPago, `Pago Anticipo ISR Cuota ${data.numeroCuota} - ${data.periodoFiscal}`, newPago.id, 'pago_anticipo_isr', data.montoPagado, '1104-02');
       await addDocWithId('asientosContables', {...asientoPago, empresaId}, false);
   },
 

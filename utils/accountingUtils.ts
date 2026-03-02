@@ -1,5 +1,5 @@
 
-import { Nomina, AsientoContable, Factura, Gasto, Ingreso, Item, MetodoPago, NotaCreditoDebito, Desvinculacion } from '../types.ts';
+import { Nomina, AsientoContable, Factura, Gasto, Ingreso, Item, MetodoPago, NotaCreditoDebito, Desvinculacion, Role } from '../types.ts';
 import { useChartOfAccountsStore } from '../stores/useChartOfAccountsStore.ts';
 import { roundToTwoDecimals } from './formatters.ts';
 import { createContableEvent } from './contableEngine.ts';
@@ -36,7 +36,7 @@ const getCommonEventData = (empresaId: string, fecha: string, docId: string, doc
         documentoVersion: docVersion,
         moneda: "DOP" as const,
         creadoPor: user?.id || 'system',
-        rolCreador: (user?.roles.includes('Contador') ? 'CONTADOR' : 'OPERATIVO') as "OPERATIVO" | "CONTADOR"
+        rolCreador: (user?.roles.includes(Role.Contador) ? 'CONTADOR' : 'OPERATIVO') as "OPERATIVO" | "CONTADOR"
     };
 };
 
@@ -63,7 +63,8 @@ export const generarAsientoPago = async (
         ...getCommonEventData(empresaId, fecha, transaccionId),
         tipoEvento: 'PAGO',
         subtipo: transaccionTipo.toUpperCase(),
-        entradas
+        entradas,
+        reversaEventoId: null
     });
 
     return {
@@ -108,7 +109,8 @@ export const generarAsientoNomina = async (nomina: Nomina, empresaId: string): P
         ...getCommonEventData(empresaId, fechaAsiento, nomina.id),
         tipoEvento: 'NOMINA',
         subtipo: 'MENSUAL',
-        entradas
+        entradas,
+        reversaEventoId: null
     });
 
     return {
@@ -198,7 +200,8 @@ export const generarAsientoFacturaVenta = async (factura: Factura, items: Item[]
         ...getCommonEventData(factura.empresaId, factura.fecha, factura.id),
         tipoEvento: 'FACTURA',
         subtipo: 'VENTA',
-        entradas: finalEntradas
+        entradas: finalEntradas,
+        reversaEventoId: null
     });
 
     return {
@@ -230,7 +233,8 @@ export const generarAsientoGasto = async (gasto: Gasto): Promise<Omit<AsientoCon
         ...getCommonEventData(gasto.empresaId, gasto.fecha, gasto.id),
         tipoEvento: 'GASTO',
         subtipo: 'COMPRA',
-        entradas
+        entradas,
+        reversaEventoId: null
     });
 
     return {
@@ -260,7 +264,8 @@ export const generarAsientoIngreso = async (ingreso: Ingreso): Promise<Omit<Asie
         ...getCommonEventData(ingreso.empresaId, ingreso.fecha, ingreso.id),
         tipoEvento: 'INGRESO',
         subtipo: 'COBRO',
-        entradas
+        entradas,
+        reversaEventoId: null
     });
 
     return {
@@ -289,7 +294,8 @@ export const generarAsientoNotaCredito = async (nota: NotaCreditoDebito): Promis
         ...getCommonEventData(nota.empresaId, nota.fecha, nota.id),
         tipoEvento: 'NOTA',
         subtipo: nota.tipo === 'Credito' ? 'NOTA_CREDITO' : 'NOTA_DEBITO',
-        entradas
+        entradas,
+        reversaEventoId: null
     });
 
     return {
@@ -320,7 +326,8 @@ export const generarAsientoDesvinculacion = async (desvinculacion: Desvinculacio
         ...getCommonEventData(desvinculacion.empresaId, desvinculacion.fechaSalida, desvinculacion.id),
         tipoEvento: 'DESVINCULACION',
         subtipo: 'PRESTACIONES',
-        entradas
+        entradas,
+        reversaEventoId: null
     });
 
     return {
