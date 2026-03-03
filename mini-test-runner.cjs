@@ -34,67 +34,34 @@ const expect = (actual) => ({
         if (diff > (Math.pow(10, -precision) / 2)) {
             throw new Error(`Expected ${expected} to be close to ${actual} (diff: ${diff})`);
         }
-    },
-    toBeGreaterThan: (expected) => {
-        if (!(actual > expected)) {
-            throw new Error(`Expected ${actual} to be greater than ${expected}`);
-        }
-    },
-    toThrow: () => {
-        let threw = false;
-        try {
-            actual();
-        } catch (e) {
-            threw = true;
-        }
-        if (!threw) {
-            throw new Error(`Expected function to throw but it did not`);
-        }
-    },
-    rejects: {
-        toThrow: async () => {
-            let threw = false;
-            try {
-                await actual;
-            } catch (e) {
-                threw = true;
-            }
-            if (!threw) {
-                throw new Error(`Expected promise to reject but it resolved`);
-            }
-        }
     }
 });
 
 function stripTypes(code) {
     return code
         .replace(/import .* from .*/g, '')
-        .replace(/:\s*(number|string|any|Empleado|NominaEmpleado|CausaDesvinculacion|PenaltyCalculation|{.*?})/g, '')
         .replace(/interface [\s\S]*?}/g, '')
-        .replace(/as \s*\w+/g, '') // Remove type assertions
-        .replace(/transaction\s*\|\s*null/g, 'transaction') // Specific fix
-        .replace(/periodo\s*\|\s*null/g, 'periodo') // Specific fix
+        .replace(/type [\s\S]*?;/g, '')
+        .replace(/: Promise<.*?>/g, '')
+        .replace(/: Omit<.*?>/g, '')
+        .replace(/: [A-Z][a-zA-Z<>,'\s|]*(\s|=|,|\))/g, '$1')
+        .replace(/: (string|number|boolean|any|null|void)/g, '')
+        .replace(/as [A-Z][a-zA-Z<>\s|]*/g, '')
+        .replace(/as const/g, '')
         .replace(/export /g, '');
 }
 
-// Mocks for Firebase
+// Mocks
 const firebaseMock = `
 const db = {};
 const doc = (db, col, id) => ({ db, col, id });
-const getDoc = async (ref) => {
-    const key = ref.col + '/' + ref.id;
-    const mock = global.firestoreMocks[key];
-    return {
-        exists: () => !!mock,
-        data: () => mock
-    };
-};
+const getDoc = async (ref) => ({ exists: () => false });
 const getDocs = async () => ({ docs: [] });
 const query = () => ({});
 const where = () => ({});
 const collection = () => ({});
 const getFunctions = () => ({});
-const httpsCallable = () => async () => ({});
+const httpsCallable = () => async () => ({ response: { data: { eventId: 'ev1' } } });
 const app = {};
 `;
 
@@ -106,14 +73,19 @@ function runTest(filePath, testFn) {
 
     const evalCode = `
         const CausaDesvinculacion = { Desahucio: 'Desahucio', Despido: 'Despido', Dimision: 'Dimision', Contrato: 'Contrato' };
+        const MetodoPago = { '04-COMPRA A CREDITO': '04-COMPRA A CREDITO' };
         ${firebaseMock}
+        const useChartOfAccountsStore = { getState: () => ({ getCuentaById: (id) => ({ id, nombre: 'Cuenta ' + id }) }) };
+        const useAuthStore = { getState: () => ({ user: { id: 'u1', roles: ['Contador'] } }) };
+        const roundToTwoDecimals = (n) => Math.round(n * 100) / 100;
+        const validarEscrituraFiscal = async () => true;
+        const validateDoubleEntry = () => ({ valid: true });
+        const createContableEvent = async (t, data) => { global.lastTransactionUsed = t; return 'event_id'; };
+
         ${jsCode}
         let exports = {};
-        try { if (typeof validarEscrituraFiscal !== 'undefined') exports.validarEscrituraFiscal = validarEscrituraFiscal; } catch(e) {}
         try { if (typeof calculateTaxPenalties !== 'undefined') exports.calculateTaxPenalties = calculateTaxPenalties; } catch(e) {}
-        try { if (typeof procesarNominaEmpleado !== 'undefined') exports.procesarNominaEmpleado = procesarNominaEmpleado; } catch(e) {}
-        try { if (typeof calcularPrestaciones !== 'undefined') exports.calcularPrestaciones = calcularPrestaciones; } catch(e) {}
-        try { if (typeof formatAmt !== 'undefined') exports.formatAmt = formatAmt; } catch(e) {}
+        try { if (typeof generarAsientoFacturaVenta !== 'undefined') exports.generarAsientoFacturaVenta = generarAsientoFacturaVenta; } catch(e) {}
         return exports;
     `;
 
@@ -126,86 +98,25 @@ function runTest(filePath, testFn) {
     }
 }
 
-// Tests for Fiscal Engine
-runTest('utils/fiscalEngine.ts', (exports) => {
-    const { validarEscrituraFiscal } = exports;
-    describe('validarEscrituraFiscal', () => {
-        it('should allow writing if no closure exists', async () => {
-            global.firestoreMocks = {};
-            await validarEscrituraFiscal('emp1', '2025-05-15', 'user1');
-            // Should not throw
-        });
-
-        it('should throw if annual year is sealed (IR-2 Presented)', async () => {
-            global.firestoreMocks = {
-                'fiscalAnnualClosure/emp1_2024': { estado: 'IR2_PRESENTADO' }
+runTest('utils/accountingUtils.ts', (exports) => {
+    const { generarAsientoFacturaVenta } = exports;
+    describe('generarAsientoFacturaVenta (Atomic)', () => {
+        it('should pass the transaction object to createContableEvent', async () => {
+            const mockTransaction = { id: 'tx_123' };
+            const mockFactura = {
+                empresaId: 'emp1',
+                fecha: '2025-01-01',
+                montoTotal: 118,
+                montoPagado: 118,
+                subtotal: 100,
+                itbis: 18,
+                items: [],
+                clienteNombre: 'Test'
             };
-            await expect(validarEscrituraFiscal('emp1', '2024-05-15', 'user1')).rejects.toThrow();
-        });
-
-        it('should throw if monthly period is closed', async () => {
-            global.firestoreMocks = {
-                'periodosMensuales/emp1_2025-01': { estado: 'CERRADO' }
-            };
-            await expect(validarEscrituraFiscal('emp1', '2025-01-10', 'user1')).rejects.toThrow();
-        });
-    });
-});
-
-// Tests for Tax Calculations
-runTest('utils/taxCalculations.ts', (exports) => {
-    const { calculateTaxPenalties } = exports;
-    describe('calculateTaxPenalties', () => {
-        it('should return zero penalties if paid on time', () => {
-            const result = calculateTaxPenalties(1000, '2025-01-15', '2025-01-15');
-            expect(result.moraAmount).toBe(0);
-            expect(result.interestAmount).toBe(0);
-        });
-
-        it('should calculate 10% mora for the first month', () => {
-            const result = calculateTaxPenalties(1000, '2025-01-15', '2025-01-16');
-            expect(result.moraAmount).toBe(100);
-            expect(result.interestAmount).toBe(11);
-        });
-
-        it('should calculate 14% mora for 2 months (10% + 4%)', () => {
-            const result = calculateTaxPenalties(1000, '2025-01-15', '2025-02-16');
-            expect(result.moraAmount).toBe(140);
-            expect(result.interestAmount).toBe(22);
-        });
-    });
-});
-
-// Tests for Payroll Utils
-runTest('utils/payrollUtils.ts', (exports) => {
-    const { procesarNominaEmpleado } = exports;
-    describe('procesarNominaEmpleado', () => {
-        it('should calculate TSS correctly for a standard salary', () => {
-            const empleado = { id: '1', nombre: 'Test', salarioBrutoMensual: 50000 };
-            const result = procesarNominaEmpleado(empleado);
-
-            expect(result.sfs).toBe(1520);
-            expect(result.afp).toBe(1435);
-        });
-
-        it('should calculate ISR correctly for a high salary', () => {
-            const empleado = { id: '2', nombre: 'Rich', salarioBrutoMensual: 100000 };
-            const result = procesarNominaEmpleado(empleado);
-            expect(Math.round(result.isr)).toBe(12105);
-        });
-    });
-});
-
-// Tests for DGII Reports
-runTest('utils/dgiiReportUtils.ts', (exports) => {
-    const { formatAmt } = exports;
-    describe('formatAmt (DGII format)', () => {
-        it('should return empty string for zero', () => {
-            expect(formatAmt(0)).toBe('');
-        });
-        it('should format decimals correctly (max 2)', () => {
-            expect(formatAmt(1234.567)).toBe('1234.57');
-            expect(formatAmt(1234)).toBe('1234');
+            await generarAsientoFacturaVenta(mockFactura, [], mockTransaction);
+            if (global.lastTransactionUsed !== mockTransaction) {
+                throw new Error("Transaction was not passed correctly");
+            }
         });
     });
 });

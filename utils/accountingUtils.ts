@@ -5,6 +5,7 @@ import { roundToTwoDecimals } from './formatters.ts';
 import { createContableEvent } from './contableEngine.ts';
 import { useAuthStore } from '../stores/useAuthStore.ts';
 import { validarEscrituraFiscal } from './fiscalEngine.ts';
+import { Transaction } from 'firebase/firestore';
 
 const getCuenta = (id: string) => {
     const cuenta = useChartOfAccountsStore.getState().getCuentaById(id);
@@ -48,7 +49,8 @@ export const generarAsientoPago = async (
     transaccionTipo: string, 
     monto: number,
     cuentaDebitoId: string,
-    cuentaCreditoId: string = ACCOUNT_CONFIG.ACTIVO_BANCO 
+    cuentaCreditoId: string = ACCOUNT_CONFIG.ACTIVO_BANCO,
+    transaction: Transaction | null = null
 ): Promise<Omit<AsientoContable, 'id'>> => {
     const user = useAuthStore.getState().user;
     await validarEscrituraFiscal(empresaId, fecha, user?.id || 'system');
@@ -59,7 +61,7 @@ export const generarAsientoPago = async (
     ];
 
     // Generate Immutable Event
-    await createContableEvent(null, {
+    await createContableEvent(transaction, {
         ...getCommonEventData(empresaId, fecha, transaccionId),
         tipoEvento: 'PAGO',
         subtipo: transaccionTipo.toUpperCase(),
@@ -76,7 +78,7 @@ export const generarAsientoPago = async (
     };
 };
 
-export const generarAsientoNomina = async (nomina: Nomina, empresaId: string): Promise<Omit<AsientoContable, 'id'>> => {
+export const generarAsientoNomina = async (nomina: Nomina, empresaId: string, transaction: Transaction | null = null): Promise<Omit<AsientoContable, 'id'>> => {
     const totalSalarioBruto = nomina.empleados.reduce((sum, e) => sum + e.salarioBruto, 0);
     const totalSfsEmpleado = nomina.empleados.reduce((sum, e) => sum + e.sfs, 0);
     const totalAfpEmpleado = nomina.empleados.reduce((sum, e) => sum + e.afp, 0);
@@ -104,7 +106,7 @@ export const generarAsientoNomina = async (nomina: Nomina, empresaId: string): P
     ].filter(e => e.debito > 0 || e.credito > 0);
 
     // Generate Immutable Event
-    await createContableEvent(null, {
+    await createContableEvent(transaction, {
         ...getCommonEventData(empresaId, fechaAsiento, nomina.id),
         tipoEvento: 'NOMINA',
         subtipo: 'MENSUAL',
@@ -121,7 +123,7 @@ export const generarAsientoNomina = async (nomina: Nomina, empresaId: string): P
     };
 };
 
-export const generarAsientoFacturaVenta = async (factura: Factura, items: Item[]): Promise<Omit<AsientoContable, 'id'>> => {
+export const generarAsientoFacturaVenta = async (factura: Factura, items: Item[], transaction: Transaction | null = null): Promise<Omit<AsientoContable, 'id'>> => {
     const user = useAuthStore.getState().user;
     await validarEscrituraFiscal(factura.empresaId, factura.fecha, user?.id || 'system');
 
@@ -194,7 +196,7 @@ export const generarAsientoFacturaVenta = async (factura: Factura, items: Item[]
     const finalEntradas = entradas.filter(e => e.debito > 0 || e.credito > 0);
 
     // Generate Immutable Event
-    await createContableEvent(null, {
+    await createContableEvent(transaction, {
         ...getCommonEventData(factura.empresaId, factura.fecha, factura.id),
         tipoEvento: 'FACTURA',
         subtipo: 'VENTA',
@@ -211,7 +213,7 @@ export const generarAsientoFacturaVenta = async (factura: Factura, items: Item[]
     };
 };
 
-export const generarAsientoGasto = async (gasto: Gasto): Promise<Omit<AsientoContable, 'id'>> => {
+export const generarAsientoGasto = async (gasto: Gasto, transaction: Transaction | null = null): Promise<Omit<AsientoContable, 'id'>> => {
     const user = useAuthStore.getState().user;
     await validarEscrituraFiscal(gasto.empresaId, gasto.fecha, user?.id || 'system');
 
@@ -226,7 +228,7 @@ export const generarAsientoGasto = async (gasto: Gasto): Promise<Omit<AsientoCon
     ].filter(e => e.debito > 0 || e.credito > 0);
 
     // Generate Immutable Event
-    await createContableEvent(null, {
+    await createContableEvent(transaction, {
         ...getCommonEventData(gasto.empresaId, gasto.fecha, gasto.id),
         tipoEvento: 'GASTO',
         subtipo: 'COMPRA',
@@ -243,7 +245,7 @@ export const generarAsientoGasto = async (gasto: Gasto): Promise<Omit<AsientoCon
     };
 };
 
-export const generarAsientoIngreso = async (ingreso: Ingreso): Promise<Omit<AsientoContable, 'id'>> => {
+export const generarAsientoIngreso = async (ingreso: Ingreso, transaction: Transaction | null = null): Promise<Omit<AsientoContable, 'id'>> => {
      const user = useAuthStore.getState().user;
      await validarEscrituraFiscal(ingreso.empresaId, ingreso.fecha, user?.id || 'system');
 
@@ -256,7 +258,7 @@ export const generarAsientoIngreso = async (ingreso: Ingreso): Promise<Omit<Asie
     ].filter(e => e.debito > 0 || e.credito > 0);
 
     // Generate Immutable Event
-    await createContableEvent(null, {
+    await createContableEvent(transaction, {
         ...getCommonEventData(ingreso.empresaId, ingreso.fecha, ingreso.id),
         tipoEvento: 'INGRESO',
         subtipo: 'COBRO',
@@ -273,7 +275,7 @@ export const generarAsientoIngreso = async (ingreso: Ingreso): Promise<Omit<Asie
     };
 };
 
-export const generarAsientoNotaCredito = async (nota: NotaCreditoDebito): Promise<Omit<AsientoContable, 'id'>> => {
+export const generarAsientoNotaCredito = async (nota: NotaCreditoDebito, transaction: Transaction | null = null): Promise<Omit<AsientoContable, 'id'>> => {
     const user = useAuthStore.getState().user;
     await validarEscrituraFiscal(nota.empresaId, nota.fecha, user?.id || 'system');
 
@@ -285,7 +287,7 @@ export const generarAsientoNotaCredito = async (nota: NotaCreditoDebito): Promis
     ].filter(e => e.debito > 0 || e.credito > 0);
 
     // Generate Immutable Event
-    await createContableEvent(null, {
+    await createContableEvent(transaction, {
         ...getCommonEventData(nota.empresaId, nota.fecha, nota.id),
         tipoEvento: 'NOTA',
         subtipo: nota.tipo === 'Credito' ? 'NOTA_CREDITO' : 'NOTA_DEBITO',
@@ -302,7 +304,7 @@ export const generarAsientoNotaCredito = async (nota: NotaCreditoDebito): Promis
     };
 };
 
-export const generarAsientoDesvinculacion = async (desvinculacion: Desvinculacion): Promise<Omit<AsientoContable, 'id'>> => {
+export const generarAsientoDesvinculacion = async (desvinculacion: Desvinculacion, transaction: Transaction | null = null): Promise<Omit<AsientoContable, 'id'>> => {
     const user = useAuthStore.getState().user;
     await validarEscrituraFiscal(desvinculacion.empresaId, desvinculacion.fechaSalida, user?.id || 'system');
 
@@ -316,7 +318,7 @@ export const generarAsientoDesvinculacion = async (desvinculacion: Desvinculacio
     ].filter(e => e.debito > 0 || e.credito > 0);
 
     // Generate Immutable Event
-    await createContableEvent(null, {
+    await createContableEvent(transaction, {
         ...getCommonEventData(desvinculacion.empresaId, desvinculacion.fechaSalida, desvinculacion.id),
         tipoEvento: 'DESVINCULACION',
         subtipo: 'PRESTACIONES',
