@@ -43,6 +43,23 @@ Actualmente, el proyecto utiliza un corredor de pruebas minimalista (`mini-test-
   npm test
   ```
 
+### 🌐 Pruebas Full-Stack (Frontend + Backend)
+
+Para probar la integración completa sin tocar datos de producción, utiliza los emuladores de Firebase:
+
+1.  **Instalar Firebase Tools:** `npm install -g firebase-tools`
+2.  **Iniciar Emuladores:** `firebase emulators:start` (Inicia Firestore en el puerto 8080).
+3.  **Habilitar en el App:**
+    En `firebase.ts`, descomenta o añade la lógica de conexión:
+    ```typescript
+    if (import.meta.env.DEV) {
+      connectFirestoreEmulator(db, 'localhost', 8080);
+      connectStorageEmulator(storage, 'localhost', 9199);
+      connectAuthEmulator(auth, "http://localhost:9099");
+    }
+    ```
+4.  **Correr App:** `npm run dev`
+
 ## 🔐 Seguridad y Mejores Prácticas
 
 - **IDs de Acciones:** Siempre utiliza `crypto.randomUUID()` para generar identificadores únicos, especialmente para acciones que se encolan offline.
