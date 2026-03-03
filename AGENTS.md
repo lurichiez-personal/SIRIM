@@ -60,6 +60,36 @@ Para probar la integración completa sin tocar datos de producción, utiliza los
     ```
 4.  **Correr App:** `npm run dev`
 
+### ☁️ Despliegue y Pruebas en Servidor (VPS)
+
+Si deseas probar el código directamente en un servidor (Linux/VPS) desde GitHub:
+
+1.  **Clonar y Preparar:**
+    ```bash
+    git clone <url-del-repo>
+    cd sirim
+    npm install
+    ```
+2.  **Configurar Variables:** Crea el archivo `.env.local` con tus llaves de Firebase y Gemini.
+3.  **Abrir Puertos:** Asegúrate de que el puerto `3000` esté abierto en el firewall de tu servidor.
+4.  **Ejecutar (Modo Desarrollo):**
+    ```bash
+    npm run dev -- --host 0.0.0.0
+    ```
+    *El flag `--host` es necesario para que el servidor sea accesible desde fuera de `localhost`.*
+5.  **Ejecutar (Modo Producción):**
+    ```bash
+    npm run build
+    npm run preview -- --host 0.0.0.0
+    ```
+6.  **Firebase Console:** No olvides agregar el dominio o IP de tu servidor en **Firebase Console > Authentication > Settings > Authorized Domains**.
+
+#### 🐳 Opción Docker (Recomendada para Servidores)
+Hemos incluido un `Dockerfile` para facilitar esto. Solo necesitas:
+```bash
+docker-compose up -d --build
+```
+
 ## 🔐 Seguridad y Mejores Prácticas
 
 - **IDs de Acciones:** Siempre utiliza `crypto.randomUUID()` para generar identificadores únicos, especialmente para acciones que se encolan offline.
