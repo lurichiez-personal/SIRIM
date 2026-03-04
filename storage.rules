@@ -1,0 +1,25 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /keycards/{empresaId}/{allPaths=**} {
+      // Solo usuarios de la misma empresa o el Contador del sistema pueden ver las tarjetas de claves
+      allow read: if request.auth != null && (
+        firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.empresaId == empresaId ||
+        firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.roles.hasAny(['Contador'])
+      );
+      // Solo el Admin de la empresa o el Contador pueden subir/borrar
+      allow write: if request.auth != null && (
+        (firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.empresaId == empresaId &&
+         firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.roles.hasAny(['Admin'])) ||
+        firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.roles.hasAny(['Contador'])
+      );
+    }
+
+    match /gastos/{empresaId}/{allPaths=**} {
+       allow read, write: if request.auth != null && (
+        firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.empresaId == empresaId ||
+        firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.roles.hasAny(['Contador'])
+      );
+    }
+  }
+}

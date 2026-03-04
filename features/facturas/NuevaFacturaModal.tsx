@@ -123,7 +123,7 @@ const NuevaFacturaModal: React.FC<NuevaFacturaModalProps> = ({ isOpen, onClose, 
                 setNcfModificado(facturaParaEditar.ncfModificado || (facturaParaEditar as any).facturaAfectadaNCF || '');
                 setNcfTipo(facturaParaEditar.ncfTipo);
             }
-            setLineItems(dataToLoad.items.map(item => ({...item, key: Math.random(), stock: itemsDisponibles.find(i => i.id === item.itemId)?.cantidadDisponible })));
+            setLineItems(dataToLoad.items.map(item => ({...item, key: crypto.randomUUID() as any, stock: itemsDisponibles.find(i => i.id === item.itemId)?.cantidadDisponible })));
             if ('cotizacionId' in dataToLoad && (dataToLoad as any).cotizacionId) {
                 setSourceCotizacionId((dataToLoad as any).cotizacionId);
             } else if (!('cotizacionId' in dataToLoad) && 'id' in dataToLoad && 'items' in dataToLoad && !('frecuencia' in dataToLoad)) {

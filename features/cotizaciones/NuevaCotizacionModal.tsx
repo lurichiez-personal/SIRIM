@@ -47,7 +47,7 @@ const NuevaCotizacionModal: React.FC<NuevaCotizacionModalProps> = ({ isOpen, onC
             setClienteNombre(cotizacionParaEditar.clienteNombre);
             setClienteRNC(cotizacionParaEditar.clienteRNC || '');
             setFecha(cotizacionParaEditar.fecha);
-            setLineItems(cotizacionParaEditar.items.map(item => ({ ...item, key: Math.random() })));
+            setLineItems(cotizacionParaEditar.items.map(item => ({ ...item, key: crypto.randomUUID() as any })));
             setDescuentoPorcentaje(cotizacionParaEditar.descuentoPorcentaje || 0);
             setAplicaITBIS(cotizacionParaEditar.aplicaITBIS);
             setAplicaISC(cotizacionParaEditar.aplicaISC || false);

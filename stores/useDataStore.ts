@@ -297,7 +297,7 @@ export const useDataStore = create<DataState>((set, get) => ({
         // The event creation inside it will happen 'outside' this transaction.
         // This is a known limitation of the current incremental refactor.
         
-        const asiento = await generarAsientoFacturaVenta(newFacturaData, get().items);
+        const asiento = await generarAsientoFacturaVenta(newFacturaData, get().items, transaction);
         const asientoData = { ...asiento, id: asientoId, empresaId, createdAt: new Date().toISOString() };
         transaction.set(asientoRef, asientoData);
     });
@@ -366,29 +366,7 @@ export const useDataStore = create<DataState>((set, get) => ({
         }
 
         // 4. Generate NEW Accounting Event
-        // We calculate the new accounting entry structure
-        const newAsientoStructure = generarAsientoFacturaVenta(updatedFacturaData, get().items);
-        
-        // We need to await the promise from generarAsientoFacturaVenta because it now calls createContableEvent internally?
-        // Wait, `generarAsientoFacturaVenta` was modified to call `createContableEvent`.
-        // BUT `generarAsientoFacturaVenta` creates the event for the *new* state.
-        // So we just need to call it.
-        // However, `generarAsientoFacturaVenta` does NOT accept a transaction object yet.
-        // This is a risk. The event creation inside `generarAsientoFacturaVenta` happens outside this transaction.
-        // Ideally, we should refactor `generarAsientoFacturaVenta` to return the data, and WE call `createContableEvent` with the transaction.
-        // OR we accept that the event might be created even if this transaction fails (unlikely if we put it last).
-        
-        // For this step, since we modified `generarAsientoFacturaVenta` to be async and create event:
-        // We will call it. It will create the event.
-        // The issue is atomicity. If `transaction.update(factura)` fails, the event is already written.
-        // FIX: We should pass `transaction` to `generarAsientoFacturaVenta` or extract the logic.
-        // Given the constraints "No romper compatibilidad", we will let `generarAsientoFacturaVenta` handle the event creation.
-        // We accept the slight non-atomic risk for this phase of "Incremental implementation".
-        
-        // Actually, `generarAsientoFacturaVenta` returns the `asiento` object for legacy compatibility.
-        // We can use that to update `asientosContables` collection for UI compatibility.
-        
-        const newAsiento = await generarAsientoFacturaVenta(updatedFacturaData, get().items);
+        const newAsiento = await generarAsientoFacturaVenta(updatedFacturaData, get().items, transaction);
         
         // 5. Update Legacy Documents
         transaction.update(facturaRef, updatedFacturaData);
@@ -616,7 +594,7 @@ export const useDataStore = create<DataState>((set, get) => ({
         }
 
         const newNotaData = { ...data, id: notaId, empresaId, ncf: finalNCF, asientoId };
-        const asiento = generarAsientoNotaCredito(newNotaData as NotaCreditoDebito);
+        const asiento = await generarAsientoNotaCredito(newNotaData as NotaCreditoDebito, transaction);
         const asientoData = { ...asiento, id: asientoId, empresaId, createdAt: new Date().toISOString() };
 
         transaction.set(notaRef, newNotaData);

@@ -48,7 +48,7 @@ const NuevaFacturaRecurrenteModal: React.FC<NuevaFacturaRecurrenteModalProps> = 
             setDescripcion(plantillaParaEditar.descripcion);
             setFechaInicio(plantillaParaEditar.fechaInicio);
             setFrecuencia(plantillaParaEditar.frecuencia);
-            setLineItems(plantillaParaEditar.items.map(item => ({ ...item, key: Math.random() })));
+            setLineItems(plantillaParaEditar.items.map(item => ({ ...item, key: crypto.randomUUID() as any })));
             setDescuentoPorcentaje(plantillaParaEditar.descuentoPorcentaje || 0);
             setAplicaITBIS(plantillaParaEditar.aplicaITBIS);
             setAplicaISC(plantillaParaEditar.aplicaISC || false);

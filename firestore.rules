@@ -47,22 +47,33 @@ service cloud.firestore {
       allow read: if isAuthenticated() && (
         request.auth.uid == userId || 
         hasRole('Contador') || 
-        belongsToCompany(resource.data.empresaId)
+        (resource != null && belongsToCompany(resource.data.empresaId))
       );
       
-      // Solo se permite crear usuarios si se está autenticado (registro).
-      allow create: if isAuthenticated();
+      // Registro inicial: El userId debe coincidir con el auth.uid.
+      // NO se permite asignar roles ('Usuario' por defecto o vacío).
+      // NO se permite asignar empresaId inicialmente (o debe estar vacío).
+      allow create: if isAuthenticated()
+                    && request.auth.uid == userId
+                    && (!('roles' in request.resource.data) || request.resource.data.roles.size() == 0)
+                    && !('empresaId' in request.resource.data);
       
-      // Un usuario puede actualizar sus propios datos básicos.
-      // Un Admin o Contador puede actualizar usuarios de su empresa.
+      // Un usuario puede actualizar sus propios datos básicos (nombre, foto, etc.),
+      // pero NO sus roles ni su empresaId.
+      // Un Contador puede actualizar todo.
+      // Un Admin puede actualizar usuarios de SU empresa (incluyendo roles, excepto elevar a Contador).
       allow update: if isAuthenticated() && (
-        request.auth.uid == userId || 
+        (request.auth.uid == userId
+          && request.resource.data.roles == resource.data.roles
+          && request.resource.data.empresaId == resource.data.empresaId) ||
         hasRole('Contador') || 
-        (hasRole('Admin') && belongsToCompany(resource.data.empresaId))
+        (hasRole('Admin')
+          && belongsToCompany(resource.data.empresaId)
+          && !request.resource.data.roles.hasAny(['Contador']))
       );
       
       // Solo Contadores o Admins pueden borrar usuarios.
-      allow delete: if isAuthenticated() && (hasRole('Contador') || hasRole('Admin'));
+      allow delete: if isAuthenticated() && (hasRole('Contador') || (hasRole('Admin') && belongsToCompany(resource.data.empresaId)));
     }
 
     // 2. Colección de Empresas
