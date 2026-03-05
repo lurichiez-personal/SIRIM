@@ -7,7 +7,7 @@ import { getDatabase } from "firebase/database";
 
 // Your web app's Firebase configuration
 const firebaseConfig = {
-  apiKey: "AIzaSyCHAMamJjyg205u0CE5lO7L4Ya9VPYyGcY",
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
   authDomain: "sirim1.firebaseapp.com",
   databaseURL: "https://sirim1-default-rtdb.firebaseio.com",
   projectId: "sirim1",
